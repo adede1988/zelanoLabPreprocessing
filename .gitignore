@@ -1,0 +1,19 @@
+# machine-specific path override (never commit)
+labPaths_local.m
+
+# session tracking sheet is lab data, not code — supply it locally, do not commit
+dataTracking.xlsx
+
+# data / outputs
+*.mat
+*.asv
+*.mex*
+processedBehavior/
+figures/
+*.png
+*.jpg
+*.jpeg
+
+# OS cruft
+.DS_Store
+Thumbs.db
