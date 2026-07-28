@@ -147,6 +147,7 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
         % recording too short for windowed selection: train on all of it
         selStart = 1; 
         selEnd   = size(trainDat, 2); 
+
     else
         cand         = 1:500:(length(test) - winLen); 
         blinkCounts  = arrayfun(@(x) sum(test(x:x+winLen)), cand); 
@@ -175,8 +176,12 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
     [bHP, aHP] = butter(4, 2/(fs/2), 'high'); 
     trainDatHP = filtfilt(bHP, aHP, trainDat.').'; 
     trainDatHP = trainDatHP(:, selStart:selEnd); 
+    interpTrain = interpChan(selStart:selEnd); 
+    k = size(trainDatHP,1) -  min(interpTrain); 
+    
 
-    out = ica_blinks(trainDatHP, 'blinkChan', blinkChan);
+
+    out = ica_blinks(trainDatHP, 'blinkChan', blinkChan, 'targIC', k);
 
     if isfield(out, 'ambiguous') && out.ambiguous
         % Batch run could not auto-select a blink IC. Save a candidate-vs-blink

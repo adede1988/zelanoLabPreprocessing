@@ -44,6 +44,7 @@ p.addParameter('Notch', 60, @(x) isempty(x) || (isscalar(x) && x>0));
 p.addParameter('Method', 'runica', @(s)ischar(s)||isstring(s));
 p.addParameter('knownIC', [],  @(x) isempty(x) || (isscalar(x) && x>0))
 p.addParameter('blinkChan', 1,  @(x) isempty(x) || (isscalar(x) && x>0))
+p.addParameter('targIC', [],  @(x) isempty(x) || (isscalar(x) && x>0))
 
 % p.addParameter('KurtosisMin', 10, @isscalar);
 % p.addParameter('SparsityMin', 0.85, @isscalar);
@@ -54,6 +55,7 @@ p.addParameter('blinkChan', 1,  @(x) isempty(x) || (isscalar(x) && x>0))
 
 p.parse(varargin{:});
 S = p.Results;
+targIC = S.targIC; 
 
 % Accept 2D (C x T) or 3D (C x T x N)
 origIs2D = ismatrix(data);
@@ -106,7 +108,11 @@ switch method
 case "runica"
     % EEGLAB expects (channels x frames)
     % Extended ICA helps for super-/sub-Gaussian comps
-    [weights, sphere] = runica(Xtrain, 'pca', C, 'extended', 1, 'verbose', 'off');
+    if ~isempty(targIC)
+        [weights, sphere] = runica(Xtrain, 'pca', targIC, 'extended', 1, 'verbose', 'off');
+    else
+        [weights, sphere] = runica(Xtrain, 'pca', C, 'extended', 1, 'verbose', 'off');
+    end
     W = weights * sphere;               % unmixing (IC x C)
     Sact = W * X;                       % IC x samples
     A = pinv(W);                        % mixing (C x IC)
@@ -121,8 +127,11 @@ end
 
 
 
-
-K  = C;                       % number of ICs
+if isempty(targIC)
+    K  = C;                       % number of ICs
+else
+    K = targIC;
+end
 Ssamples = T*N;
 
 

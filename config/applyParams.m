@@ -13,7 +13,7 @@ function out = applyParams(task, sel, xlsxPath)
 %     P   = applyParams(task, sessID                  [, xlsxPath]) % Mode B
 %
 %   task in {'breathingTask','cueTask','threshTask','O15'}
-%   default xlsxPath = R:\Neurology\Zelano_Lab\Lab_Common\Admin\dataTracking.xlsx
+%   default xlsxPath = R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx
 %
 %   Mode A cfg fields:
 %     .sessionIDs (n x 1 cell)  .root (n x 1 cell)  .datPre (1 x k cell, fixed order)

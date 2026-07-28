@@ -30,7 +30,7 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 cfg        = applyParams('cueTask','main');
 sessionIDs = cfg.sessionIDs;
 
-for s = 34:numel(sessionIDs)
+for s = 38:numel(sessionIDs)
     % --- Session descriptor (adjust to your system) ---
     S.id   = sessionIDs{s};
     S.root = cfg.root{s};

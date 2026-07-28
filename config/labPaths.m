@@ -104,7 +104,7 @@ function L = deriveLabPaths(L)
     % (e.g. [root sessID '\preProc\...']) so they MUST keep a trailing filesep.
     L.figPath   = [lc 'Adam\Dupi_processing\'];
     if ~isfield(L, 'adminXlsx')   % labPaths_local may point the tracker elsewhere
-        L.adminXlsx = fullfile(lc, 'Admin', 'dataTracking.xlsx');
+        L.adminXlsx = fullfile(lc, 'Admin', 'Data', 'dataTracking.xlsx');
     end
     L.rootDupi  = [lc 'Dupi\'];
     L.rootOBE   = [lc 'OBEControl\'];
