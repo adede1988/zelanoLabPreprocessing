@@ -64,6 +64,7 @@ function out = applyParams(task, sel, xlsxPath)
     cTtlN = col('ttlNote');
     cNew  = col('isNewStd');
     cPS   = col('paramSource');
+    cDT   = findColSoftLocal(hdr, 'dataType');
 
     % --- select rows: task matches AND raw extracted (not blank, not INCOMPLETE) ---
     data = C(3:end, :);
@@ -75,9 +76,28 @@ function out = applyParams(task, sel, xlsxPath)
         rawv = data{r, cRaw};
         if isBlank(rawv), continue; end
         if strcmpi(strtrim(asChar(rawv)), 'INCOMPLETE'), continue; end
+        if strcmp(tkey, 'sep') && cDT > 0
+            % D12a/D1: breathingTasks_separate takes ONLY dataType == ephys
+            % condition rows (ephys_echem recordings are skipped for now)
+            if ~strcmpi(strtrim(asChar(data{r, cDT})), 'ephys'), continue; end
+        end
         keep(r) = true;
     end
     rows = data(keep, :);
+
+    % --- group the condition rows per session (breathingTasks_separate only):
+    %     a session = one Subject ID with >=1 eligible condition row; its file
+    %     list = the condition Task values in sheet order (D12a) ---
+    sepConditions = {};
+    if strcmp(tkey, 'sep')
+        ids = cellfun(@(v) strtrim(asChar(v)), rows(:, cSub), 'UniformOutput', false);
+        [~, ia] = unique(lower(ids), 'stable');
+        for u = 1:numel(ia)
+            m = strcmpi(ids, ids{ia(u)});
+            sepConditions{u} = cellfun(@(v) strtrim(asChar(v)), rows(m, cTask), ...
+                                       'UniformOutput', false); %#ok<AGROW>
+        end
+    end
 
     % --- dedupe by sessID (case-insensitive, keep first), stable sheet order ---
     n = size(rows, 1);
@@ -134,6 +154,9 @@ function out = applyParams(task, sel, xlsxPath)
         end
 
         cfg.newIDs = cfg.sessionIDs(cfg.isNewStd);
+        if strcmp(tkey, 'sep')
+            cfg.conditions = sepConditions;   % per-session condition Task values
+        end
 
         out = cfg;
         return;
@@ -227,6 +250,29 @@ function out = applyParams(task, sel, xlsxPath)
             if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
             P.beatSpec  = beatSpec;
             P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
+
+        case 'sep'
+            % breathingTasks_separate (Tasks_260824.md Task 9 / D12): the
+            % session's condition recordings, processed per file then
+            % concatenated. Params are stored identically on every in-scope
+            % condition row (D12d); this reads the first one.
+            P.hasMacros = bool_or(rows{ri, cHasM}, true);
+            beatSpec    = asChar(rows{ri, cBeat});
+            if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
+            P.beatSpec  = beatSpec;
+            P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
+            % which condition recordings this session has (sheet order)
+            allConds = {};
+            for r2 = 1:size(data, 1)
+                if isBlank(data{r2, cSub}), continue; end
+                if ~strcmpi(strtrim(asChar(data{r2, cSub})), selStr), continue; end
+                if ~strcmp(canonTask(data{r2, cTask}), 'sep'), continue; end
+                rawv2 = data{r2, cRaw};
+                if isBlank(rawv2) || strcmpi(strtrim(asChar(rawv2)), 'INCOMPLETE'), continue; end
+                if cDT > 0 && ~strcmpi(strtrim(asChar(data{r2, cDT})), 'ephys'), continue; end
+                allConds{end+1} = strtrim(asChar(data{r2, cTask})); %#ok<AGROW>
+            end
+            P.conditions = allConds;
     end
 
     out = P;
@@ -294,6 +340,17 @@ function idx = findCol(hdr, name)
     end
     if idx == 0
         error('applyParams:noColumn', 'Column "%s" not found in header row.', name);
+    end
+end
+
+function idx = findColSoftLocal(hdr, name)
+% like findCol but returns 0 instead of erroring when the column is absent
+    idx = 0;
+    for c = 1:numel(hdr)
+        v = hdr{c};
+        if (ischar(v) || isstring(v)) && strcmpi(strtrim(char(v)), name)
+            idx = c; return;
+        end
     end
 end
 
@@ -366,6 +423,9 @@ function k = canonTask(t)
             k = 'movie';
         case {'alternating6blocks'}
             k = 'alt6';
+        case {'audiobook', 'distractedbreathing', 'focusedbreathing', ...
+              'sleep', 'sleepwithodor', 'restingbaseline'}
+            k = 'sep';    % breathingTasks_separate condition rows (D12a)
         otherwise
             k = '';
     end
@@ -382,6 +442,7 @@ function k = taskKey(task)
         case 'o15',                k = 'O15';
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
+        case {'breathingtasks_separate', 'breathingtasksseparate'}, k = 'sep';
         otherwise,                 k = '';
     end
 end
@@ -395,6 +456,7 @@ function s = taskCallerKey(task)
         case 'O15',       s = 'O15';
         case 'movie',     s = 'EmotionalMovieTask';
         case 'alt6',      s = 'alternating6Blocks';
+        case 'sep',       s = 'breathingTasks_separate';
         otherwise,        s = asChar(task);
     end
 end
