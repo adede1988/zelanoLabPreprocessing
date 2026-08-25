@@ -114,3 +114,64 @@ this section's sync output).
 
 Open questions for the lab: none blocking; the `Admin\Data\` stale sheet copy and the
 KA_2 raw-folder naming should be tidied at some point.
+
+---
+
+## Task 2 — EEG_breathing extraction (run 2026‑08‑25)
+
+### Template (step 1)
+
+From `260109_EEG_NWU_AA` / `251208_EEG_NWU_ZA`: layout `<id>\AtlasData\<datetime>\`,
+`raw\raw_<task>\raw_<task>.mat`, `preProc\`; script `LoadData_<id>.m` in the subject
+folder; `ReadNCS` (fieldtrip) reads the named CSC channels and the script saves
+`curDat` (`ncslabels`, `rawData` = fieldtrip struct, `outLabs`) as `-v7.3`. Channel
+map: **CSC33:64 = EEG** (10‑20 order, rows 1–32), **CSC25/26/27 = ECG1‑3**,
+**CSC270 = rsp1**, **CSC269 = event** (photodiode). Sheet after extraction:
+`Raw Data Extracted = X`, `datPre` = the EEGbreathing root.
+
+### Channel probe (`batch/task2_probeChannels.m`, figures in `E:\reprocBackup_260824\task2_probe\`)
+
+All recordings fs = 2000 Hz. For the eight 2026‑08 subjects **respiration moved to
+CSC31** (respiration-band power fraction 0.53–0.83; CSC270 is a dead noise band).
+`260227_EEG_NWU_HW` uses the old wiring (CSC270 respiration, no CSC31 data), so its
+script is the unmodified template. Recording structure:
+
+| subject | recordings | assignment |
+|---|---|---|
+| HW | 1 × 56.1 min | waveBreathing |
+| CA | 1 × 68.1 min | alternating6Blocks (no movie recording — matches the sheet; 1 stray pulse @ 4075 s noted) |
+| JH | 1 × 92.0 min combined | split: pulses 3525.0–5434.4 s → split sample 6,810,000 (3405.0 s = first pulse − 120 s) |
+| MM | 1 × 93.7 min combined | split: pulses 3685.3–5599.8 s → split sample 7,130,600 (3565.3 s) |
+| GP | 54.9 + 32.7 min | alternating = main, movie = `_0001` (180 pulses) |
+| IS | 56.5 + 32.7 min | alternating = main, movie = `_0002` (`_0001` is a 16‑s false start) |
+| AL | 56.5 + 32.3 min | alternating = main, movie = `_0001` |
+| MS | 53.4 + 32.5 min | alternating = main, movie = `_0001` (2 stray… none; nanFrac 0.001 noted) |
+| HK | 58.7 + 32.7 min | alternating = main (2 stray pulses @ 144 s), movie = `_0001` |
+
+D7 check: JH/MM show exactly "no strong pulses, then a ~32‑min block of pulses"
+(the weak early activity on CSC269 is screen luminance from the breathing display,
+well below the |z|>3 pulse threshold). The other five dual-task subjects have two
+separate recordings, no combined pattern. Split figures with the split marked are in
+each session's figure folder and `E:\reprocBackup_260824\task2_probe\` (D7).
+
+### Folder moves (step 2, all logged in the Task 2 payload output)
+
+For each of the 9 subjects the Neuralynx `<datetime>` folder was **moved** into
+`AtlasData\` (nothing deleted) and `raw\` / `preProc\` created. 9 moves total, e.g.
+`…\260806_EEG_NWU_JH\2026-08-06_09-23-06` → `…\260806_EEG_NWU_JH\AtlasData\2026-08-06_09-23-06`.
+
+### Scripts, extraction, verification (steps 3–5)
+
+`batch/task2_writeLoadScripts.m` generated the **16 LoadData scripts** (one per
+session × task, template-conformant; JH/MM scripts hard-code the split sample with a
+derivation comment). All 16 ran green (`task2_runAll`, logs
+`E:\reprocBackup_260824\task2_load_*.log`): waveBreathing 753 MB; alternating 654–798 MB;
+movie 401–458 MB. `batch/task2_verifyRaw.m` checked every file: exact 37-label set
+(`…, ECG1, ECG2, ECG3, rsp1, event`), fs 2000, durations in range, rsp/event carrying
+signal — see `E:\reprocBackup_260824\task2_verify.log`.
+
+### Sheet (step 6)
+
+`batch/task2_writeSheet.m` set `Raw Data Extracted = X` and `datPre` on the 16
+extracted rows via `writeParams` (new `AllowUnextracted`/`SetRawExtracted` options —
+the sanctioned way to mark an extraction). CA has no movie row and none was invented.
