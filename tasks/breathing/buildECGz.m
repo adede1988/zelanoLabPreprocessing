@@ -19,6 +19,27 @@ function [ECGz, beatSep] = buildECGz(outDat)
         'SampleRate', outDat.fs);
     ECG = filtfilt(d, ECG')';
 
+    % 260805_EEG_NWU_CA: intermittent high-amplitude noise bursts (~5% of
+    % 10-s windows at 10-100x signal amplitude) swamp the global z-score and
+    % compress real R-peaks below any usable threshold (they sit at ~62 bpm
+    % on ch3- once the bursts are removed - see batch/task8_probeCA2 /
+    % task89_probeBlankSim). Blank the noisy windows (per-channel robust
+    % window-std > 3x median) before z-scoring. Explicit per-session special
+    % case per repo convention.
+    if isfield(outDat, 'sessID') && strcmp(outDat.sessID, '260805_EEG_NWU_CA')
+        wLen = 10 * outDat.fs;
+        nW = floor(size(ECG, 2) / wLen);
+        for ch = 1:size(ECG, 1)
+            x = ECG(ch, :);
+            zr = (x - median(x)) / (1.4826 * mad(x, 1));
+            wstd = zeros(1, nW);
+            for w = 1:nW, wstd(w) = std(zr((w-1)*wLen+1 : w*wLen)); end
+            for w = find(wstd > 3 * median(wstd))
+                ECG(ch, (w-1)*wLen+1 : w*wLen) = 0;
+            end
+        end
+    end
+
     ECGz = (ECG - mean(ECG, 2)) ./ std(ECG, [], 2);
 
     beatSep = outDat.fs / 20;
