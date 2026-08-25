@@ -83,16 +83,28 @@ for s = 1:numel(sessionIDs)
 
     outDat = build_behavior_table_emotionalMovieTask(outDat);
 
-    % ECG / HRV via the breathing path; skip (and record) when absent
+    % ECG / HRV via the breathing path; skip (and record) when absent, and
+    % fall back to NaN HRV when detection fails (bad lead / wrong beatSpec)
+    % rather than losing the breath data - flagged for review
     hasECG = sum(cellfun(@(x) contains(x, 'ECG'), outDat.labels)) > 0;
+    ecgDone = false;
     if hasECG
-        if isGuess, P = paramCheckECG(outDat, P); end
-        outDat = processECG(outDat, P);
-        outDat = flagBadBreaths(outDat);
-        outDat.ecgSkipped = 0;
+        try
+            if isGuess, P = paramCheckECG(outDat, P); end
+            outDat = processECG(outDat, P);
+            outDat = flagBadBreaths(outDat);
+            outDat.ecgSkipped = 0;
+            ecgDone = true;
+        catch MEecg
+            warning('%s: ECG processing failed (%s) - HRV set to NaN, REVIEW', ...
+                S.id, MEecg.message);
+            outDat.ecgSkipped = 2;   % 2 = present but detection failed
+        end
     else
         disp(['NO ECG channels for ' S.id ' - HRV columns set to NaN'])
         outDat.ecgSkipped = 1;
+    end
+    if ~ecgDone
         n = height(outDat.behDat);
         outDat.behDat.goodBreath = nan(n, 1);
         outDat.behDat.maxRR      = nan(n, 1);

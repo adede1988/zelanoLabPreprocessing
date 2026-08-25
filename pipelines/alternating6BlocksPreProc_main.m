@@ -91,9 +91,26 @@ for s = 1:numel(sessionIDs)
 
     outDat = build_behavior_table_alternating6Blocks(outDat);
 
-    if isGuess, P = paramCheckECG(outDat, P); end
-    outDat = processECG(outDat, P);
-    outDat = flagBadBreaths(outDat);
+    % ECG with NaN-HRV fallback on detection failure (flagged for review)
+    ecgDone = false;
+    try
+        if isGuess, P = paramCheckECG(outDat, P); end
+        outDat = processECG(outDat, P);
+        outDat = flagBadBreaths(outDat);
+        outDat.ecgSkipped = 0;
+        ecgDone = true;
+    catch MEecg
+        warning('%s: ECG processing failed (%s) - HRV set to NaN, REVIEW', ...
+            S.id, MEecg.message);
+        outDat.ecgSkipped = 2;
+    end
+    if ~ecgDone
+        n = height(outDat.behDat);
+        outDat.behDat.goodBreath = nan(n, 1);
+        outDat.behDat.maxRR      = nan(n, 1);
+        outDat.behDat.minRR      = nan(n, 1);
+        outDat.behDat.RR_max_min = nan(n, 1);
+    end
     disp(['........................breath behave heart ', sessionIDs{s}])
 
     R = preprocess_respiration_wholetrace(outDat);

@@ -99,9 +99,11 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
 end
 
 function n = suffixOf(ncslabels)
-% Neuralynx channel-file suffix of this recording: '' -> 0, '_000N' -> N
-    tok = regexp(char(string(ncslabels{1})), '^CSC\d+(?:_(\d+))?$', 'tokens', 'once');
-    if isempty(tok) || isempty(tok{1})
+% Neuralynx channel-file suffix of this recording: '' -> 0, '_000N' -> N.
+% (A capture group nested in an optional non-capturing group returns empty
+% tokens in MATLAB even on a match, so the suffix is captured directly.)
+    tok = regexp(char(string(ncslabels{1})), '_(\d+)$', 'tokens', 'once');
+    if isempty(tok)
         n = 0;
     else
         n = str2double(tok{1});

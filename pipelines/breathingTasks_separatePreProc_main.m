@@ -79,7 +79,28 @@ for s = 1:numel(sessionIDs)
         [od.bmObj, od.bmFeatures] = segmentBreaths_breathMetrics(rspDat, od.fs);
 
         hasECG = sum(cellfun(@(x) contains(x, 'ECG'), od.labels)) > 0;
-        if hasECG
+        if hasECG && c == 1
+            % viability probe: a systematically wrong beatSpec (bad lead /
+            % polarity) must not kill the session - drop ECG for ALL sections
+            % so the concatenated labels stay identical (strict D12b)
+            try
+                [ECGzP, sepP] = buildECGz(od);
+                bpmP = numel(P.getBeats(ECGzP, sepP)) / (size(od.data, 2) / od.fs / 60);
+                if bpmP < 20
+                    warning('%s: beat detection implausible (%.1f bpm) - ECG dropped for the session, REVIEW', ...
+                        S.id, bpmP);
+                    hasECGSession = false;
+                else
+                    hasECGSession = true;
+                end
+                clear ECGzP
+            catch
+                hasECGSession = false;
+            end
+        elseif ~hasECG
+            hasECGSession = false;
+        end
+        if hasECG && hasECGSession
             od = processECG(od, P);
             % processECG saves fixed-name QC figures; keep one per section
             for fnm = {'ECG_beatDetect', 'interbeatHist', 'RespirationHeart'}

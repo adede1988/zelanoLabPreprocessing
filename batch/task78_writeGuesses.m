@@ -38,9 +38,13 @@ for k = 1:numel(EEG_ALT)
     end
 end
 
+% beatSpec: the 2026-08 subjects' ECG lead 1 is INVERTED relative to the older
+% EEG_breathing subjects (measured on JH movie ECGz: 2884 crossings below
+% -3.5 sigma over 35 min = 82 bpm, vs 108 above +3.5), so R-peaks are detected
+% on the negative side
 base = struct('rspIDX', 1, 'hasEEG', true, 'hasMacros', false, ...
     'spikeClean', false, 'spikeThresh', 20, 'spikeWin', 11, ...
-    'macroRemove', [], 'beatSpec', '1,0,gt,3.5', 'isNewStd', true, ...
+    'macroRemove', [], 'beatSpec', '1,0,lt,-3.5', 'isNewStd', true, ...
     'paramSource', 'guess');
 
 for k = 1:numel(EEG_ALT)
