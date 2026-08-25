@@ -51,10 +51,12 @@ function [log, blocks] = parse_sniffLogicLog(csvPath)
             m = isAudio;
             lab = "audiobook";
         end
-        tt = t(m);
+        tt = sort(t(m));    % event rows are not strictly time-ordered in the log
         if isempty(tt), continue; end
-        gapTol = 3 * median(diff(tt));
-        if ~isfinite(gapTol) || gapTol <= 0, gapTol = 5; end
+        % fixed tolerance: intra-block events repeat every ~0.2 s (display
+        % stalls of a few seconds occur), while between-block rating gaps are
+        % >= ~80 s - 30 s separates cleanly where a 3x-median rule fragments
+        gapTol = 30;
         brk = find(diff(tt) > gapTol);
         s0 = [1; brk + 1];
         s1 = [brk; numel(tt)];
