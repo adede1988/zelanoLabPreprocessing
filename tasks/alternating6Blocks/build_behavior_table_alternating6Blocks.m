@@ -61,7 +61,12 @@ function outDat = build_behavior_table_alternating6Blocks(outDat)
     behDat.warp       = nan(n, 1);
 
     % ---- rating columns: the set AFTER block k (order == k) ----
+    % NaN-prefilled so an unrated block reads NaN, not an auto-created 0
     Qs = unique(ratings.Q_short, 'stable');
+    for q = 1:numel(Qs)
+        r0 = find(ratings.Q_short == Qs(q), 1);
+        behDat.(char(Qs(q) + "_" + ratings.type(r0))) = nan(n, 1);
+    end
     for q = 1:numel(Qs)
         for b = 1:height(B)
             m = ratings.order == B.order(b) & ratings.Q_short == Qs(q);
