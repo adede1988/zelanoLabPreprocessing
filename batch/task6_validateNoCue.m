@@ -9,6 +9,7 @@ QC = 'E:\reprocBackup_260824\task6_probe\SP2_QC';
 if ~isfolder(QC), mkdir(QC); end
 
 L = labPaths();
+addpath(genpath(L.eeglab));      % runica for the blink ICA
 EEGLOC = readtable(L.eegLocCsv);
 S = struct('id', ID, 'root', L.rootOBE, 'fig', QC);
 
