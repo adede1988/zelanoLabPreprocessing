@@ -18,10 +18,16 @@ function [log, blocks] = parse_sniffLogicLog(csvPath)
 %   Errors loudly if the block structure is not 1 audiobook + 3 entrain +
 %   3 noEntrain (D11c).
 
-    T = readtable(csvPath, 'VariableNamingRule', 'preserve', 'Delimiter', ',');
+    % the event column is sparse text: readtable's type detection can coerce
+    % it to numeric (making every event NaN), so force the column types
+    opts = detectImportOptions(csvPath, 'Delimiter', ',');
+    opts = setvartype(opts, 'event', 'char');
+    opts = setvartype(opts, {'time_s', 'pressure_pa'}, 'double');
+    T = readtable(csvPath, opts);
     t = T.time_s;
     p = T.pressure_pa;
-    ev = string(T.event);
+    ev = strtrim(string(T.event));
+    ev(ismissing(ev)) = "";
 
     sig = isfinite(p);
     tS = t(sig); pS = p(sig);

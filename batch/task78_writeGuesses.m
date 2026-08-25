@@ -28,9 +28,14 @@ flips = containers.Map();
 for k = 1:numel(EEG_ALT)
     id = EEG_ALT{k};
     f = fullfile(ROOT, id, 'preProc', [id '_alternating6BlocksPreProc.mat']);
-    fl = h5read(f, '/outDat/logAlign/rspFlip');
-    flips(id) = double(fl);
-    fprintf('%s: empirical rspFlip = %+d\n', id, double(fl));
+    try
+        fl = h5read(f, '/outDat/logAlign/rspFlip');
+        flips(id) = double(fl);
+        fprintf('%s: empirical rspFlip = %+d\n', id, double(fl));
+    catch ME
+        warning('task78:noFlip', '%s: no alternating intermediate/logAlign (%s) - rows skipped this pass', ...
+            id, ME.message);
+    end
 end
 
 base = struct('rspIDX', 1, 'hasEEG', true, 'hasMacros', false, ...
@@ -39,10 +44,12 @@ base = struct('rspIDX', 1, 'hasEEG', true, 'hasMacros', false, ...
     'paramSource', 'guess');
 
 for k = 1:numel(EEG_ALT)
+    if ~isKey(flips, EEG_ALT{k}), continue; end
     P = base; P.task = 'alternating6Blocks'; P.rspFlip = flips(EEG_ALT{k});
     writeParams(P, EEG_ALT{k});
 end
 for k = 1:numel(EEG_MOVIE)
+    if ~isKey(flips, EEG_MOVIE{k}), continue; end
     P = base; P.task = 'EmotionalMovieTask'; P.rspFlip = flips(EEG_MOVIE{k});
     writeParams(P, EEG_MOVIE{k});
 end
@@ -54,10 +61,11 @@ col = @(nm) find(cellfun(@(v) (ischar(v) || isstring(v)) && strcmpi(strtrim(char
 cSub = col('Subject ID'); cPS = col('paramSource');
 cIdx = col('rspIDX'); cFlip = col('rspFlip');
 
+% hasEEG follows the old getSessionParams_emotionTask: AS_4 had NO EEG cap
 OLD = { ...
- '250225_OBE_NWU_AS_4', struct('spikeClean', false, 'spikeThresh', 20, 'spikeWin', 11, 'macroRemove', [], 'beatSpec', '1,0,gt,3.5'); ...
- '250904_OBE_NWU_TI_1', struct('spikeClean', true, 'spikeThresh', 50, 'spikeWin', 11, 'macroRemove', [], 'beatSpec', '1,0,lt,-2 & 2,1,gt,3 & 3,2,lt,0'); ...
- '251009_OBE_NWU_CP_1', struct('spikeClean', true, 'spikeThresh', 15, 'spikeWin', 7, 'macroRemove', 6, 'beatSpec', '3,0,lt,-3')};
+ '250225_OBE_NWU_AS_4', struct('hasEEG', false, 'spikeClean', false, 'spikeThresh', 20, 'spikeWin', 11, 'macroRemove', [], 'beatSpec', '1,0,gt,3.5'); ...
+ '250904_OBE_NWU_TI_1', struct('hasEEG', true, 'spikeClean', true, 'spikeThresh', 50, 'spikeWin', 11, 'macroRemove', [], 'beatSpec', '1,0,lt,-2 & 2,1,gt,3 & 3,2,lt,0'); ...
+ '251009_OBE_NWU_CP_1', struct('hasEEG', true, 'spikeClean', true, 'spikeThresh', 15, 'spikeWin', 7, 'macroRemove', 6, 'beatSpec', '3,0,lt,-3')};
 for k = 1:size(OLD, 1)
     id = OLD{k, 1};
     ov = OLD{k, 2};

@@ -18,7 +18,9 @@ for k = 1:numel(IDS)
         nBr = height(r.od.behDat);
         bpm = bpmOf(r.od);
         soft = {};
-        if chkClips < 30 || chkClips > 60, soft{end+1} = sprintf('%d clips', chkClips); end
+        % the movie's design is 180 clips (~60/valence; confirmed on TI_1);
+        % mild photodiode over-detection is a review flag
+        if chkClips < 150 || chkClips > 210, soft{end+1} = sprintf('%d clips', chkClips); end
         if nBr < 100, soft{end+1} = sprintf('only %d in-clip breaths', nBr); end
         if isfinite(bpm) && (bpm < 45 || bpm > 110), soft{end+1} = sprintf('%.0f bpm', bpm); end
         missing = setdiff({'clipIndex', 'clipValence', 'clipOnset', 'manOnset', 'goodBreath'}, ...

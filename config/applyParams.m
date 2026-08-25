@@ -230,8 +230,10 @@ function out = applyParams(task, sel, xlsxPath)
         case 'movie'
             % EmotionalMovieTask (Tasks_260824.md Task 7): breathing-type
             % processing + the legacy photodiode clip-pulse parameters
-            % (ZelanoLabScripts getSessionParams_emotionTask)
-            P.hasMacros = bool_or(rows{ri, cHasM}, true);
+            % (ZelanoLabScripts getSessionParams_emotionTask).
+            % EEG_breathing recordings have no macro channels, so the blank-
+            % cell default is Type-aware.
+            P.hasMacros = bool_or(rows{ri, cHasM}, ~strcmp(typeStudy, 'eeg'));
             beatSpec    = asChar(rows{ri, cBeat});
             if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
             P.beatSpec  = beatSpec;
