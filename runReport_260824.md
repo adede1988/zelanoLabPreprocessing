@@ -225,4 +225,99 @@ moves these numbers by ≤ 1.5 points: the disagreement is structural.
   (both detect, placement > 250 ms apart).
 
 Per the work order ("stop and ask if any test session stays below 90 % after
-that") the **full breathing rerun (Part B) is on hold** for a decision.
+that") the run was **halted and the decision escalated with the overlay figures.
+Decision (2026‑08‑25): accept breathMetrics** — the evidence shows legacy
+under‑detection (DB_1) and artifact-segment false breaths (AS), not breathMetrics
+failure. Consequence: the ±10 % breath‑count check vs July finals is a
+review‑flag (SOFT in `task3_verifyFinals`), not a failure; sessions like DB_1
+will legitimately exceed it.
+
+### Part B — the batch
+
+Guesses written (`task3_writeGuesses`): HW = EEG standard set (rspFlip −1 =
+modal of curated EEG rows, 14:7); RX_1 = OBEControl modal values (raw missing —
+recorded for completeness). Batch launched 2026‑08‑25
+(`E:\reprocBackup_260824\scripts\task3_run.ps1`): stage 1 backup+delete of every
+eligible breathing final (tmp+rename verified backups, `task3_backupDelete`),
+stage 2 `breathingTask_makeOutDat`, stage 3 `breathingTaskPreProc_main` with
+`ZLP_ALLOW_GUESS_RUN=1` (HW runs on guess; all other guess rows skip early),
+stage 4 `task3_verifyFinals` (structural failures clear the sheet X, soft
+flags reported). Logs: `E:\reprocBackup_260824\task3_*.log`. *(Results section
+to follow when the batch completes.)*
+
+---
+
+## Task 4 — O15 (run 2026‑08‑25)
+
+Verified from disk (Task 1 inventory): **no curated O15 session pending**; GH_2's
+July failure had already been fixed on disk (current final). The one stale
+session, `260316_Dupi_NMH_PD_1`, got its single D6 attempt via
+`batch/task4_runPD1.m` (scoped driver — the O15 main script is still in July's
+REDO‑ALL configuration): **failed with the same documented error**
+(`detect_ttls_O15: wrong trial count!`). The pre‑July final was backed up to
+`E:\reprocBackup_260824\O15\` beforehand and remains on disk (valid but stale;
+`Data Preprocessed` stays X per D2 disk truth).
+
+Guesses written (`batch/task456_writeGuesses.m`), not run: RX_1 (inherited from
+its curated cue row; O15 raw is on disk), SP_2 (OBE modal). JA_2 already carried
+guess parameters. All appended to `guessSessions.md`. Files written: none
+(PD_1's failed attempt saves only on success). Sheet rows changed: the guess
+parameter cells listed in the task456 log.
+
+---
+
+## Task 5 — threshold (run 2026‑08‑25)
+
+Verified from disk: **no curated threshold session pending**. No runs. Guesses
+written for the blank rows RX_1 (inherited from its curated cue row), HM_2,
+SP_2, KA_2 (OBE modal: respThresh 5000, cuedBackBuff 350, adjWin 500 — modal
+pool is a single curated OBE thresh row; flagged in `guessSessions.md`); PD_2
+and JA_2 already carried guesses. **KA_2 note:** its raw folders are named
+`raw_threshTask` / `raw_cueTask`, which the existing makeOutDat globs
+(`raw_PEAintensityPleasantness*` / `raw_cueTaskOdor*`) will not find — must be
+resolved (rename on R: needs approval, or glob widening) before KA_2 can ever
+run. Sheet rows changed: guess cells only.
+
+---
+
+## Task 6 — odor cue task (run 2026‑08‑25)
+
+### Part A — no‑cue support (D9)
+
+1. **Format documented.** Raw behavioral files
+   (`R:\…\olf_cuetask_results\<id>\<id>_run{1,2}_cuelist_odor_results.{mat,txt}`)
+   carry `n, cue, odor, trialtype, response, response_str, iti, trl_start,
+   rsp_end`; `outMat_to_table` parses the .mat (`response==999` = missed).
+   `cue` is numeric with **0 = no cue** (recent sessions: 60 trials, 20 no‑cue);
+   `odor` runs 2–11 and is recoded −1 by the existing makeOutDat;
+   `trialtype` is response‑key counterbalancing (1: 1=Yes, 2: 2=Yes) — not
+   signal‑detection identity. `behDat` columns after makeOutDat:
+   `n, cue, odor, trialtype, response, response_str, iti, trl_start, rsp_end,
+   type`; the final per‑sniff table adds the `behDatFromSniffs` six + `adjust`,
+   `finalOnset`, `manOnset`.
+2. **Photodiode on no‑cue trials is UNCHANGED** (`batch/task6_probeNoCueTTL.m`
+   on SP_2/RC_1/KA_2): every trial emits the trial‑start (cue‑length), sniff and
+   response pulses — 60/60/60−missed observed against both count models. No TTL
+   parse changes needed. (RX_1, already curated + current, has **no** cue==0
+   trials — checked — so its final is unaffected by D9.)
+3. **Change:** `cueTask_makeOutDat` types `cue==0` trials as `"noCue"`
+   (hit/miss/cr/fa undefined there; `cue` column keeps 0; all other columns and
+   names unchanged). **Backward compatibility proven**: `230611_OBE_NMH_AZ`
+   rerun from raw with the new code — all 14 behDat columns identical to the
+   July final (`batch/task6_diffAZ.m`, PASS; old final in
+   `E:\reprocBackup_260824\cue\`).
+4. **No‑cue validation up to the gate** (`batch/task6_validateNoCue.m`, SP_2):
+   makeOutDat intermediate has 60 trials (20 noCue / 20 cr / 17 hit / 2 miss /
+   1 skip, cue ∈ 0–10, odor recode applied); through the full shared pipeline
+   58/60 trials got detected sniffs (the 2 drop‑outs are sniff‑detection QC for
+   this guess session, not a coding issue), all surviving no‑cue rows typed
+   `noCue`, `finalOnset` finite, `manOnset` NaN. **No final saved** (guess row).
+   QC figures: `E:\reprocBackup_260824\task6_probe\SP2_QC`.
+
+### Part B
+
+Verified from disk: **no curated cue session pending**. Guesses written for
+SP_2, RC_1, KA_2 (OBE modal; KA_2 has the raw‑folder naming issue above); PD_2
+and JA_2 already carried guesses. makeOutDat also created the SP_2 and RC_1
+intermediates in passing (normal guess‑session state; PD_2/JA_2 already had
+theirs). No finals written; `Data Preprocessed` untouched.
