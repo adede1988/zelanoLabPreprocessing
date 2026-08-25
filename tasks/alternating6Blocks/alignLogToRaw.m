@@ -39,7 +39,12 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
     pR = fillmissing(pR, 'linear', 'EndValues', 'nearest');   % before the mean!
     pR = lowpass(pR - mean(pR), 1, FS);
 
-    [xc, lags] = xcorr(pR, pL, 'normalized');
+    % xcorr's scale options require equal lengths: zero-pad the shorter signal
+    % (padding does not move the peak; normalization stays comparable)
+    N = max(numel(pR), numel(pL));
+    pRp = [pR(:); zeros(N - numel(pR), 1)];
+    pLp = [pL(:); zeros(N - numel(pL), 1)];
+    [xc, lags] = xcorr(pRp, pLp, 'normalized');
     [pk, pi] = max(abs(xc));
     lagSamp = lags(pi);
     corrSign = sign(xc(pi));
@@ -66,6 +71,9 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
     pRr = interp1((0:numel(rsp)-1)'/fsRaw, double(rsp(:)), tRr, 'linear');
     pRr = fillmissing(pRr, 'linear', 'EndValues', 'nearest');
     pRr = lowpass(pRr - mean(pRr), 2, FSr);
+    Nr = max(numel(pRr), numel(pLr));
+    pRr = [pRr(:); zeros(Nr - numel(pRr), 1)];
+    pLr = [pLr(:); zeros(Nr - numel(pLr), 1)];
     [xcr, lr] = xcorr(pRr, pLr, 'normalized');
     inWin = abs(lr / FSr - lagSec) <= 3;
     [~, ri] = max(abs(xcr(:)) .* inWin(:));

@@ -59,8 +59,10 @@ for s = 1:numel(sessionIDs)
     % --- per-condition-file shared core + breath/ECG stages (D12b) ---
     segs = struct('od', {}, 'label', {}, 'condition', {}, 'srcFile', {});
     for c = 1:numel(raws)
+        % NB: cell-valued struct() args must be wrapped in {} or struct()
+        % builds a struct ARRAY with one element per cell entry
         raw = struct('sessID', S.id, 'fs_raw', raws(c).fs_raw, ...
-                     'data', raws(c).data, 'labels', raws(c).labels, ...
+                     'data', raws(c).data, 'labels', {raws(c).labels}, ...
                      'beh', table());
         od = assembleOutDat(raw, S, P);
         if c == 1 && isGuess

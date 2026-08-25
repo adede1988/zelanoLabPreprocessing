@@ -59,7 +59,9 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
         if any(isnan(R.data(:)))
             R.data = fillmissing(R.data, 'linear', 2, 'EndValues', 'nearest');
         end
-        fprintf('   %s: suffix %d, folder time %s\n', cond, R.suffix, string(R.folderTime));
+        ftDisp = 'unknown';
+        if ~isnat(R.folderTime), ftDisp = char(string(R.folderTime)); end
+        fprintf('   %s: suffix %d, folder time %s\n', cond, R.suffix, ftDisp);
         raws(end+1) = R; %#ok<AGROW>
         clear cd0
     end
