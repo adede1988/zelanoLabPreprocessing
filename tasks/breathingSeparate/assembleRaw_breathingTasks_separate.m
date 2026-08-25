@@ -37,14 +37,16 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
         tmp = load(fpath);
         cd0 = tmp.curDat; clear tmp
 
+        % NB: fields must be created in the template's exact order for the
+        % struct-array assignment below
         R = struct();
         R.condition = cond;
         R.label     = canonicalCondLabel(cond);
         R.data      = cd0.rawData.trial{1};
         R.labels    = cd0.outLabs;
         R.fs_raw    = cd0.rawData.fsample;
-        R.srcFile   = fpath;
         R.firstTS   = NaN;
+        R.srcFile   = fpath;
         if isfield(cd0.rawData, 'hdr')
             h = cd0.rawData.hdr;
             if isfield(h, 'FirstTimeStamp')

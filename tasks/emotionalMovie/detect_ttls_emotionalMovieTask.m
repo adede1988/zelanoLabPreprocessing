@@ -37,16 +37,20 @@ function TTL = detect_ttls_emotionalMovieTask(outDat, P, figDir)
     diffVals = diff(TTLs);
     TTLs(diffVals < 100) = [];
 
+    % group pulses into clips: process-then-check (the legacy loop's
+    % semantics) so trailing clips are classified; groups whose lookahead
+    % runs off the end are typed by however many pulses remain
     onset = zeros(500, 1);
     typ   = zeros(500, 1);
     ii = 1; ti = 1;
-    while ii < numel(TTLs) - 2
+    nT = numel(TTLs);
+    while ii <= nT
         curTTL = TTLs(ii);
         onset(ti) = curTTL;
-        if TTLs(ii + 2) - curTTL < P.pd.searchWin
+        if ii + 2 <= nT && TTLs(ii + 2) - curTTL < P.pd.searchWin
             typ(ti) = P.pd.numNeg;      % 3 pulses = sad
             ii = ii + P.pd.numNeg;
-        elseif TTLs(ii + 1) - curTTL < P.pd.searchWin
+        elseif ii + 1 <= nT && TTLs(ii + 1) - curTTL < P.pd.searchWin
             typ(ti) = P.pd.numPos;      % 2 pulses = happy
             ii = ii + P.pd.numPos;
         else
@@ -73,9 +77,11 @@ function TTL = detect_ttls_emotionalMovieTask(outDat, P, figDir)
     fig = figure('Visible', 'off', 'Position', [0, 0, 1400, 500]);
     dec = 1:10:numel(photoDiode);
     plot(dec / fsRaw / 60, photoDiode(dec), 'k'); hold on
-    xline(TTL.clipOnset(TTL.nPulses == 1) / fsRaw / 60, 'color', 'green');
-    xline(TTL.clipOnset(TTL.nPulses == 2) / fsRaw / 60, 'color', 'blue');
-    xline(TTL.clipOnset(TTL.nPulses == 3) / fsRaw / 60, 'color', 'red');
+    cols = {'green', 'blue', 'red'};
+    for np = 1:3
+        xs = TTL.clipOnset(TTL.nPulses == np) / fsRaw / 60;
+        if ~isempty(xs), xline(xs, 'color', cols{np}); end
+    end
     title(sprintf('%s clip onsets (green=neutral blue=happy red=sad; %d clips)', ...
         outDat.sessID, height(TTL)), 'Interpreter', 'none');
     xlabel('minutes');

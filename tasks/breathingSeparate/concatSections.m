@@ -34,7 +34,11 @@ function outDat = concatSections(segs, S, P)
                       'exhaleVolumes', 'inhaleDurations', 'exhaleDurations', ...
                       'inhalePauseDurations', 'exhalePauseDurations'};
 
-    data = []; bmObj = []; hb = []; secTab = table(); F = struct();
+    data = []; bmObj = []; hb = []; F = struct();
+    secTab = table('Size', [nSeg 4], ...
+        'VariableTypes', {'string', 'string', 'double', 'double'}, ...
+        'VariableNames', {'label', 'sourceFile', 'startSample', 'endSample'});
+    eegQC = cell(nSeg, 1);
     featOffset = 0; sampOffset = 0;
     dataLap = []; lapOK = true;
     for c = 1:nSeg
@@ -79,10 +83,15 @@ function outDat = concatSections(segs, S, P)
 
         secTab(c, :) = {string(segs(c).label), string(segs(c).srcFile), ...
                         sampOffset + 1, sampOffset + n};
+        % per-section EEG QC metadata (interpolation/cleaning are per segment)
+        q = struct();
+        for fq = {'badChans', 'EEGInterpolation', 'EEGCleaning', 'blinkRemoval', 'dataLapFromInterp'}
+            if isfield(od, fq{1}), q.(fq{1}) = od.(fq{1}); end
+        end
+        eegQC{c} = q;
         data = [data, od.data]; %#ok<AGROW>
         sampOffset = sampOffset + n;
     end
-    secTab.Properties.VariableNames = {'label', 'sourceFile', 'startSample', 'endSample'};
 
     bmObj(:, 14) = 1:size(bmObj, 1);
     F.engine = segs(1).od.bmFeatures.engine;
@@ -97,6 +106,7 @@ function outDat = concatSections(segs, S, P)
     if ~isempty(hb), outDat.heartBeats = hb; end
     if lapOK, outDat.dataLap = dataLap; else, outDat.dataLap = []; end
     outDat.sections = secTab;
+    outDat.eegQCPerSection = eegQC;   % top-level fields still describe section 1
     outDat.TTL = reshape([secTab.startSample'; secTab.endSample'], 1, []);
 end
 

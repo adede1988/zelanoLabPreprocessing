@@ -24,7 +24,10 @@ function [log, blocks] = parse_sniffLogicLog(csvPath)
     ev = string(T.event);
 
     sig = isfinite(p);
-    log = struct('t', t(sig), 'p', p(sig));
+    tS = t(sig); pS = p(sig);
+    % interp1 downstream needs strictly increasing sample points
+    [tS, iu] = unique(tS, 'sorted');
+    log = struct('t', tS, 'p', pS(iu));
 
     kinds = { ...
         "active trial time 0.4", "focused_entrainment"; ...

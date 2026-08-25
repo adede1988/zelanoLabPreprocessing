@@ -26,6 +26,10 @@ function writeSheetSep(P, sessID, action, xlsxPath)
         strcmpi(strtrim(char(string(v))), nm), hdr), 1);
     cSub = col('Subject ID'); cTask = col('Task'); cRaw = col('Raw Data Extracted');
     cDT = col('dataType'); cPre = col('Data Preprocessed');
+    % a missing header must never silently redirect writes (colLetter([]) = 'A')
+    assert(~isempty(cSub) && ~isempty(cTask) && ~isempty(cRaw) && ...
+           ~isempty(cDT) && ~isempty(cPre), ...
+           'writeSheetSep: required sheet columns not found - aborting');
 
     conds = {'audiobook', 'distractedbreathing', 'focusedbreathing', ...
              'sleep', 'sleepwithodor', 'restingbaseline'};
@@ -60,7 +64,10 @@ function writeSheetSep(P, sessID, action, xlsxPath)
                     fld = paramCols{pc, 1};
                     if ~isfield(P, fld), continue; end
                     ci = col(fld);
-                    if isempty(ci), continue; end
+                    if isempty(ci)
+                        warning('writeSheetSep:noColumn', 'column "%s" not in sheet; skipped', fld);
+                        continue;
+                    end
                     val = P.(fld);
                     if strcmp(paramCols{pc, 2}, 'bool'), val = logical(val); end
                     if strcmp(paramCols{pc, 2}, 'str'), val = char(string(val)); end

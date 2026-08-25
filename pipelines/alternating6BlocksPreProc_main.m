@@ -65,6 +65,14 @@ for s = 1:numel(sessionIDs)
     outDat.blocks   = raw.blocks;
     outDat.logAlign = raw.logAlign;
 
+    % the makeOutDat's log alignment empirically determined the respiration
+    % polarity; a sheet value that contradicts it would invert every breath
+    if isfield(raw.logAlign, 'rspFlip') && raw.logAlign.rspFlip ~= P.rspFlip
+        error(['%s: sheet rspFlip (%+d) contradicts the log-alignment ' ...
+               'polarity (%+d) - fix the sheet guess before running'], ...
+               S.id, P.rspFlip, raw.logAlign.rspFlip);
+    end
+
     if isGuess, [outDat, P] = paramCheck(outDat, P); end
 
     outDat = downsample_data(outDat, P.fs_target);

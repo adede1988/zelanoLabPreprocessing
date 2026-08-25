@@ -272,7 +272,14 @@ function out = applyParams(task, sel, xlsxPath)
                 if cDT > 0 && ~strcmpi(strtrim(asChar(data{r2, cDT})), 'ephys'), continue; end
                 allConds{end+1} = strtrim(asChar(data{r2, cTask})); %#ok<AGROW>
             end
-            P.conditions = allConds;
+            % a duplicated condition row would load the same recording twice
+            [uc, iu] = unique(lower(allConds), 'stable');
+            if numel(uc) < numel(allConds)
+                warning('applyParams:dupCondition', ...
+                    '%s: duplicate condition rows collapsed (%d -> %d)', ...
+                    selStr, numel(allConds), numel(uc));
+            end
+            P.conditions = allConds(iu);
     end
 
     out = P;

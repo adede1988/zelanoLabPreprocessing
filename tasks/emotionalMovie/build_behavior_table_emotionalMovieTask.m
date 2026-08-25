@@ -28,6 +28,8 @@ function outDat = build_behavior_table_emotionalMovieTask(outDat)
     keep = clipIdx > 0;
     fprintf('%s: %d/%d breaths fall inside the %d bounded clip windows (dropped %d incl. final-clip/between-clip)\n', ...
         outDat.sessID, sum(keep), numel(keep), sum(isfinite(T.clipEnd)), sum(~keep));
+    assert(sum(keep) > 0, 'build_behavior_table_emotionalMovieTask:noBreaths', ...
+        '%s: no breaths fall inside any clip window - inspect the clip TTLs', outDat.sessID);
 
     bmObj(:, 12) = 0;
     bmObj(keep, 12) = T.nPulses(clipIdx(keep));   % valence code, old convention
