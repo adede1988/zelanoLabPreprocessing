@@ -122,11 +122,13 @@ function k = taskKey(task)   % P.task -> key
     s = lower(char(string(task)));
     s = s(~isspace(s));
     switch s
-        case 'breathingtask', k = 'breathing';
-        case 'cuetask',       k = 'cue';
-        case 'threshtask',    k = 'thresh';
-        case 'o15',           k = 'O15';
-        otherwise,            k = '';
+        case 'breathingtask',      k = 'breathing';
+        case 'cuetask',            k = 'cue';
+        case 'threshtask',         k = 'thresh';
+        case 'o15',                k = 'O15';
+        case 'emotionalmovietask', k = 'movie';
+        case 'alternating6blocks', k = 'alt6';
+        otherwise,                 k = '';
     end
 end
 
@@ -145,6 +147,10 @@ function k = canonTask(t)    % sheet Task cell -> key
             k = 'O15';
         case 'threshold'
             k = 'thresh';
+        case 'emotionalmovietask'
+            k = 'movie';
+        case 'alternating6blocks'
+            k = 'alt6';
         otherwise
             k = '';
     end

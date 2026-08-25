@@ -9,8 +9,9 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
 %   writes those values into the matching row of dataTracking.xlsx so the
 %   spreadsheet stays the single source of truth. Only the parameter columns
 %   that applyParams reads are touched; identity columns (Subject ID, Type,
-%   Task, Raw Data Extracted) are never modified, and only cells whose value
-%   actually changed are written.
+%   Task) are never modified, and only cells whose value actually changed are
+%   written. "Raw Data Extracted" is written only via the explicit
+%   'SetRawExtracted' option (marking a newly extracted session).
 %
 %   Usage
 %     writeParams(P, sessID)
@@ -29,6 +30,12 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
 %     'Task'             ('')       task override if P.task is absent/wrong
 %     'CreateMissingCols'(false)    append a new header column for any param
 %                                   column not present in the sheet
+%     'AllowUnextracted' (false)    also match rows whose "Raw Data Extracted"
+%                                   is blank (needed when marking a session as
+%                                   newly extracted - Tasks_260824.md Task 2)
+%     'SetRawExtracted'  (false)    write 'X' into "Raw Data Extracted" (the
+%                                   one sanctioned edit of that column; only
+%                                   meaningful together with AllowUnextracted)
 %
 %   Returns (optional) info struct:
 %     .xlsxPath .sheet .row .session .task
@@ -49,6 +56,8 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
     opt.Sheet             = 'Sheet1';
     opt.Task              = '';
     opt.CreateMissingCols = false;
+    opt.AllowUnextracted  = false;
+    opt.SetRawExtracted   = false;
     opt = parseOpts(opt, varargin);
     sheet = opt.Sheet;
 
@@ -108,7 +117,7 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
         sub = strtrim(asChar(C{r, cSub}));
         if isempty(sub), continue; end
         if ~strcmp(canonTask(C{r, cTask}), tkey), continue; end
-        if cRaw > 0
+        if cRaw > 0 && ~opt.AllowUnextracted
             rawv = C{r, cRaw};
             if isBlank(rawv), continue; end
             if strcmpi(strtrim(asChar(rawv)), 'INCOMPLETE'), continue; end
@@ -146,6 +155,11 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
     % ---------------- build writable entries from P ----------------
     % {colName, kind, valueGetter}; getter is only evaluated when present.
     E = {};
+    if opt.SetRawExtracted
+        E = addEntry(E, true,                 'Raw Data Extracted', 'str', @() 'X');
+    end
+    E = addEntry(E, isfield(P,'datPre'),      'datPre',       'str',  @() P.datPre);
+    E = addEntry(E, isfield(P,'isNewStd'),    'isNewStd',     'bool', @() P.isNewStd);
     E = addEntry(E, isfield(P,'rspIDX'),      'rspIDX',       'num',  @() P.rspIDX);
     E = addEntry(E, isfield(P,'rspFlip'),     'rspFlip',      'num',  @() P.rspFlip);
     E = addEntry(E, isfield(P,'hasEEG'),      'hasEEG',       'bool', @() P.hasEEG);
@@ -491,6 +505,10 @@ function k = canonTask(t)
             k = 'O15';
         case {'threshold'}
             k = 'thresh';
+        case {'emotionalmovietask'}
+            k = 'movie';
+        case {'alternating6blocks'}
+            k = 'alt6';
         otherwise
             k = '';
     end
@@ -500,10 +518,12 @@ function k = taskKey(task)
     s = lower(asChar(task));
     s = s(~isspace(s));
     switch s
-        case 'breathingtask', k = 'breathing';
-        case 'cuetask',       k = 'cue';
-        case 'threshtask',    k = 'thresh';
-        case 'o15',           k = 'O15';
-        otherwise,            k = '';
+        case 'breathingtask',      k = 'breathing';
+        case 'cuetask',            k = 'cue';
+        case 'threshtask',         k = 'thresh';
+        case 'o15',                k = 'O15';
+        case 'emotionalmovietask', k = 'movie';
+        case 'alternating6blocks', k = 'alt6';
+        otherwise,                 k = '';
     end
 end
