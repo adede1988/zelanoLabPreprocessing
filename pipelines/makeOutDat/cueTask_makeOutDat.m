@@ -862,7 +862,7 @@ end
             error('load file not identified uniquely')
         end
     end
-    outDat.preProcScript = 'cueTaskPreProc.m'; 
+    outDat.preProcScript = 'cueTask_makeOutDat.m';
     if datPrei(sessi) == 1
         outDat.type = 'Dupi'; 
     elseif datPrei(sessi) == 2
