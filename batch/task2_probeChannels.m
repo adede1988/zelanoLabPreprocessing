@@ -91,12 +91,30 @@ for si = 1:numel(SUBJ)
                     fprintf('    %s%s: LOAD FAILED %s\n', CAND{c}, sfx, ME.message);
                     continue;
                 end
+                try %#ok<TRYNC> keep probing other channels on any stats error
                 x = dat.trial{1};
                 fs = dat.fsample;
                 R.fs = fs;
                 R.durMin = numel(x) / fs / 60;
+                % discontinuous Neuralynx recordings arrive NaN-filled: report
+                % the gap structure (it may mirror the task-block structure),
+                % then work on a zero-filled copy
+                nanMask = isnan(x);
                 st = struct();
-                st.std = std(x);
+                st.nanFrac = mean(nanMask);
+                if any(nanMask)
+                    d = diff([0 nanMask 0]);
+                    gs = find(d == 1); ge = find(d == -1) - 1;
+                    long = (ge - gs) / fs > 1;
+                    gs = gs(long); ge = ge(long);
+                    st.nGaps = numel(gs);
+                    fprintf('    %s%s: %d NaN gaps >1s at (min): %s\n', CAND{c}, sfx, ...
+                        numel(gs), mat2str(round([gs(1:min(8,end)); ge(1:min(8,end))]' / fs / 60, 1)));
+                    x(nanMask) = 0;
+                else
+                    st.nGaps = 0;
+                end
+                st.std = std(x(~nanMask));
                 % fraction of power in the respiration band (0.1-0.5 Hz),
                 % computed on a decimated copy
                 dec = max(1, floor(fs / 20));
@@ -109,8 +127,8 @@ for si = 1:numel(SUBJ)
                     st.respBandFrac = NaN;
                 end
                 cs.(CAND{c}) = st;
-                fprintf('    %s%s: fs=%d dur=%.1f min  std=%.3g respFrac=%.2f\n', ...
-                    CAND{c}, sfx, fs, R.durMin, st.std, st.respBandFrac);
+                fprintf('    %s%s: fs=%d dur=%.1f min  std=%.3g respFrac=%.2f nanFrac=%.3f\n', ...
+                    CAND{c}, sfx, fs, R.durMin, st.std, st.respBandFrac, st.nanFrac);
 
                 if strcmp(CAND{c}, 'CSC269')
                     z = (x - mean(x)) / std(x);
@@ -149,6 +167,9 @@ for si = 1:numel(SUBJ)
                     sfxTag = strrep(sfx, '_', '');
                     saveas(fig, fullfile(OUTD, sprintf('probe_%s_%s.png', id, sfxTag)));
                     close(fig);
+                end
+                catch MEstats
+                    fprintf('    %s%s: STATS FAILED %s\n', CAND{c}, sfx, MEstats.message);
                 end
                 clear dat x z
             end

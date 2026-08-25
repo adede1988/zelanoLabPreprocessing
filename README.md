@@ -64,6 +64,7 @@ The final `.mat` holds one struct (`outDat`, or `chanDat` for older breathing fi
 | `shared/` | the task‑shared signal core + assembly + EEG/spike/onset helpers |
 | `tasks/breathing/` `tasks/cue/` `tasks/thresh/` `tasks/O15/` | each task's raw loader, behavior‑table builder, and task‑specific helpers |
 | `external/slowBreathing/` | the five `slowBreathing` functions the breathing pipeline uses (vendored) |
+| `external/breathMetrics/` | the BreathMetrics respiration toolbox (vendored from the lab fork `qhyang42/breathmetrics`, commit `9791153`, 2026‑08‑03; BSD-style academic licence per the upstream `zelanolab/breathmetrics` README/publication — Noto et al. 2018, *Chemical Senses*). Used by `shared/segmentBreaths_breathMetrics.m` for per-breath segmentation in every breath-based task. |
 
 ---
 
