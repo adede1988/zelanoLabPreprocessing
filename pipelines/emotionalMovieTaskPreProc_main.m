@@ -90,6 +90,12 @@ for s = 1:numel(sessionIDs)
     ecgDone = false;
     if hasECG
         try
+            % viability probe (as in breathingTasks_separate): an implausible
+            % beat rate means no usable cardiac signal - NaN HRV
+            [ECGzP, sepP] = buildECGz(outDat);
+            bpmP = numel(P.getBeats(ECGzP, sepP)) / (size(outDat.data, 2) / outDat.fs / 60);
+            clear ECGzP
+            assert(bpmP >= 20, '%s: beat detection implausible (%.1f bpm)', S.id, bpmP);
             if isGuess, P = paramCheckECG(outDat, P); end
             outDat = processECG(outDat, P);
             outDat = flagBadBreaths(outDat);

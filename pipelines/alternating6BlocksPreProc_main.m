@@ -94,6 +94,12 @@ for s = 1:numel(sessionIDs)
     % ECG with NaN-HRV fallback on detection failure (flagged for review)
     ecgDone = false;
     try
+        % viability probe (as in breathingTasks_separate): an implausible beat
+        % rate means no usable cardiac signal - NaN HRV, not garbage RRint
+        [ECGzP, sepP] = buildECGz(outDat);
+        bpmP = numel(P.getBeats(ECGzP, sepP)) / (size(outDat.data, 2) / outDat.fs / 60);
+        clear ECGzP
+        assert(bpmP >= 20, '%s: beat detection implausible (%.1f bpm)', S.id, bpmP);
         if isGuess, P = paramCheckECG(outDat, P); end
         outDat = processECG(outDat, P);
         outDat = flagBadBreaths(outDat);
