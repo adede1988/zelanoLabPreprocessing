@@ -21,24 +21,36 @@ for s = 1:numel(cfg.sessionIDs)
         continue;
     end
     dest = fullfile(BK, [id '_breathingPreproc.mat']);
+    tmp  = [dest '.tmp'];
+    % Windows copyfile preallocates the destination to full size before the
+    % data streams, so SIZE EQUALITY ALONE cannot prove a backup is complete
+    % (a killed earlier copy can be full-size but garbage). Copy to .tmp and
+    % rename: dest existing at all then proves the copy finished. Backups from
+    % before this pattern (or any doubt) are re-verified by h5info readability.
     dd = dir(dest);
-    if isempty(dd) || dd(1).bytes ~= fd(1).bytes
-        % no backup yet, or a partial copy from a killed earlier attempt:
-        % (re)copy before considering deletion
-        copyfile(f, dest);
+    if isempty(dd) || dd(1).bytes ~= fd(1).bytes || ~backupReadable(dest)
+        copyfile(f, tmp);
+        movefile(tmp, dest, 'f');
         dd = dir(dest);
     end
-    if ~isempty(dd) && dd(1).bytes == fd(1).bytes
-        delete(f);
-        nDel = nDel + 1;
-        fprintf('BACKED UP + REMOVED  %-26s (%d MB)\n', id, round(fd(1).bytes / 1e6));
-    else
-        % a stale final left in place would make the rerun silently skip this
-        % session as "Done" - fail loudly instead
-        error('task3_backupDelete:copyFailed', ...
-            'backup of %s does not match source after re-copy (src %d, backup %d bytes)', ...
-            id, fd(1).bytes, dd(1).bytes);
-    end
+    assert(~isempty(dd) && dd(1).bytes == fd(1).bytes && backupReadable(dest), ...
+        'task3_backupDelete:badBackup', ...
+        'backup of %s failed verification after re-copy - aborting so the rerun cannot silently skip it', id);
+    delete(f);
+    assert(exist(f, 'file') ~= 2, 'task3_backupDelete:deleteFailed', ...
+        'could not delete %s (locked?) - aborting', f);
+    nDel = nDel + 1;
+    fprintf('BACKED UP + REMOVED  %-26s (%d MB)\n', id, round(fd(1).bytes / 1e6));
 end
 fprintf('task3_backupDelete: DONE  removed=%d no-file=%d of %d sessions\n', ...
     nDel, nSkip, numel(cfg.sessionIDs));
+
+function tf = backupReadable(p)
+% structural readability check: the HDF5 metadata of a -v7.3 backup must open
+    try
+        h5info(p);
+        tf = true;
+    catch
+        tf = false;
+    end
+end
