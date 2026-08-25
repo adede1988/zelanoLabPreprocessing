@@ -104,7 +104,10 @@ function L = deriveLabPaths(L)
     % (e.g. [root sessID '\preProc\...']) so they MUST keep a trailing filesep.
     L.figPath   = [lc 'Adam\Dupi_processing\'];
     if ~isfield(L, 'adminXlsx')   % labPaths_local may point the tracker elsewhere
-        L.adminXlsx = fullfile(lc, 'Admin', 'Data', 'dataTracking.xlsx');
+        % The Admin\ master is the live source of truth (edited 2026-08-24 with the
+        % new task rows). An Admin\Data\ copy exists but is a stale 2026-07-28
+        % snapshot -- do not point the pipeline at it.
+        L.adminXlsx = fullfile(lc, 'Admin', 'dataTracking.xlsx');
     end
     L.rootDupi  = [lc 'Dupi\'];
     L.rootOBE   = [lc 'OBEControl\'];

@@ -1,13 +1,14 @@
-function writePreProcX(P, sessID, xlsxPath)
-%WRITEPREPROCX  Mark a session's "Data Preprocessed" cell with an X.
+function clearPreProcX(P, sessID, xlsxPath)
+%CLEARPREPROCX  Blank a session's "Data Preprocessed" cell.
 %
-%   writePreProcX(P, sessID)            % default dataTracking.xlsx
-%   writePreProcX(P, sessID, xlsxPath)  % explicit spreadsheet path
+%   clearPreProcX(P, sessID)            % default dataTracking.xlsx
+%   clearPreProcX(P, sessID, xlsxPath)  % explicit spreadsheet path
 %
-%   Finds the row matching sessID (Subject ID) and P.task, writes 'X' into
-%   that row's "Data Preprocessed" column, and saves the workbook in place.
-%   Subject IDs repeat across tasks in the sheet, so the task is needed to
-%   pick the right row.
+%   The clearing counterpart of writePreProcX (Tasks_260824.md D2): finds the
+%   row matching sessID (Subject ID) and P.task and blanks that row's
+%   "Data Preprocessed" column, so the sheet mirrors the disk when a final is
+%   found to be missing or invalid. Keyed on Subject ID + Task like the
+%   existing writers.
 
     sheet = 'Sheet1';
 
@@ -15,28 +16,28 @@ function writePreProcX(P, sessID, xlsxPath)
         xlsxPath = resolveDefaultXlsx();
     end
     if exist(xlsxPath, 'file') ~= 2
-        error('writePreProcX:noFile', 'Spreadsheet not found: %s', xlsxPath);
+        error('clearPreProcX:noFile', 'Spreadsheet not found: %s', xlsxPath);
     end
 
     sessID = strtrim(char(string(sessID)));
     if isempty(sessID)
-        error('writePreProcX:badSession', 'sessID must be a non-empty string.');
+        error('clearPreProcX:badSession', 'sessID must be a non-empty string.');
     end
     if ~isfield(P, 'task') || isempty(P.task)
-        error('writePreProcX:noTask', 'P.task is required to identify the row.');
+        error('clearPreProcX:noTask', 'P.task is required to identify the row.');
     end
     tkey = taskKey(P.task);
     if isempty(tkey)
         % an unknown task would "match" any sheet row whose Task is also
-        % unmapped (canonTask '') and silently mark the wrong cell
-        error('writePreProcX:badTask', 'Unknown task "%s".', char(string(P.task)));
+        % unmapped (canonTask '') and silently clear the wrong cell
+        error('clearPreProcX:badTask', 'Unknown task "%s".', char(string(P.task)));
     end
 
     % --- read the sheet, locate the header row (the one with 'Subject ID') ---
     C    = readcell(xlsxPath, 'Sheet', sheet);
     hRow = findRow(C, 'Subject ID');
     if hRow == 0
-        error('writePreProcX:noHeader', 'No "Subject ID" header found in %s.', xlsxPath);
+        error('clearPreProcX:noHeader', 'No "Subject ID" header found in %s.', xlsxPath);
     end
     hdr = C(hRow, :);
 
@@ -45,13 +46,13 @@ function writePreProcX(P, sessID, xlsxPath)
     cPre  = findCol(hdr, 'Data Preprocessed');
     cRaw  = findCol(hdr, 'Raw Data Extracted');
     if cSub == 0 || cTask == 0 || cPre == 0
-        error('writePreProcX:missingCols', ...
+        error('clearPreProcX:missingCols', ...
             'Sheet needs "Subject ID", "Task", and "Data Preprocessed" columns.');
     end
 
     % --- find the matching data row (Subject ID + task), skipping stub rows
     %     (blank / INCOMPLETE Raw Data Extracted) so a duplicate stub above the
-    %     real row cannot swallow the mark ---
+    %     real row cannot swallow the clear ---
     dRow = 0;
     for r = hRow+1 : size(C, 1)
         if isBlank(C{r, cSub}), continue; end
@@ -66,14 +67,14 @@ function writePreProcX(P, sessID, xlsxPath)
         dRow = r; break;
     end
     if dRow == 0
-        error('writePreProcX:noSession', ...
+        error('clearPreProcX:noSession', ...
             'No row found for session "%s" / task "%s".', sessID, char(string(P.task)));
     end
 
-    % --- write the X and save ---
+    % --- blank the cell and save ---
     ref = sprintf('%s%d', colLetter(cPre), dRow);
-    writecell({'X'}, xlsxPath, 'Sheet', sheet, 'Range', ref);
-    fprintf('writePreProcX: %s (%s) -> Data Preprocessed = X at %s\n', ...
+    writecell({''}, xlsxPath, 'Sheet', sheet, 'Range', ref);
+    fprintf('clearPreProcX: %s (%s) -> Data Preprocessed cleared at %s\n', ...
             sessID, char(string(P.task)), ref);
 end
 
