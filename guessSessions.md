@@ -33,8 +33,8 @@ New guesses written by `batch/task3_writeGuesses.m` (2026-08-25):
 
 | Subject ID | Task | Type | sheet row | guessed columns = values | basis | status | notes |
 |---|---|---|---|---|---|---|---|
-| 260227_EEG_NWU_HW | waveBreathing | EEG_breathing | 177 | rspIDX=1, rspFlip=(modal curated EEG value), hasEEG=true, hasMacros=false, spikeClean=false, spikeThresh=20, spikeWin=11, macroRemove=[], beatSpec=1,0,gt,3.5, isNewStd=true | Type default (EEG standard set, §0 D3.3) | run-on-guess (D4) | extracted in Task 2; rsp = CSC270 (old wiring) |
-| 260608_OBE_NWU_RX_1 | breathingTasks | OBEControl | 250 | modal curated OBEControl values (see task3_writeGuesses output) | Type default | not run | breathing raw missing on disk; sheet says extracted |
+| 260227_EEG_NWU_HW | waveBreathing | EEG_breathing | 177 | rspIDX=1, rspFlip=−1 (modal of 21 curated EEG rows, 14:−1/7:+1), hasEEG=true, hasMacros=false, spikeClean=false, spikeThresh=20, spikeWin=11, macroRemove=[], beatSpec=1,0,gt,3.5, isNewStd=true | Type default (EEG standard set, §0 D3.3) | run-on-guess (D4) | extracted in Task 2; rsp = CSC270 (old wiring) |
+| 260608_OBE_NWU_RX_1 | breathingTasks | OBEControl | 250 | rspIDX=3, rspFlip=1, hasEEG=true, hasMacros=true, spikeClean=true, spikeThresh=20, spikeWin=11, beatSpec=`1,0,lt,-2 & 2,1,gt,3 & 3,2,lt,0`, isNewStd=true | Type default (modal of 3 curated OBEControl breathing rows) | not run | breathing raw missing on disk; sheet says extracted |
 
 (The `251009_EEG_NWU_SM` row 66 stub is a duplicate of curated row 81 — not a guess session.)
 

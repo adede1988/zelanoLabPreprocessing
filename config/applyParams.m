@@ -203,6 +203,20 @@ function out = applyParams(task, sel, xlsxPath)
                 'expectedTrialCount', 30, ...
                 'removeTrialMarksIdx', list_or(rows{ri, cTtlR}, []), ...
                 'note', stringOrEmpty(rows{ri, cTtlN}));
+
+        case 'movie'
+            % EmotionalMovieTask (Tasks_260824.md Task 7): breathing-type
+            % processing + the legacy photodiode clip-pulse parameters
+            % (ZelanoLabScripts getSessionParams_emotionTask)
+            P.hasMacros = bool_or(rows{ri, cHasM}, true);
+            beatSpec    = asChar(rows{ri, cBeat});
+            if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
+            P.beatSpec  = beatSpec;
+            P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
+            P.pd = struct('zthresh', -2, 'minPulseSamp', 350, ...
+                          'maxPulseSamp', 2000, 'searchWin', 2000, ...
+                          'numNeg', 3, 'numPos', 2, 'numNeu', 1, ...
+                          'clipEndGapSec', 1.6);
     end
 
     out = P;
@@ -338,6 +352,8 @@ function k = canonTask(t)
             k = 'O15';
         case {'threshold'}
             k = 'thresh';
+        case {'emotionalmovietask'}
+            k = 'movie';
         otherwise
             k = '';
     end
@@ -348,11 +364,12 @@ function k = taskKey(task)
     s = lower(asChar(task));
     s = s(~isspace(s));
     switch s
-        case 'breathingtask', k = 'breathing';
-        case 'cuetask',       k = 'cue';
-        case 'threshtask',    k = 'thresh';
-        case 'o15',           k = 'O15';
-        otherwise,            k = '';
+        case 'breathingtask',      k = 'breathing';
+        case 'cuetask',            k = 'cue';
+        case 'threshtask',         k = 'thresh';
+        case 'o15',                k = 'O15';
+        case 'emotionalmovietask', k = 'movie';
+        otherwise,                 k = '';
     end
 end
 
@@ -363,6 +380,7 @@ function s = taskCallerKey(task)
         case 'cue',       s = 'cueTask';
         case 'thresh',    s = 'threshTask';
         case 'O15',       s = 'O15';
+        case 'movie',     s = 'EmotionalMovieTask';
         otherwise,        s = asChar(task);
     end
 end

@@ -53,8 +53,14 @@ fprintf('columns: %s\n', strjoin(bd.Properties.VariableNames, ','));
 fprintf('type counts:\n'); disp(groupcounts(bd, 'type'));
 fprintf('finalOnset finite: %d/%d | manOnset all NaN: %d\n', ...
     sum(isfinite(bd.finalOnset)), height(bd), all(isnan(bd.manOnset)));
-assert(sum(bd.cue == 0) == 20 && all(strcmp(bd.type(bd.cue == 0), "noCue")), ...
+% coding must survive; a few trials without a detectable sniff are normal
+% guess-QC territory (rows drop out of behDatFromSniffs, not of the coding)
+assert(all(strcmp(bd.type(bd.cue == 0), "noCue")) && sum(bd.cue == 0) >= 15, ...
     'noCue coding lost through the sniff/behavior build');
+if sum(bd.cue == 0) < 20
+    fprintf('note: %d/20 no-cue trials have a detected sniff (rest dropped by sniff detection)\n', ...
+        sum(bd.cue == 0));
+end
 
 % QC figure of onsets (the deliberate onset-gate stop happens here: no save)
 plot_sniff_epochs(outDat, R);

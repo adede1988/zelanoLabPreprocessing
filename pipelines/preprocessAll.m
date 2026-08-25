@@ -58,7 +58,7 @@ fprintf('\npreprocessAll: done. Re-run (report only) to confirm the backlog clea
 
 function rep = pendingReport()
 % Build, per task, the list of raw-extracted sessions not yet marked preprocessed.
-    tasks = {'breathingTask', 'cueTask', 'threshTask', 'O15'};
+    tasks = {'breathingTask', 'cueTask', 'threshTask', 'O15', 'EmotionalMovieTask'};
     xlsx  = resolveSheet();
     C     = readcell(xlsx, 'Sheet', 'Sheet1');
 
@@ -161,11 +161,12 @@ end
 function k = taskKey(task)
     s = lower(char(task)); s = s(~isspace(s));
     switch s
-        case 'breathingtask', k = 'breathing';
-        case 'cuetask',       k = 'cue';
-        case 'threshtask',    k = 'thresh';
-        case 'o15',           k = 'O15';
-        otherwise,            k = '';
+        case 'breathingtask',      k = 'breathing';
+        case 'cuetask',            k = 'cue';
+        case 'threshtask',         k = 'thresh';
+        case 'o15',                k = 'O15';
+        case 'emotionalmovietask', k = 'movie';
+        otherwise,                 k = '';
     end
 end
 
@@ -174,9 +175,10 @@ function k = canonTask(t)
     s = lower(asChar(t)); s = s(~isspace(s));
     switch s
         case {'breathingtasks', 'wavebreathing', 'breathingtask'}, k = 'breathing';
-        case 'odorcuetask', k = 'cue';
-        case 'o15',         k = 'O15';
-        case 'threshold',   k = 'thresh';
-        otherwise,          k = '';
+        case 'odorcuetask',        k = 'cue';
+        case 'o15',                k = 'O15';
+        case 'threshold',          k = 'thresh';
+        case 'emotionalmovietask', k = 'movie';
+        otherwise,                 k = '';
     end
 end
