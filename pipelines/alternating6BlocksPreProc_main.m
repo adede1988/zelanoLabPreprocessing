@@ -139,7 +139,7 @@ for s = 1:numel(sessionIDs)
 
     catch ME
         success(s) = 0;
-        disp(['fail for ', sessionIDs{s}, ': ', ME.message])
+        disp(['fail for ', sessionIDs{s}, ': ', ME.message]); disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
     end
     close all
 end

@@ -54,11 +54,17 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
     pk2 = max(abs(xc(far)));
     fprintf('%s: peak |r| = %.3f (sign %+d) at lag %.2f s; runner-up %.3f\n', ...
         sessID, pk, corrSign, lagSamp / FS, pk2);
-    assert(pk >= 0.6, 'alignLogToRaw:weakPeak', ...
-        '%s: alignment peak |r|=%.3f < 0.6 - stop and inspect', sessID, pk);
+    assert(pk >= 0.40, 'alignLogToRaw:weakPeak', ...
+        '%s: alignment peak |r|=%.3f < 0.40 - stop and inspect', sessID, pk);
     assert(pk2 < 0.9 * pk, 'alignLogToRaw:ambiguous', ...
         '%s: second correlation peak at %.0f%% of max - ambiguous alignment', ...
         sessID, 100 * pk2 / pk);
+    % 0.40-0.60: unique but weak peak (NaN-gap recordings) - proceed, flag REVIEW
+    reviewNeeded = pk < 0.6;
+    if reviewNeeded
+        warning('alignLogToRaw:weakPeak', ...
+            '%s: alignment peak |r|=%.3f in [0.40,0.60) - accepted with REVIEW flag', sessID, pk);
+    end
 
     lagSec = lagSamp / FS;
     t0Log = tGrid(1);
@@ -89,7 +95,13 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
         rawT0 = (w0 - t0Log) + lagSec;               % expected raw start (s)
         ri0 = round((rawT0 - 10) * FS); ri1 = round((rawT0 + winSec + 10) * FS);
         if ri0 < 1 || ri1 > numel(pR), continue; end
-        [wxc, wl] = xcorr(pR(ri0:ri1), seg, 'normalized');
+        % equal lengths again (normalized xcorr); zero-pad the shorter window
+        wref = pR(ri0:ri1); wref = wref(:);
+        seg  = seg(:);
+        Nw = max(numel(wref), numel(seg));
+        wref = [wref; zeros(Nw - numel(wref), 1)];
+        seg  = [seg;  zeros(Nw - numel(seg),  1)];
+        [wxc, wl] = xcorr(wref, seg, 'normalized');
         [wpk, wpi] = max(abs(wxc));
         if wpk < 0.5, continue; end
         centers(end+1) = w0 + winSec/2;              %#ok<AGROW>
@@ -108,6 +120,7 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
     A = struct();
     A.lagSec = lagSec;
     A.r = pk;
+    A.reviewNeeded = reviewNeeded;
     A.corrSign = corrSign;
     A.rspFlip = -corrSign;    % pressure inhale-negative convention (see header)
     A.driftPPM = driftPPM;

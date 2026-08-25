@@ -17,9 +17,12 @@ function outDat = concatSections(segs, S, P)
 
     nSeg = numel(segs);
     for c = 2:nSeg
-        assert(isequal(segs(c).od.labels(:), segs(1).od.labels(:)), ...
-            '%s: processed-segment labels differ (%s vs %s) - strict failure', ...
-            S.id, strjoin(segs(1).od.labels, ','), strjoin(segs(c).od.labels, ','));
+        % assert() evaluates message args eagerly - keep the strjoins inside
+        % the failure branch
+        if ~isequal(segs(c).od.labels(:), segs(1).od.labels(:))
+            error('%s: processed-segment labels differ (%s vs %s) - strict failure', ...
+                S.id, strjoin(segs(1).od.labels, ','), strjoin(segs(c).od.labels, ','));
+        end
         assert(segs(c).od.fs == segs(1).od.fs, 'fs differs across segments');
     end
 

@@ -51,7 +51,9 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
         R.condition  = cond;
         R.label      = canonicalCondLabel(cond);
         R.data       = cd0.rawData.trial{1};
-        R.labels     = cd0.outLabs;
+        % outLabs cells can hold string objects; downstream (strjoin, isequal
+        % across sections) needs plain char vectors
+        R.labels     = cellstr(string(cd0.outLabs(:)))';
         R.fs_raw     = cd0.rawData.fsample;
         R.suffix     = suffixOf(cd0.ncslabels);
         R.folderTime = provenanceTime(cd0.rawData);
