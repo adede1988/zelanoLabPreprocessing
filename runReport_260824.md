@@ -175,3 +175,54 @@ signal — see `E:\reprocBackup_260824\task2_verify.log`.
 `batch/task2_writeSheet.m` set `Raw Data Extracted = X` and `datPre` on the 16
 extracted rows via `writeParams` (new `AllowUnextracted`/`SetRawExtracted` options —
 the sanctioned way to mark an extraction). CA has no movie row and none was invented.
+
+---
+
+## Task 3 — breathMetrics engine (Part A run 2026‑08‑25; **batch BLOCKED on a D8d stop‑and‑ask**)
+
+### Integration (steps 1–2, 4)
+
+breathmetrics vendored into `external/breathMetrics/` (lab fork
+`qhyang42/breathmetrics` @ `9791153`, 2026‑08‑03; note + licence in README).
+`shared/segmentBreaths_breathMetrics.m` returns the exact legacy 14‑column `bmObj`
+(times in seconds; col 9 now the fs‑sample inhale‑peak index — the legacy internal
+50‑Hz index had no consumers) plus `bmFeatures` (plain struct: every per‑breath
+feature, shape/secondary features, conditioning record, `bmObjBreathIdx` row map).
+`process_respiration_breathing` calls it (legacy `breathTemplates4` kept, not
+called); cyclic‑sigh merging keeps the feature map aligned;
+`build_behavior_table_breathingTask` appends `bm_*` columns (D8e; note: they land
+before `goodBreath`/HRV, which `flagBadBreaths` appends later — access by name).
+Run‑on‑guess (D4): `ZLP_ALLOW_GUESS_RUN=1` + EEG‑type check; `paramCheck` /
+`paramCheckECG` save QC figures non‑interactively; guess rows are never promoted.
+The whole Task 3 change set went through two adversarial review passes; the
+confirmed findings (blank‑paramSource promotion, backup verify/delete holes,
+one‑way sheet reconciliation, NaN input, figure leaks) are fixed and committed.
+
+### Validation (step 3) — D8c/D8d
+
+Old engine vs breathMetrics on the same trace, one‑to‑one matching within ±250 ms:
+
+| session | Type | old breaths | new breaths | old→new | new→old | med \|dt\| | result |
+|---|---|---:|---:|---:|---:|---:|---|
+| 251008_EEG_NWU_GM | EEG | 1335 | 1352 | 98.8% | 97.6% | 12 ms | **PASS** |
+| 251030_Dupi_NMH_DB_1 | Dupi | 121 | 183 | 96.7% | 63.9% | 26 ms | FAIL |
+| 250908_OBE_NWU_AS | OBE | 485 | 484 | 80.6% | 80.8% | 40 ms | FAIL |
+
+Every mandated conditioning fallback (100/250 ms smoothing, mean‑centering,
+z‑scoring, `simple` baseline, combinations — `batch/task3_validateConditioning.m`)
+moves these numbers by ≤ 1.5 points: the disagreement is structural.
+
+**Evidence that the LEGACY engine is the main source of disagreement**
+(overlay figures in `E:\reprocBackup_260824\bmValidation\`):
+
+- DB_1 is a 14.7‑min recording; 183 breaths = 12.4/min (normal), legacy's 121 =
+  8.2/min. In the zooms, long stretches show red (new) markers on unmistakable
+  real breath cycles with no blue (legacy) marker — legacy skipped ~⅓ of real
+  breaths, and the July final was built on those 121.
+- AS: counts agree (485/484) and clean stretches match tightly; the ~19%
+  disagreement concentrates in artifact/flat segments (legacy marks "breaths" on a
+  flat line; breathMetrics is conservative) and ragged shallow‑breathing stretches
+  (both detect, placement > 250 ms apart).
+
+Per the work order ("stop and ask if any test session stays below 90 % after
+that") the **full breathing rerun (Part B) is on hold** for a decision.

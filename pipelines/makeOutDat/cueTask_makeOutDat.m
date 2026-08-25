@@ -844,7 +844,14 @@ end
                        strcmp(outDat.behDat.response_str,'Yes'));
     outDat.behDat.type(idx) = repmat("fa", length(idx),1);  
     idx = find(cellfun(@(x) isempty(x), outDat.behDat.response_str));
-    outDat.behDat.type(idx) = repmat("skip", length(idx),1);  
+    outDat.behDat.type(idx) = repmat("skip", length(idx),1);
+    % No-cue condition (Tasks_260824.md D9): the raw file codes cue==0 for
+    % no-cue trials; hit/miss/cr/fa are undefined there, so they get their own
+    % outcome value. The cue column keeps the 0. The photodiode structure is
+    % unchanged on no-cue trials (trial-start/sniff/response pulses all
+    % present - verified on SP_2/RC_1/KA_2, batch/task6_probeNoCueTTL.m).
+    idx = find(outDat.behDat.cue == 0);
+    outDat.behDat.type(idx) = repmat("noCue", length(idx),1);
   
     
     outDat.task = "cueTask"; 
