@@ -18,6 +18,39 @@ function P = paramCheckECG(outDat, P)
         return;
     end
 
+    if isfield(P, 'allowGuessRun') && P.allowGuessRun
+        % Tasks_260824.md D4 run-on-guess: save the QC figure + a beat-rate
+        % summary instead of prompting; the spec is left as guessed.
+        [ECGz, beatSep] = buildECGz(outDat);
+        beats = detectBeats(ECGz, beatSep, P.beatSpec);
+        durMin = size(ECGz, 2) / outDat.fs / 60;
+        bpm = numel(beats) / durMin;
+        fprintf('paramCheckECG (run-on-guess) %s: beatSpec=%s -> %d beats, %.1f bpm over %.1f min\n', ...
+            outDat.sessID, P.beatSpec, numel(beats), bpm, durMin);
+        if bpm < 30 || bpm > 160
+            warning('paramCheckECG:oddRate', '%s: %.1f bpm is outside 30-160 - inspect the QC figure', ...
+                outDat.sessID, bpm);
+        end
+        N  = size(ECGz, 2);
+        w0 = min(100000, max(1, N - 10000));
+        w1 = min(w0 + 10000, N);
+        cols = {'k', 'r', 'g', 'b', 'm'};
+        inWin = beats(beats >= w0 & beats <= w1) - w0 + 1;
+        fig = figure('Visible', 'off', 'Position', [40 40 1400 500]); hold on
+        for c = 1:size(ECGz, 1)
+            plot(ECGz(c, w0:w1), 'color', cols{min(c, numel(cols))});
+        end
+        if ~isempty(inWin)
+            xline(inWin, 'color', 'magenta', 'linestyle', '--');
+        end
+        title(sprintf('%s paramCheckECG (guess): beatSpec=%s, %.1f bpm overall', ...
+            outDat.sessID, P.beatSpec, bpm), 'Interpreter', 'none');
+        figDir = guessFigDirECG(outDat, P);
+        saveas(fig, fullfile(figDir, [outDat.sessID '_paramCheck_ECG.png']));
+        close(fig);
+        return;
+    end
+
     set(0, 'defaultfigurewindowstyle', 'docked');
     [ECGz, beatSep] = buildECGz(outDat);
 
@@ -56,4 +89,16 @@ function P = paramCheckECG(outDat, P)
     end
 
     set(0, 'defaultfigurewindowstyle', 'normal');
+end
+
+function figDir = guessFigDirECG(outDat, P)
+% figure folder for run-on-guess QC output (mirrors paramCheck>guessFigDir)
+    if isfield(P, 'figDir') && ~isempty(P.figDir)
+        figDir = P.figDir;
+    elseif isfield(outDat, 'figs') && ~isempty(outDat.figs)
+        figDir = outDat.figs;
+    else
+        figDir = fullfile('E:\reprocBackup_260824', 'guessQC', outDat.sessID);
+    end
+    if ~isfolder(figDir), mkdir(figDir); end
 end

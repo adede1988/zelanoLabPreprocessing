@@ -1,11 +1,14 @@
 function outDat = process_respiration_breathing(outDat, P)
 
-    % respiration  
+    % respiration
     idx = cellfun(@(x) contains(x, 'rsp'), outDat.labels);
-    rspDat = outDat.data(idx,:); 
+    rspDat = outDat.data(idx,:);
     rspDat = rspDat(P.rspIDX,:);
     rspDat = rspDat .* P.rspFlip;
-    bmObj = breathTemplates4(rspDat, outDat.fs);
+    % Per-breath segmentation engine: breathMetrics (Tasks_260824.md Task 3 /
+    % D8). The legacy engine is kept in the repo for comparison reruns:
+    %   bmObj = breathTemplates4(rspDat, outDat.fs);
+    [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs);
     %col 1: onset Y value
     %col 2: onset tim
     %col 3: peak Y value
@@ -91,7 +94,11 @@ function outDat = process_respiration_breathing(outDat, P)
                             %col14: index
                         end
                     end
-                    bmObj(deleteIdx,:) = []; 
+                    bmObj(deleteIdx,:) = [];
+                    % keep the bmFeatures row-mapping aligned with bmObj (a
+                    % merged cyclic-sigh pair keeps the FIRST breath's
+                    % per-breath features)
+                    bmFeatures.bmObjBreathIdx(deleteIdx) = [];
                 else
                      if ii == length(orderIdx)
                         endIdx = length(rspDat); 
@@ -118,7 +125,9 @@ function outDat = process_respiration_breathing(outDat, P)
 
 
 
-    outDat.bmObj = bmObj; 
+    bmObj(:, 14) = 1:size(bmObj, 1);   % sequential breath index after any merges
+    outDat.bmObj = bmObj;
+    outDat.bmFeatures = bmFeatures;
 
 
 

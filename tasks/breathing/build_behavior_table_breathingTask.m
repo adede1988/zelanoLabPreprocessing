@@ -135,4 +135,41 @@ function outDat = build_behavior_table_breathingTask(outDat, bmObj)
 
     outDat.baseEmotion = baseEmotion;
 
+    % ---------------- breathMetrics per-breath features (Tasks_260824 D8e) ----------------
+    % Every existing column above is kept; the breathMetrics feature set is
+    % appended as bm_* columns, aligned to bmObj rows via bmObjBreathIdx.
+    if isfield(outDat, 'bmFeatures') && isfield(outDat.bmFeatures, 'bmObjBreathIdx')
+        F  = outDat.bmFeatures;
+        bi = F.bmObjBreathIdx(:);
+        nRows = height(outDat.behDat);
+        if numel(bi) == nRows
+            perBreath = {'inhaleOnsets', 'exhaleOnsets', 'inhaleOffsets', 'exhaleOffsets', ...
+                         'inhalePeaks', 'exhaleTroughs', 'peakInspiratoryFlows', ...
+                         'troughExpiratoryFlows', 'inhaleTimeToPeak', 'exhaleTimeToTrough', ...
+                         'inhaleVolumes', 'exhaleVolumes', 'inhaleDurations', 'exhaleDurations', ...
+                         'inhalePauseOnsets', 'exhalePauseOnsets', ...
+                         'inhalePauseDurations', 'exhalePauseDurations'};
+            for f = 1:numel(perBreath)
+                fld = perBreath{f};
+                if isfield(F, fld) && numel(F.(fld)) >= max(bi)
+                    v = F.(fld)(:);
+                    outDat.behDat.(['bm_' fld]) = v(bi);
+                end
+            end
+            if isfield(F, 'shapeFeatures') && istable(F.shapeFeatures) ...
+                    && height(F.shapeFeatures) >= max(bi)
+                sv = F.shapeFeatures.Properties.VariableNames;
+                for f = 1:numel(sv)
+                    if strcmp(sv{f}, 'breath_id'), continue; end
+                    v = F.shapeFeatures.(sv{f});
+                    outDat.behDat.(['bm_' sv{f}]) = v(bi);
+                end
+            end
+        else
+            warning('build_behavior_table_breathingTask:bmMisaligned', ...
+                '%s: bmObjBreathIdx (%d) does not match behDat rows (%d); bm_* columns skipped', ...
+                outDat.sessID, numel(bi), nRows);
+        end
+    end
+
 end

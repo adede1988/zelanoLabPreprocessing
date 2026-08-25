@@ -1,10 +1,45 @@
 function [outDat, P] = paramCheck(outDat, P)
+%PARAMCHECK  Verify rsp-channel and macro/spike choices for guess-param sessions.
+%   Interactive by default. When P.allowGuessRun is true (Tasks_260824.md D4
+%   run-on-guess batch override) it instead SAVES the same QC figures to the
+%   session figure folder (P.figDir, falling back to outDat.figs) and returns
+%   without prompting, leaving every parameter unchanged.
+
+    if isfield(P, 'allowGuessRun') && P.allowGuessRun
+        figDir = guessFigDir(outDat, P);
+        idx = cellfun(@(x) contains(x, 'rsp'), outDat.labels);
+        rspDat = outDat.data(idx, :);
+        fig = figure('Visible', 'off', 'Position', [40 40 1400 500]);
+        plot(rspDat', 'color', 'k'); hold on
+        plot(rspDat(P.rspIDX, :) .* P.rspFlip, 'color', 'red')
+        xlim([10000 min(100000, size(rspDat, 2))])
+        title(sprintf('%s paramCheck rsp: rspIDX=%d rspFlip=%d (red = chosen)', ...
+            outDat.sessID, P.rspIDX, P.rspFlip), 'Interpreter', 'none');
+        saveas(fig, fullfile(figDir, [outDat.sessID '_paramCheck_rsp.png']));
+        close(fig);
+
+        idx = cellfun(@(x) contains(x, 'macro'), outDat.labels);
+        if sum(idx) > 0
+            macDat = outDat.data(idx, :);
+            fig = figure('Visible', 'off', 'Position', [40 40 1400 700]);
+            hold on
+            for ii = 1:size(macDat, 1)
+                plot(macDat(ii, :) + ii * 100)
+            end
+            xlim([10000 min(30000, size(macDat, 2))])
+            title(sprintf('%s paramCheck macros: macroRemove=%s spikeClean=%d', ...
+                outDat.sessID, mat2str(P.macroRemove), P.spikeClean), 'Interpreter', 'none');
+            saveas(fig, fullfile(figDir, [outDat.sessID '_paramCheck_macros.png']));
+            close(fig);
+        end
+        return;
+    end
 
     set(0, 'defaultfigurewindowstyle', 'docked')
 
-% is the respiration index correct? 
+% is the respiration index correct?
     idx = cellfun(@(x) contains(x, 'rsp'), outDat.labels);
-    rspDat = outDat.data(idx, :); 
+    rspDat = outDat.data(idx, :);
 
     
     figure; 
@@ -82,4 +117,17 @@ function [outDat, P] = paramCheck(outDat, P)
 
 
 
+end
+
+function figDir = guessFigDir(outDat, P)
+% figure folder for run-on-guess QC output: P.figDir, else outDat.figs,
+% else a reprocBackup fallback so the figures are never silently lost
+    if isfield(P, 'figDir') && ~isempty(P.figDir)
+        figDir = P.figDir;
+    elseif isfield(outDat, 'figs') && ~isempty(outDat.figs)
+        figDir = outDat.figs;
+    else
+        figDir = fullfile('E:\reprocBackup_260824', 'guessQC', outDat.sessID);
+    end
+    if ~isfolder(figDir), mkdir(figDir); end
 end

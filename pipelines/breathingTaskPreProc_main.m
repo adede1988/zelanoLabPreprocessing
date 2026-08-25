@@ -7,7 +7,9 @@ codePre      = L.codePre;
 addpath(genpath(L.repo))
 addpath(genpath(L.slowBreathing))
 addpath(genpath(L.eeglab))
-% NB: breathmetrics toolbox is not used in this pipeline -> not loaded
+% NB: breathMetrics (vendored in external/breathMetrics) is the per-breath
+% segmentation engine via shared/segmentBreaths_breathMetrics — on the path
+% through the repo genpath above
 
 targTraceDir = L.targTraceDir;
 figPath      = L.figPath;
@@ -36,6 +38,11 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 cfg        = applyParams('breathingTask','main');
 sessionIDs = cfg.sessionIDs;
 
+% Tasks_260824.md D4 batch override: when the env var is set, guess-param
+% sessions of Type EEG are run anyway (QC figures saved, paramSource left as
+% guess). Every other guess session still halts at the gate.
+allowGuessRunEnv = strcmp(getenv('ZLP_ALLOW_GUESS_RUN'), '1');
+
 success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
@@ -63,6 +70,8 @@ for s = 1:numel(sessionIDs)
     % --- Params + raw load ---
     P = applyParams('breathingTask', S.id);
     isGuess = strcmp(P.paramSource, 'guess');
+    P.allowGuessRun = allowGuessRunEnv && strcmp(P.type, 'EEG');   % D4
+    P.figDir = S.fig;
 
     disp(['........................Loaded ', sessionIDs{s}])
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
@@ -125,15 +134,20 @@ for s = 1:numel(sessionIDs)
     % ===== end TASK-SPECIFIC (breathing) =====
 
     % --- Guess gate: stop before writing back / exporting / saving so the user
-    %     can verify the rsp, macro, ECG and breath figures first. (The
-    %     per-session try/catch below reports this halt like any other stop.) ---
+    %     can verify the rsp, macro, ECG and breath figures first. Under the D4
+    %     run-on-guess override the save proceeds but paramSource stays guess
+    %     (never promoted) so the outputs get checked by hand later. ---
     if isGuess
-        error(['breathingTask guess params: inspect the saved figures (rsp / ' ...
-               'macros / ECG / breaths), then set paramSource=curated in ' ...
-               'dataTracking.xlsx (or call writeParams(P, S.id)) and re-run.']);
+        if ~P.allowGuessRun
+            error(['breathingTask guess params: inspect the saved figures (rsp / ' ...
+                   'macros / ECG / breaths), then set paramSource=curated in ' ...
+                   'dataTracking.xlsx (or call writeParams(P, S.id)) and re-run.']);
+        end
+        disp(['RUN-ON-GUESS (D4): saving outputs for ' S.id '; paramSource stays guess'])
+    else
+        P.paramSource = 'curated';
+        writeParams(P, S.id);
     end
-    P.paramSource = 'curated';
-    writeParams(P, S.id);
 
     if ~exist(L.procBehavior,'dir'), mkdir(L.procBehavior); end
     writetable(outDat.behDat, fullfile(L.procBehavior, [outDat.sessID '_processedBreathing.csv']));
