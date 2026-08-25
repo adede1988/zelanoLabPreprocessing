@@ -262,6 +262,35 @@ CSV `experiment_EEGsync\processedBehavior\260227_EEG_NWU_HW.csv` was never
 generated — generate it with `tidyDataImport_waveExp.R` and rerun; raw, guesses
 and pipeline are all in place).
 
+The 20 soft‑flagged sessions (breathMetrics breath count vs the July final;
+finals kept, X kept — review):
+
+| session | breaths (new vs July) | Δ |
+|---|---|---|
+| 250723_EEG_NWU_BK | 734 vs 625 | +17.4% |
+| 250725_EEG_NWU_BN | 511 vs 430 | +18.8% |
+| 250815_EEG_NWU_PP | 543 vs 476 | +14.1% |
+| 250818_Dupi_NMH_JH_1 | 404 vs 334 | +21.0% |
+| 250819_EEG_NWU_ZL | 599 vs 535 | +12.0% |
+| 250912_EEG_NWU_JN | 501 vs 430 | +16.5% |
+| 250811_Dupi_NMH_TPB_1 | 37 vs 32 | +15.6% |
+| 251008_EEG_NWU_JC | 778 vs 1096 | **−29.0%** |
+| 251009_EEG_NWU_JM | 1299 vs 897 | **+44.8%** |
+| 250811_Dupi_NMH_TB_2 | 345 vs 302 | +14.2% |
+| 250929_Dupi_NMH_GH_1 | 504 vs 330 | **+52.7%** |
+| 251027_EEG_NWU_AS | 872 vs 791 | +10.2% |
+| 251110_EEG_NWU_GA | 632 vs 858 | **−26.3%** |
+| 251111_EEG_NWU_VW | 275 vs 802 | **−65.7%** |
+| 251113_EEG_NWU_GH | 319 vs 480 | **−33.5%** |
+| 251027_Dupi_NMH_DL_1 | 333 vs 299 | +11.4% |
+| 250929_Dupi_NMH_GH_2 | 126 vs 86 | **+46.5%** |
+| 251002_Dupi_NMH_AB_2 | 106 vs 144 | **−26.4%** |
+| 251030_Dupi_NMH_DB_1 | 183 vs 121 | **+51.2%** |
+| 251030_Dupi_NMH_DB_2 | 196 vs 149 | +31.5% |
+
+(Bolded rows moved more than 25% — start the review there, especially VW at
+−65.7%.)
+
 **Incident:** the Admin master workbook became unreadable (corrupt) during the
 verification stage's write burst (VPN/SMB + rapid `writecell` full-rewrites).
 The corrupt file is preserved at
@@ -349,3 +378,131 @@ SP_2, RC_1, KA_2 (OBE modal; KA_2 has the raw‑folder naming issue above); PD_2
 and JA_2 already carried guesses. makeOutDat also created the SP_2 and RC_1
 intermediates in passing (normal guess‑session state; PD_2/JA_2 already had
 theirs). No finals written; `Data Preprocessed` untouched.
+
+## Task 7 — EmotionalMovieTask pipeline (run 2026‑08‑25)
+
+### Build (D10)
+
+New task registered end‑to‑end (`applyParams` 'movie' keys, `preprocessAll`,
+`writeParams`/`writePreProcX`): `emotionalMovieTask_makeOutDat.m` (photodiode →
+clip table; process‑then‑check pulse grouping; 1/2/3 pulses = neutral/positive/
+negative; clip end = next onset − 1.6 s), `assembleRaw_emotionalMovieTask.m`
+(refuses to ingest an old final as an intermediate), a `_main` whose shared body
+is byte‑identical to the other mains, and
+`build_behavior_table_emotionalMovieTask.m` (per‑breath rows filtered to
+in‑clip, `clipIndex`/`clipValence`/`clipOnset`, `task`=valence, `bm_*` columns).
+**The final clip of each session has no end marker (old task code); its breaths
+are dropped — confirmed acceptable.** ECG failure degrades to NaN‑HRV +
+`ecgSkipped=2` instead of losing the session.
+
+### Validation
+
+AS_4 (old OBEControl) ran in memory up to the guess gate — no save, old final
+untouched. TI_1's new‑format intermediate was saved (180 clips; 59/61/60 by
+valence). Verifier bounds: clip count 150–210, valence balance, breaths > 0.
+
+### Results — 7/7 EEG subjects saved + verified
+
+All seven ran run‑on‑guess with **empirical `rspFlip=−1`** (from each subject's
+SniffLogic log alignment, Task 8) and **measured `beatSpec=1,0,lt,-3.5`** (the
+2026‑08 rigs record ECG lead 1 inverted — discovered when the default spec gave
+82 bpm of *negative* crossings on JH and ~2 bpm positive):
+
+| session | clips | in‑clip breaths | bpm |
+|---|---|---|---|
+| 260806_EEG_NWU_JH | 192 | 356 | 81 |
+| 260806_EEG_NWU_MM | 189 | 441 | 73 |
+| 260807_EEG_NWU_GP | 196 | 266 | 66 |
+| 260810_EEG_NWU_IS | 190 | 377 | 55 |
+| 260810_EEG_NWU_AL | 188 | 437 | 74 |
+| 260811_EEG_NWU_MS | 192 | 376 | 80 |
+| 260811_EEG_NWU_HK | 185 | 392 | 62 |
+
+Two earlier generations of these finals (round 3: wrong beatSpec; round 3.5:
+default `rspFlip=+1`, i.e. inverted respiration) are backed up at
+`E:\reprocBackup_260824\movie\*_badECG*.mat` / `*_badFlip_r3.mat` — the current
+finals supersede them. AS_4 / TI_1 / CP_1 stay not‑run (guess, non‑EEG, D4).
+
+## Task 8 — alternating6Blocks pipeline (run 2026‑08‑25)
+
+### Build (D11)
+
+`parse_sniffLogicLog.m` (event column forced to char via `detectImportOptions`
+— `readtable` silently coerces sparse text columns to numeric; event times
+sorted; 30 s block‑gap tolerance; 1+3+3 structure assert),
+`parse_mindfulBreathing.m` (12 questions × 8 sets split on >120 s gaps;
+`order = set − 1`), `alignLogToRaw.m` (zero‑padded normalized xcorr at 20 Hz →
+100 Hz refinement → 120 s sliding‑window drift fit; **the sign of the
+correlation gives the empirical `rspFlip`** since SniffLogic pressure is
+inhale‑negative; hard fail below \|r\|=0.40 or on an ambiguous peak, review
+band 0.40–0.60), `alternating6Blocks_makeOutDat.m` (log↔subject matching ±3 h
+unique), `assembleRaw_…`, `build_behavior_table_…` (NaN‑prefilled rating
+columns), and a `_main` that errors if the sheet `rspFlip` contradicts the
+log‑derived polarity.
+
+### Alignment results (all 8 subjects)
+
+All eight aligned with **corrSign +1 → `rspFlip = −1`**; \|r\| = 0.81–0.92
+except **MS at 0.47** (unique peak, NaN‑gap recording — accepted with a REVIEW
+flag). Clock drift −13…+161 ppm (MS −390 ppm). All eight logs parse to the
+perfect 7 × 6.0‑min block structure.
+
+### Results — 8/8 saved + verified
+
+JH 723 / MM 533 / GP 511 / IS 537 / AL 426 / MS 272 / HK 413 breaths across 7
+blocks each, HRV 58–87 bpm (beatSpec `1,0,lt,-3.5`, same measured basis as Task
+7). **CA: 323 in‑block breaths (507 total), HRV = NaN, blink removal skipped —
+double REVIEW.** CA's first pass failed because *both* blink channels flunked
+`blinkRemoveWrapper`'s quality criteria; `shared/preprocess_eeg` now degrades
+that specific condition to the already‑defined `blinkRemoval=0` state (warning
++ REVIEW) instead of losing the session. CA also records **no cardiac signal on
+any ECG lead** (~10 bpm symmetric noise, `batch/task8_probeCA.m`), so an ECG
+viability probe (<20 bpm ⇒ NaN HRV, mirroring Task 9's) now guards the movie
+and alternating mains, and CA's final carries NaN HRV instead of garbage RRint.
+Its two bad generations sit in `E:\reprocBackup_260824\alt6\`. (The rebuild
+also tripped the §2 case‑insensitivity quirk — deleting the "final" deletes the
+intermediate too; makeOutDat regenerated it, alignment bit‑identical.)
+
+## Task 9 — breathingTasks_separate pipeline (run 2026‑08‑25)
+
+### Build (D12)
+
+One session = several sheet rows whose `Task` is a condition name; each
+condition recording goes through the **entire shared core separately** (filters,
+ICA, breath segmentation never straddle a file boundary), then
+`concatSections.m` stitches data/bmObj/bmFeatures/heartBeats with sample
+offsets, per‑section EEG QC, a `sections` table and a breathing‑style
+`TTL = [start end …]` vector. Chronological ordering of condition files uses
+the Neuralynx channel‑suffix (`''`/`_000N`) plus the acquisition‑folder
+datetime recovered from the fieldtrip `cfg.previous` provenance chain.
+`writeSheetSep.m` writes params/X to **every** in‑scope condition row.
+Breaths whose QC window crosses a section boundary get `goodBreath=0`.
+
+### Results — 8/8 sessions saved + verified
+
+Single‑file: GH_1 (99 breaths, 62 bpm), DL_1 (323, 61), ZF_1 (195, 46), RY_1
+(42, HRV NaN — **no cardiac signal on any lead**, probe ≤6.5 bpm both
+polarities). Multi‑file: HM_2 (4 sections, 159 breaths, 68 bpm), SP_2 (3
+sections, 257 breaths, 67 bpm), RC_1 (4 sections, 610 breaths, 51 bpm), KA_2
+(1 section, 88 breaths, 61 bpm) — their first‑pass HRV used default specs
+and came out implausible, so `batch/task9_probeECGpolarity.m` measured beat
+rate per channel × polarity on the saved finals and `batch/task9_respecs.m`
+wrote the winners (HM_2 `3,0,lt,-3.5` 67.9 bpm; SP_2 `2,0,gt,3.5` 67.7; RC_1
+`1,0,lt,-3.5` 51.0; KA_2 `1,0,lt,-3.5` 61.1) before a rerun; the superseded
+finals are at `E:\reprocBackup_260824\sep\*_badECG_r4.mat`.
+**HM_2's sleep section has only 5 detected breaths in 18.8 min — inspect the
+respiration trace.**
+
+### Debugging record (rounds 2→5, for future maintainers)
+
+The three new pipelines went through five batch rounds; root causes fixed along
+the way, all committed: `readtable` numeric‑coercion of the SniffLogic event
+column; unsorted log event times; three separate unequal‑length `'normalized'`
+`xcorr` calls (coarse, refine, drift window); a MATLAB regexp quirk (a capture
+group inside an optional non‑capturing group returns empty `tokens` even on a
+match); `struct('f', cellArray)` building struct arrays; **`assert` evaluates
+its message arguments eagerly** (a `strjoin` in a passing assert's message
+crashed every multi‑file session — labels contain string objects from
+`preprocess_eeg`'s `"blinkIndicator"`/`"badTS"` appends, which `strjoin`
+rejects); the inverted ECG lead on all 2026 summer rigs; and the blink‑channel
+degrade above. Full stack traces (`getReport`) now print in every main's catch.

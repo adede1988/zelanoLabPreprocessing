@@ -74,8 +74,9 @@ RAW  (Neuralynx/Atlas export + behavioral .mat/.csv)
 
 ## 3. `dataTracking.xlsx` — the source of truth
 
-`R:\Neurology\Zelano_Lab\Lab_Common\Admin\dataTracking.xlsx` (`labPaths().adminXlsx`, or a repo‑local
-copy), `Sheet1`, **header row = 2, data from row 3**. Read it only through **`config/applyParams.m`**:
+`R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx` (`labPaths().adminXlsx`, or a repo‑local
+copy; canonical location since 2026‑08‑25 — the old `Admin\dataTracking.xlsx` is no longer read),
+`Sheet1`, **header row = 2, data from row 3**. Read it only through **`config/applyParams.m`**:
 
 ```matlab
 cfg = applyParams(task, 'makeOutDat'|'main')   % Mode A: session list (+ roots) for a loop
