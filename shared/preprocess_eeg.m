@@ -39,14 +39,29 @@ function outDat = preprocess_eeg(outDat, standardEEGlocs, P)
 
 
     if length(chanIDX) > 10
-    % 4) Blink removal on good channels 
-   
-    [out, badChan2, blinkIndicator] = blinkRemoveWrapper(outDat,...
-                                                chanIDX,...
-                                                outDat.fs, interpChan);
+    % 4) Blink removal on good channels. If BOTH candidate blink channels are
+    % bad (blinkRemoveWrapper's own criteria) blink removal is impossible for
+    % this session: degrade to blinkRemoval=0 (the already-defined state) and
+    % keep the rest of the EEG stage rather than losing the session - REVIEW
+    try
+        [out, badChan2, blinkIndicator] = blinkRemoveWrapper(outDat,...
+                                                    chanIDX,...
+                                                    outDat.fs, interpChan);
+        blinkOK = true;
+    catch MEblink
+        if contains(MEblink.message, 'no available blink chan')
+            warning('%s: both blink channels bad - blink removal SKIPPED, REVIEW', ...
+                outDat.sessID);
+            out = outDat.data(1:32, :);
+            badChan2 = [];
+            blinkOK = false;
+        else
+            rethrow(MEblink);
+        end
+    end
 
-    tmp = chanIDX(badChan2); 
-    badChans = [badChans(:); tmp(:)]; 
+    tmp = chanIDX(badChan2);
+    badChans = [badChans(:); tmp(:)];
   
     % Interpolate bad channels into a TEMPORARY copy used ONLY for the surface
     % Laplacian. The Laplacian is a spatial high-pass and is corrupted by bad
@@ -69,16 +84,18 @@ function outDat = preprocess_eeg(outDat, standardEEGlocs, P)
     % no independent information at those sites; mask outDat.badChans for any
     % per-channel Laplacian analysis.
     outDat.dataLapFromInterp = 1; 
-    outDat.data(1:32,:) = out; 
-    outDat.data(end+1, :,:) = blinkIndicator; 
-    outDat.labels{end+1} = "blinkIndicator";
-    outDat.data(end+1, :,:) = badTS; 
+    outDat.data(1:32,:) = out;
+    if blinkOK
+        outDat.data(end+1, :,:) = blinkIndicator;
+        outDat.labels{end+1} = "blinkIndicator";
+    end
+    outDat.data(end+1, :,:) = badTS;
     outDat.labels{end+1} = "badTS";
-    outDat.data(end+1, :,:) = interpChan; 
+    outDat.data(end+1, :,:) = interpChan;
     outDat.labels{end+1} = "interpChan";
     outDat.EEGInterpolation = 1;
     outDat.EEGCleaning = 1;
-    outDat.blinkRemoval = 1; 
+    outDat.blinkRemoval = double(blinkOK);
 
     else
 
