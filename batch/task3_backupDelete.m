@@ -22,7 +22,9 @@ for s = 1:numel(cfg.sessionIDs)
     end
     dest = fullfile(BK, [id '_breathingPreproc.mat']);
     dd = dir(dest);
-    if isempty(dd)
+    if isempty(dd) || dd(1).bytes ~= fd(1).bytes
+        % no backup yet, or a partial copy from a killed earlier attempt:
+        % (re)copy before considering deletion
         copyfile(f, dest);
         dd = dir(dest);
     end
@@ -31,7 +33,10 @@ for s = 1:numel(cfg.sessionIDs)
         nDel = nDel + 1;
         fprintf('BACKED UP + REMOVED  %-26s (%d MB)\n', id, round(fd(1).bytes / 1e6));
     else
-        fprintf('SIZE MISMATCH - NOT DELETED  %s (src %d, backup %d bytes)\n', ...
+        % a stale final left in place would make the rerun silently skip this
+        % session as "Done" - fail loudly instead
+        error('task3_backupDelete:copyFailed', ...
+            'backup of %s does not match source after re-copy (src %d, backup %d bytes)', ...
             id, fd(1).bytes, dd(1).bytes);
     end
 end

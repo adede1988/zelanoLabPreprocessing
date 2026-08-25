@@ -66,6 +66,16 @@ function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
     if size(rsp, 1) > 1, rsp = rsp'; end
     assert(isvector(rsp) && isnumeric(rsp), 'rsp must be a numeric vector');
 
+    % discontinuous Neuralynx recordings can carry NaN samples, which poison
+    % breathmetrics' FFT smoothing; interpolate them (same policy as the cue
+    % makeOutDat's fillmissing) and record how many were filled
+    nNaN = sum(~isfinite(rsp));
+    if nNaN > 0
+        fprintf('segmentBreaths_breathMetrics: filling %d non-finite samples (%.3f%%)\n', ...
+            nNaN, 100 * nNaN / numel(rsp));
+        rsp = fillmissing(double(rsp), 'linear', 'EndValues', 'nearest');
+    end
+
     ZSCORE   = 0;
     BASELINE = 'sliding';
     SIMPLIFY = 1;
@@ -120,6 +130,7 @@ function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
     bmFeatures.srate    = bm.srate;
     bmFeatures.conditioning = struct( ...
         'callerConditioning',   'none (raw chosen trace, rspIDX/rspFlip applied upstream)', ...
+        'nanSamplesFilled',     nNaN, ...
         'smoothing',            'breathmetrics fftSmooth, 50 ms window (humanAirflow default)', ...
         'baselineCorrection',   [BASELINE ' (60 s sliding window)'], ...
         'zScore',               ZSCORE, ...

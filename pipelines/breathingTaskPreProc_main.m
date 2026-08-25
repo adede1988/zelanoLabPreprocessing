@@ -69,9 +69,18 @@ for s = 1:numel(sessionIDs)
 
     % --- Params + raw load ---
     P = applyParams('breathingTask', S.id);
-    isGuess = strcmp(P.paramSource, 'guess');
+    % anything not explicitly curated is treated as a guess: a BLANK
+    % paramSource must never run on defaults and get silently promoted
+    isGuess = ~strcmpi(strtrim(P.paramSource), 'curated');
     P.allowGuessRun = allowGuessRunEnv && strcmp(P.type, 'EEG');   % D4
     P.figDir = S.fig;
+
+    % D4 batch runs: guess sessions that are NOT allowed to run are skipped
+    % before the multi-GB raw load (interactive runs still hit the gates)
+    if isGuess && allowGuessRunEnv && ~P.allowGuessRun
+        disp(['SKIP (guess, not run per D4): ' S.id])
+        continue
+    end
 
     disp(['........................Loaded ', sessionIDs{s}])
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
@@ -160,9 +169,10 @@ for s = 1:numel(sessionIDs)
     writePreProcX(P, S.id);   % mark Data Preprocessed = X in dataTracking.xlsx
 
     catch ME
-        success(s) = 0; 
+        success(s) = 0;
         disp(['fail for ', sessionIDs{s}, ': ', ME.message])
     end
+    close all   % long unattended batches must not accumulate figures
     
     
 end
