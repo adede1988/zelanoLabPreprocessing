@@ -79,6 +79,13 @@ for s = 1:numel(sessionIDs)
         hasECG = sum(cellfun(@(x) contains(x, 'ECG'), od.labels)) > 0;
         if hasECG
             od = processECG(od, P);
+            % processECG saves fixed-name QC figures; keep one per section
+            for fnm = {'ECG_beatDetect', 'interbeatHist', 'RespirationHeart'}
+                src = fullfile(od.figs, [fnm{1} '.jpg']);
+                if exist(src, 'file')
+                    movefile(src, fullfile(od.figs, sprintf('%s_sec%d.jpg', fnm{1}, c)), 'f');
+                end
+            end
         end
         fprintf('   section %d (%s): %d samples, %d breaths\n', c, raws(c).label, ...
             size(od.data, 2), size(od.bmObj, 1));

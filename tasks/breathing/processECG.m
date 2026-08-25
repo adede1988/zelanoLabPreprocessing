@@ -10,18 +10,26 @@ function outDat = processECG(outDat, P)
 
 
 
+    % QC-figure window: nominally samples 100000:110000, clamped so short
+    % recordings (e.g. brief condition sections in Task 9) don't crash the
+    % figure indexing. Figure-only - beat detection above is unaffected.
+    N  = size(ECGz, 2);
+    w0 = min(100000, max(1, N - 10000));
+    w1 = min(w0 + 10000, N);
     figure('visible', false, 'position', [0,0,1000,500]);
-    plot(ECGz(1,100000:110000), 'color', 'k')
-    hold on 
-    plot(ECGz(2,100000:110000), 'color', 'red')
-    plot(ECGz(3,100000:110000), 'color', 'green')
-    xlim([0 10000])
-    xticks([0:1000:10000])
-    xticklabels(0:2:20)
-    xlabel('Time (s)')
-    xline(heartBeats(heartBeats>100000 & heartBeats<110000)-100000, 'color', 'magenta', 'linestyle', '--')
-    maxVal = max(ECGz(:,100000:110000), [], 'all');
-    minVal = min(ECGz(:,100000:110000), [], 'all'); 
+    hold on
+    cols = {'k', 'red', 'green'};
+    for ci = 1:min(3, size(ECGz, 1))
+        plot(ECGz(ci, w0:w1), 'color', cols{ci})
+    end
+    xlim([0 w1 - w0])
+    xlabel('samples (window)')
+    inWin = heartBeats(heartBeats > w0 & heartBeats < w1) - w0;
+    if ~isempty(inWin)
+        xline(inWin, 'color', 'magenta', 'linestyle', '--')
+    end
+    maxVal = max(ECGz(:, w0:w1), [], 'all');
+    minVal = min(ECGz(:, w0:w1), [], 'all');
     ylim([minVal*1.5 maxVal * 1.5])
     title(sprintf('ECG beat detection (%s)', ...
                   outDat.sessID), ...
@@ -84,15 +92,16 @@ function outDat = processECG(outDat, P)
     RRint = interp1(beatTims,beatDiffs, tim, 'linear');
     
     
+    % clamped QC window (figure-only; see note above)
+    v0 = min(100000, max(1, numel(rspDat) - 50000));
+    v1 = min(v0 + 50000, numel(rspDat));
     figure('visible', false, 'position', [0,0,1000,500]);
-    plot(rspDat(100000:150000))
+    plot(rspDat(v0:v1))
     ylabel('Respiration velocity')
     yyaxis right
-    plot(RRint(100000:150000))
+    plot(RRint(v0:v1))
     ylabel('Interbeat Interval (s)')
-    xlim([0 50000])
-    xticks([0:5000:50000])
-    xticklabels([0:10:100])
+    xlim([0 v1 - v0])
     title(sprintf('Respiration and HRV (%s)', ...
                   outDat.sessID), ...
           'Interpreter','none');
