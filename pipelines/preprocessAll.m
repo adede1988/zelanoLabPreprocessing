@@ -58,7 +58,7 @@ fprintf('\npreprocessAll: done. Re-run (report only) to confirm the backlog clea
 
 function rep = pendingReport()
 % Build, per task, the list of raw-extracted sessions not yet marked preprocessed.
-    tasks = {'breathingTask', 'cueTask', 'threshTask', 'O15', 'EmotionalMovieTask'};
+    tasks = {'breathingTask', 'cueTask', 'threshTask', 'O15', 'EmotionalMovieTask', 'alternating6Blocks'};
     xlsx  = resolveSheet();
     C     = readcell(xlsx, 'Sheet', 'Sheet1');
 
@@ -166,6 +166,7 @@ function k = taskKey(task)
         case 'threshtask',         k = 'thresh';
         case 'o15',                k = 'O15';
         case 'emotionalmovietask', k = 'movie';
+        case 'alternating6blocks', k = 'alt6';
         otherwise,                 k = '';
     end
 end
@@ -179,6 +180,7 @@ function k = canonTask(t)
         case 'o15',                k = 'O15';
         case 'threshold',          k = 'thresh';
         case 'emotionalmovietask', k = 'movie';
+        case 'alternating6blocks', k = 'alt6';
         otherwise,                 k = '';
     end
 end

@@ -217,6 +217,16 @@ function out = applyParams(task, sel, xlsxPath)
                           'maxPulseSamp', 2000, 'searchWin', 2000, ...
                           'numNeg', 3, 'numPos', 2, 'numNeu', 1, ...
                           'clipEndGapSec', 1.6);
+
+        case 'alt6'
+            % alternating6Blocks (Tasks_260824.md Task 8): breathing-type
+            % processing; blocks/ratings come from the Google-Drive behavioral
+            % files (sniffLogicLog + mindfulBreathing), aligned in makeOutDat
+            P.hasMacros = bool_or(rows{ri, cHasM}, false);   % EEG_breathing: no macros
+            beatSpec    = asChar(rows{ri, cBeat});
+            if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
+            P.beatSpec  = beatSpec;
+            P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
     end
 
     out = P;
@@ -354,6 +364,8 @@ function k = canonTask(t)
             k = 'thresh';
         case {'emotionalmovietask'}
             k = 'movie';
+        case {'alternating6blocks'}
+            k = 'alt6';
         otherwise
             k = '';
     end
@@ -369,6 +381,7 @@ function k = taskKey(task)
         case 'threshtask',         k = 'thresh';
         case 'o15',                k = 'O15';
         case 'emotionalmovietask', k = 'movie';
+        case 'alternating6blocks', k = 'alt6';
         otherwise,                 k = '';
     end
 end
@@ -381,6 +394,7 @@ function s = taskCallerKey(task)
         case 'thresh',    s = 'threshTask';
         case 'O15',       s = 'O15';
         case 'movie',     s = 'EmotionalMovieTask';
+        case 'alt6',      s = 'alternating6Blocks';
         otherwise,        s = asChar(task);
     end
 end
