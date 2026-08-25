@@ -236,14 +236,42 @@ will legitimately exceed it.
 
 Guesses written (`task3_writeGuesses`): HW = EEG standard set (rspFlip −1 =
 modal of curated EEG rows, 14:7); RX_1 = OBEControl modal values (raw missing —
-recorded for completeness). Batch launched 2026‑08‑25
-(`E:\reprocBackup_260824\scripts\task3_run.ps1`): stage 1 backup+delete of every
-eligible breathing final (tmp+rename verified backups, `task3_backupDelete`),
-stage 2 `breathingTask_makeOutDat`, stage 3 `breathingTaskPreProc_main` with
-`ZLP_ALLOW_GUESS_RUN=1` (HW runs on guess; all other guess rows skip early),
-stage 4 `task3_verifyFinals` (structural failures clear the sheet X, soft
-flags reported). Logs: `E:\reprocBackup_260824\task3_*.log`. *(Results section
-to follow when the batch completes.)*
+recorded for completeness). Batch run 2026‑08‑25
+(`E:\reprocBackup_260824\scripts\task3_run.ps1`): 42 finals backed up
+(tmp+rename verified) to `E:\reprocBackup_260824\breathing\` and removed;
+`breathingTask_makeOutDat` re-parsed every session from raw;
+`breathingTaskPreProc_main` with `ZLP_ALLOW_GUESS_RUN=1`;
+`task3_verifyFinals` reconciled the sheet from disk truth.
+Logs: `E:\reprocBackup_260824\task3_*.log`.
+
+### Part B results
+
+**39 sessions reprocessed from raw and saved** (58 attempted). Verification:
+**ok=19, soft-flag=20, bad=2, missing=17**. The soft flags are review items
+(breath-count drift vs the July finals — expected under the accepted
+breathMetrics engine, DB_1-style — and/or heart rates outside 45–110 bpm);
+their finals are structurally complete and their X stands. The 2 bad =
+`250623_Dupi_NMH_KS_3` (guess row; bare re-created intermediate, as before)
+and `251120_Dupi_NMH_JL_1` (curated; failed with its **documented D6 error**
+mid-pipeline — intermediate on disk, X cleared). The 17 missing are the
+guess/not-run rows plus the documented failures:
+`250623_Dupi_NMH_KS_2` (makeOutDat fails with its documented indexing error →
+no file on R:; July stale final preserved at `E:\reprocBackup_260824\breathing\`;
+X cleared) and `260227_EEG_NWU_HW` (**cannot run**: its closed-loop behavioral
+CSV `experiment_EEGsync\processedBehavior\260227_EEG_NWU_HW.csv` was never
+generated — generate it with `tidyDataImport_waveExp.R` and rerun; raw, guesses
+and pipeline are all in place).
+
+**Incident:** the Admin master workbook became unreadable (corrupt) during the
+verification stage's write burst (VPN/SMB + rapid `writecell` full-rewrites).
+The corrupt file is preserved at
+`E:\reprocBackup_260824\dataTracking_corrupt_copy.xlsx`. The sheet was rebuilt
+deterministically (`batch/rebuildSheet_260825.m`) from the pre-run backup +
+replay of every logged mutation (11+41+16+9+2 cells — all counts exact), then
+verification re-ran to rebuild the breathing flags from disk. Snapshots are now
+taken after every write-heavy stage (`E:\reprocBackup_260824\dataTracking_*_snapshot.xlsx`).
+The batch's SSH wrapper also died once mid-run (VPN blip); the MATLAB process
+survived and completed — only stage sequencing needed manual resumption.
 
 ---
 
