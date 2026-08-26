@@ -55,10 +55,18 @@ function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
 %             Feature arrays run over ALL detected inhales (1..nInhales);
 %             bmObj row k corresponds to feature index bmFeatures.bmObjBreathIdx(k).
 %
-%   Signal conditioning (recorded in bmFeatures.conditioning): the raw trace
-%   is passed straight to breathmetrics('humanAirflow') which applies its own
-%   50-ms fftSmooth denoising and a 60-s sliding-window baseline correction
-%   (zScore=0, simplify=1). Nothing else is done to the signal.
+%   Signal conditioning (recorded in bmFeatures.conditioning): DETECTION runs
+%   on a windowed-amplitude-normalized copy of the trace (60-s moving std,
+%   floored at 0.1x its median so dead stretches - e.g. an unplugged cannula -
+%   are not amplified into fake breaths; added 2026-08-25 after overlay QC
+%   showed the global amplitude criterion missing real breaths in quiet epochs
+%   of amplitude-non-stationary recordings). breathmetrics('humanAirflow')
+%   then applies its own 50-ms fftSmooth and 60-s sliding baseline correction
+%   (zScore=0, simplify=1). The stored signal is NEVER modified: bmObj
+%   amplitude columns (1,3,5,8,10) are re-sampled from the RAW trace (60-s
+%   moving-mean baseline removed, amplitude untouched) at the detected
+%   indices, so they stay in raw signal units. bmFeatures flow/volume arrays
+%   are in NORMALIZED units (locally comparable across epochs by design).
 %
 %   Vendored toolbox: external/breathMetrics (fork qhyang42/breathmetrics,
 %   commit 9791153, 2026-08-03).
@@ -80,32 +88,44 @@ function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
     BASELINE = 'sliding';
     SIMPLIFY = 1;
 
-    bm = breathmetrics(double(rsp), fs, 'humanAirflow');
+    % windowed amplitude normalization for DETECTION ONLY (raw data untouched)
+    W = round(60 * fs);
+    s = movstd(double(rsp), W);
+    sFloor = 0.1 * median(s);
+    rspDet = double(rsp) ./ max(s, sFloor);
+
+    bm = breathmetrics(rspDet, fs, 'humanAirflow');
     bm.estimateAllFeatures(ZSCORE, BASELINE, SIMPLIFY, 0);
 
-    resp = bm.baselineCorrectedRespiration;
+    % raw-unit trace for the bmObj amplitude columns: baseline removed on the
+    % same 60-s scale as breathmetrics' sliding correction, amplitude intact
+    respRaw = double(rsp) - movmean(double(rsp), W);
+
     on   = double(bm.inhaleOnsets(:));
     pk   = double(bm.inhalePeaks(:));
-    pkY  = double(bm.peakInspiratoryFlows(:));
     tr   = double(bm.exhaleTroughs(:));
-    trY  = double(bm.troughExpiratoryFlows(:));
 
     n  = numel(on);
     assert(n >= 3, 'segmentBreaths_breathMetrics:tooFewBreaths', ...
         'only %d inhale onsets detected - not a usable respiration trace', n);
     nB = n - 1;                     % legacy: breath ends at next inhale onset
 
+    % NaN landmark indices cannot index respRaw; substitute 1 and restore NaN
+    % (such rows are dropped by the non-finite filter below anyway)
+    pkI = pk; pkBad = ~isfinite(pkI); pkI(pkBad) = 1;
+    trI = tr; trBad = ~isfinite(trI); trI(trBad) = 1;
+
     bmObj = zeros(nB, 14);
-    bmObj(:, 1)  = resp(on(1:nB));
+    bmObj(:, 1)  = respRaw(on(1:nB));
     bmObj(:, 2)  = on(1:nB) / fs;
-    bmObj(:, 3)  = pkY(1:nB);
+    bmObj(:, 3)  = respRaw(pkI(1:nB));  bmObj(pkBad(1:nB), 3) = NaN;
     bmObj(:, 4)  = pk(1:nB) / fs;
-    bmObj(:, 5)  = resp(on(2:nB+1));
+    bmObj(:, 5)  = respRaw(on(2:nB+1));
     bmObj(:, 6)  = on(2:nB+1) / fs;
     bmObj(:, 7)  = bmObj(:, 6) - bmObj(:, 2);
     bmObj(:, 8)  = bmObj(:, 3) - (bmObj(:, 1) + bmObj(:, 5)) / 2;
     bmObj(:, 9)  = pk(1:nB);
-    bmObj(:, 10) = trY(1:nB);
+    bmObj(:, 10) = respRaw(trI(1:nB));  bmObj(trBad(1:nB), 10) = NaN;
     bmObj(:, 11) = tr(1:nB) / fs;
     bmObj(:, 12) = 0;
     bmObj(:, 13) = 0;
@@ -131,6 +151,11 @@ function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
     bmFeatures.conditioning = struct( ...
         'callerConditioning',   'none (raw chosen trace, rspIDX/rspFlip applied upstream)', ...
         'nanSamplesFilled',     nNaN, ...
+        'windowedAmpNorm',      'detection trace = raw / max(movstd(raw, 60 s), 0.1 x median movstd); raw data untouched', ...
+        'ampNormWindowSec',     60, ...
+        'ampNormFloor',         sFloor, ...
+        'bmObjAmplitudeUnits',  'raw signal units (60 s moving-mean baseline removed at detected indices)', ...
+        'featureFlowUnits',     'windowed-normalized units (locally comparable across epochs)', ...
         'smoothing',            'breathmetrics fftSmooth, 50 ms window (humanAirflow default)', ...
         'baselineCorrection',   [BASELINE ' (60 s sliding window)'], ...
         'zScore',               ZSCORE, ...

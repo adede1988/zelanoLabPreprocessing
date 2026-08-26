@@ -11,10 +11,11 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
 %   normalized cross-correlation gives the coarse lag; a sliding-window lag
 %   estimate checks clock drift (linear map applied when drift exceeds one
 %   sample at 500 Hz over the recording). Polarity is decided by the sign of
-%   the correlation peak: SniffLogic nasal pressure is NEGATIVE during
-%   inhalation, so corr>0 means the raw channel is also inhale-negative
-%   (rspFlip = -1 makes inhale positive) and corr<0 means inhale-positive
-%   (rspFlip = +1).
+%   the correlation peak: the SniffLogic log's pressure column is POSITIVE
+%   during inhalation (lab-confirmed 2026-08-25 - the Aug-2026 raw traces need
+%   no flip, and a -1 flip put detections on exhale onsets), so corr>0 means
+%   the raw channel is also inhale-positive (rspFlip = +1) and corr<0 means
+%   inhale-negative (rspFlip = -1).
 %
 %   Returns A with:
 %     .lagSec      log time t maps to raw time t + lagSec (+ drift term)
@@ -122,7 +123,7 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
     A.r = pk;
     A.reviewNeeded = reviewNeeded;
     A.corrSign = corrSign;
-    A.rspFlip = -corrSign;    % pressure inhale-negative convention (see header)
+    A.rspFlip = corrSign;     % log pressure inhale-POSITIVE convention (see header)
     A.driftPPM = driftPPM;
     A.useDrift = useDrift;
     c1 = centers; w1 = wlags; cf1 = cf; t0 = t0Log;
