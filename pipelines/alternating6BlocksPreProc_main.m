@@ -85,11 +85,11 @@ for s = 1:numel(sessionIDs)
     rspDat = outDat.data(isRsp, :);
     rspDat = rspDat(P.rspIDX, :) .* P.rspFlip;
     % 260811_EEG_NWU_MS: cannula tube partially unplugged for ~23% of the
-    % recording - breaths there are real but leak-attenuated (~1/30 amp);
-    % a lower amplitude-norm floor recovers them (validated 2026-08-25)
-    ff = [];
-    if strcmp(S.id, '260811_EEG_NWU_MS'), ff = 0.02; end
-    [outDat.bmObj, outDat.bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs, ff);
+    % recording - QC review decision (2026-08-26): EXCLUDE the leak-attenuated
+    % stretch (blank it in the detection copy) rather than amplify it
+    blank = [];
+    if strcmp(S.id, '260811_EEG_NWU_MS'), blank = 0.10; end
+    [outDat.bmObj, outDat.bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs, [], blank);
     outDat.moreThan1 = 1;
     outDat.rspIDX  = P.rspIDX;
     outDat.rspFlip = P.rspFlip;

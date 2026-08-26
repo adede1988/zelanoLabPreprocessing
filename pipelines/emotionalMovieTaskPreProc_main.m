@@ -77,10 +77,10 @@ for s = 1:numel(sessionIDs)
     rspDat = outDat.data(isRsp, :);
     rspDat = rspDat(P.rspIDX, :) .* P.rspFlip;
     % 260811_EEG_NWU_MS: leak-attenuated stretch (partially unplugged cannula
-    % tube) - lower amplitude-norm floor recovers its breaths (see alt6 main)
-    ff = [];
-    if strcmp(S.id, '260811_EEG_NWU_MS'), ff = 0.02; end
-    [outDat.bmObj, outDat.bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs, ff);
+    % tube) - QC review decision (2026-08-26): exclude it, don't amplify it
+    blank = [];
+    if strcmp(S.id, '260811_EEG_NWU_MS'), blank = 0.10; end
+    [outDat.bmObj, outDat.bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs, [], blank);
     outDat.moreThan1 = 1;
     outDat.rspIDX  = P.rspIDX;
     outDat.rspFlip = P.rspFlip;
