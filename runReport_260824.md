@@ -301,8 +301,19 @@ breaths in lower‑amplitude stretches go undetected when the recording also
 contains much larger‑amplitude stretches (belt gain shifts / sniff bursts),
 i.e. breathMetrics' global amplitude criterion rejects real breaths in quiet
 epochs — VW is severe (whole minutes of clean breathing with zero onsets).
-GH (−33.5%) is the one defensible decrease (burst‑and‑flat data). **Treat
-VW/AB_2/JC/GA as under‑counted — do not analyze their breath tables as‑is.**
+GH (−33.5%) is the one defensible decrease (burst‑and‑flat data).
+
+**Resolution (round 9, 2026‑08‑26).** The engine now runs its detection on a
+windowed‑amplitude‑normalized copy of the trace (60‑s moving std, floored at
+0.05 × its median; raw data and `bmObj` amplitude units untouched —
+`shared/segmentBreaths_breathMetrics.m`). VW, AB_2, JC, GA and GH were rebuilt
+under it: VW 275→**895** (July 802), AB_2 106→**143**, JC 778→**975**, GA
+632→**991**, GH 319→**475**. Validation showed no regression on well‑segmented
+sessions (DB_1 183→184). The remaining 34 breathing finals and the 8
+breathingTasks_separate finals still carry global‑amplitude detection (their
+counts were plausible); every final records its own mode in
+`bmFeatures.conditioning`, and the `breathingQualityCheck\` overlay folder
+(one figure per breathMetrics final, mode in the title) is the review surface.
 
 **Incident:** the Admin master workbook became unreadable (corrupt) during the
 verification stage's write burst (VPN/SMB + rapid `writecell` full-rewrites).
@@ -416,20 +427,21 @@ valence). Verifier bounds: clip count 150–210, valence balance, breaths > 0.
 
 ### Results — 7/7 EEG subjects saved + verified
 
-All seven ran run‑on‑guess with **empirical `rspFlip=−1`** (from each subject's
-SniffLogic log alignment, Task 8) and **measured `beatSpec=1,0,lt,-3.5`** (the
+All seven ran run‑on‑guess with **`rspFlip=+1`** (no flip — see the Task 8
+polarity correction below) and **measured `beatSpec=1,0,lt,-3.5`** (the
 2026‑08 rigs record ECG lead 1 inverted — discovered when the default spec gave
-82 bpm of *negative* crossings on JH and ~2 bpm positive):
+82 bpm of *negative* crossings on JH and ~2 bpm positive). Final counts after
+the round‑9 rebuild (windowed‑amplitude engine, correct polarity):
 
 | session | clips | in‑clip breaths | bpm |
 |---|---|---|---|
-| 260806_EEG_NWU_JH | 192 | 356 | 81 |
-| 260806_EEG_NWU_MM | 189 | 441 | 73 |
-| 260807_EEG_NWU_GP | 196 | 266 | 66 |
-| 260810_EEG_NWU_IS | 190 | 377 | 55 |
-| 260810_EEG_NWU_AL | 188 | 437 | 74 |
+| 260806_EEG_NWU_JH | 192 | 355 | 81 |
+| 260806_EEG_NWU_MM | 189 | 443 | 73 |
+| 260807_EEG_NWU_GP | 196 | 263 | 66 |
+| 260810_EEG_NWU_IS | 190 | 373 | 55 |
+| 260810_EEG_NWU_AL | 188 | 432 | 74 |
 | 260811_EEG_NWU_MS | 192 | 376 | 80 |
-| 260811_EEG_NWU_HK | 185 | 392 | 62 |
+| 260811_EEG_NWU_HK | 185 | 379 | 62 |
 
 Two earlier generations of these finals (round 3: wrong beatSpec; round 3.5:
 default `rspFlip=+1`, i.e. inverted respiration) are backed up at
@@ -453,19 +465,26 @@ unique), `assembleRaw_…`, `build_behavior_table_…` (NaN‑prefilled rating
 columns), and a `_main` that errors if the sheet `rspFlip` contradicts the
 log‑derived polarity.
 
-### Alignment results (all 8 subjects)
+### Alignment results (all 8 subjects) — and a polarity correction
 
-All eight aligned with **corrSign +1 → `rspFlip = −1`**; \|r\| = 0.81–0.92
-except **MS at 0.47** (unique peak, NaN‑gap recording — accepted with a REVIEW
-flag). Clock drift −13…+161 ppm (MS −390 ppm). All eight logs parse to the
-perfect 7 × 6.0‑min block structure.
+All eight aligned with corrSign +1, \|r\| = 0.81–0.92 except **MS at 0.47**
+(unique peak — its cannula tube was partially unplugged for ~23% of the
+recording, attenuating the trace; accepted with a REVIEW flag). Clock drift
+−13…+161 ppm (MS −390 ppm). All eight logs parse to the perfect 7 × 6.0‑min
+block structure. **Polarity correction (2026‑08‑26):** the first pass mapped
+corrSign +1 to `rspFlip=−1` on the assumption that SniffLogic logs pressure
+inhale‑negative; lab inspection showed detections landing on *exhale* onsets —
+the log's pressure column is inhale‑POSITIVE, so corrSign +1 means **no flip
+(`rspFlip=+1`) for the entire August cohort**. `alignLogToRaw` now maps the
+sign directly and every August final was rebuilt at +1 in round 9.
 
-### Results — 8/8 saved + verified
+### Results — 8/8 saved + verified (round‑9 rebuild)
 
-JH 723 / MM 533 / GP 511 / IS 537 / AL 426 / MS 272 / HK 413 breaths across 7
+JH 749 / MM 542 / GP 510 / IS 541 / AL 478 / MS 389 / HK 423 breaths across 7
 blocks each, HRV 58–87 bpm (beatSpec `1,0,lt,-3.5`, same measured basis as Task
-7). **CA: 323 in‑block breaths (507 total), HRV 62 bpm, blink removal skipped
-— REVIEW.** CA's first pass failed because *both* blink channels flunked
+7). MS runs with an amplitude‑norm floor of 0.02 (vs the 0.05 default) to
+recover its leak‑attenuated section — validated by overlay before the rebuild.
+**CA: 397 in‑block breaths, HRV 62 bpm, blink removal skipped — REVIEW.** CA's first pass failed because *both* blink channels flunked
 `blinkRemoveWrapper`'s quality criteria; `shared/preprocess_eeg` now degrades
 that specific condition to the already‑defined `blinkRemoval=0` state (warning
 + REVIEW) instead of losing the session. CA's ECG initially probed as "no

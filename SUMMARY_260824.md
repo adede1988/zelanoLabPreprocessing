@@ -34,7 +34,8 @@ specific review flag. QC figures: `R:\…\Lab_Common\Adam\Dupi_processing\<id>\`
 |---|---|---|
 | 260805_EEG_NWU_CA | alternating6Blocks | **Blink removal skipped** (both blink channels failed QC). ECG first probed as signal‑free, but noise bursts were swamping the z‑score — with the bursts blanked (per‑session special case in `buildECGz`) a clean **62 bpm** rhythm emerged and the final has real HRV. Check the ECG/blink QC figures. |
 | 251006_OBE_NWU_RY_1 | breathingTasks_separate | **No cardiac signal on any ECG lead** (≤14 bpm even robust‑normalized, 0% noisy windows — genuinely absent, not masked) → HRV = NaN. |
-| 251111_EEG_NWU_VW + 251002_Dupi_NMH_AB_2, 251008_EEG_NWU_JC, 251110_EEG_NWU_GA | breathingTask | **Segmentation QC (overlay figures) shows systematic breath under‑detection** in lower‑amplitude stretches (breathMetrics' global amplitude criterion vs. non‑stationary belt amplitude). VW is severe (−65.7%; whole minutes of clean breathing, zero onsets). **Don't analyze these four breath tables as‑is.** Figures: `E:\reprocBackup_260824\segQC\`. |
+| 260811_EEG_NWU_MS | alternating6Blocks + movie | Cannula tube **partially unplugged** for ~23% of the recording (weak SniffLogic alignment \|r\|=0.47 traces to this). Rebuilt with a lower amplitude‑norm floor (0.02) that recovers the leak‑attenuated breaths — check its overlays in `breathingQualityCheck\`. |
+| VW, AB_2, JC, GA, GH | breathingTask | Were systematically under‑detected by the global amplitude criterion; **rebuilt with the windowed‑amplitude engine** (VW 275→895, AB_2 106→143, JC 778→975, GA 632→991, GH 319→475). Review their overlays in `breathingQualityCheck\`. |
 | 260811_EEG_NWU_MS | alternating6Blocks + EmotionalMovieTask | **Weak SniffLogic alignment** (\|r\|=0.47 vs 0.81–0.92 for everyone else) and −390 ppm clock drift; rspFlip=−1 was applied — eyeball the respiration trace to confirm polarity. Low breath count (272). |
 | 260625_OBE_NWU_HM_2 | breathingTasks_separate | Sleep section: **only 5 detected breaths in 18.8 min** — inspect the respiration trace for that section. |
 | 260227_EEG_NWU_HW | breathingTask | **Could not run**: its processedBehavior CSV was never generated (run `tidyDataImport_waveExp.R` in `experiment_EEGsync`, then rerun). |
@@ -79,12 +80,20 @@ promote its row).
    electrode contact. CA initially looked the same but its rhythm was recoverable
    (noise bursts were masking it — see the checklist); worth a look at what caused
    CA's bursts regardless.
-2b. **breathMetrics under‑detects breaths when belt amplitude is non‑stationary**
-   (VW/AB_2/JC/GA): its amplitude criterion is global, so quiet‑epoch breaths
-   drop out when the same recording contains large bursts or gain shifts. If you
-   want these four rescued, a sliding‑window amplitude normalization ahead of
-   segmentation (per‑session or as an engine option) is the obvious candidate —
-   prototype offered, not built.
+2b. **Engine change (round 9): windowed amplitude normalization.** breathMetrics
+   under‑detected breaths where belt amplitude was non‑stationary; detection now
+   runs on a 60‑s moving‑std‑normalized copy (floor 0.05× its median; MS 0.02)
+   while stored data and `bmObj` amplitudes stay in raw units. The five affected
+   breathing sessions and all fifteen August finals were rebuilt under it; the
+   other 34 breathing finals and 8 breathingTasks_separate finals still carry
+   global‑amplitude detection (plausible counts; each final records its mode in
+   `bmFeatures.conditioning`). Review surface: the `breathingQualityCheck\`
+   folder — one overlay per breathMetrics final, detection mode in the title.
+2c. **August polarity correction.** The SniffLogic log's pressure column is
+   inhale‑POSITIVE (first inferred the opposite, which put detections on exhale
+   onsets): the whole August cohort runs **without a respiration flip**
+   (`rspFlip=+1`), `alignLogToRaw` maps the correlation sign directly, and all
+   15 August finals were rebuilt at the correct polarity.
 3. **Missing raw data vs sheet**: PD_2 breathing (sheet says extracted, no raw on
    disk), RX_1 breathing (same), DB_3 breathing (raw not on server yet).
 4. **KA_2's cue/thresh raw folders** are named `raw_cueTask`/`raw_threshTask` —
