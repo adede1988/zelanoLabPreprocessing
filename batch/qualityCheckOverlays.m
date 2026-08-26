@@ -87,7 +87,9 @@ for tt = 1:size(TASKS, 1)
         catch
             win = [];
         end
-        win = win(all(isfinite(win), 2) & win(:, 2) > win(:, 1), :);
+        if ~isempty(win)
+            win = win(all(isfinite(win), 2) & win(:, 2) > win(:, 1), :);
+        end
 
         N = numel(rsp);
         W = round(60 * fs);
