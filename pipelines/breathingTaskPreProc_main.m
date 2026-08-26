@@ -72,7 +72,12 @@ for s = 1:numel(sessionIDs)
     % anything not explicitly curated is treated as a guess: a BLANK
     % paramSource must never run on defaults and get silently promoted
     isGuess = ~strcmpi(strtrim(P.paramSource), 'curated');
-    P.allowGuessRun = allowGuessRunEnv && strcmp(P.type, 'EEG');   % D4
+    % D4 (EEG-type only) - ZLP_ALLOW_GUESS_RUN_ALL=1 extends the batch
+    % override to every Type (2026-08-26 instruction: run the Dupi/OBE guess
+    % sessions with probe-measured parameters; QC figures still saved,
+    % paramSource never promoted)
+    P.allowGuessRun = allowGuessRunEnv && (strcmp(P.type, 'EEG') || ...
+        strcmp(getenv('ZLP_ALLOW_GUESS_RUN_ALL'), '1'));
     P.figDir = S.fig;
 
     % D4 batch runs: guess sessions that are NOT allowed to run are skipped
