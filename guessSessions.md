@@ -98,7 +98,7 @@ this task's own recording).
 
 | Subject ID | Task | Type | guessed columns = values | basis | status | notes |
 |---|---|---|---|---|---|---|
-| 260805_EEG_NWU_CA | alternating6Blocks | EEG_breathing | EEG standard + rspFlip=−1, beatSpec=1,0,lt,-3.5 | empirical (\|r\|=0.85) | run-on-guess | **blink removal skipped — both blink channels bad (REVIEW)** |
+| 260805_EEG_NWU_CA | alternating6Blocks | EEG_breathing | EEG standard + rspFlip=−1, beatSpec=1,0,lt,-3.5 (+ per-session noise-blank in buildECGz) | empirical (\|r\|=0.85) | run-on-guess | 7 blocks, 323 breaths, 62 bpm; **blink removal skipped — both blink channels bad (REVIEW)**; ECG noise bursts blanked before z-scoring (ch3⁻ cleanest lead if respec wanted) |
 | 260806_EEG_NWU_JH | alternating6Blocks | EEG_breathing | same | empirical (\|r\|=0.92) | run-on-guess | 7 blocks, 723 breaths, 87 bpm |
 | 260806_EEG_NWU_MM | alternating6Blocks | EEG_breathing | same | empirical (\|r\|=0.86) | run-on-guess | 7 blocks, 533 breaths, 76 bpm |
 | 260807_EEG_NWU_GP | alternating6Blocks | EEG_breathing | same | empirical (\|r\|=0.83) | run-on-guess | 7 blocks, 511 breaths, 72 bpm |

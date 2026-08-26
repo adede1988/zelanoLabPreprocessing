@@ -32,8 +32,9 @@ specific review flag. QC figures: `R:\…\Lab_Common\Adam\Dupi_processing\<id>\`
 
 | Session | Task | What to check |
 |---|---|---|
-| 260805_EEG_NWU_CA | alternating6Blocks | **No cardiac signal on any ECG lead** (~10 bpm noise both polarities → HRV = NaN) **and blink removal skipped** (both blink channels failed QC). Also check the rig/electrodes before reusing them. |
-| 251006_OBE_NWU_RY_1 | breathingTasks_separate | **No cardiac signal on any ECG lead** (≤6.5 bpm) → HRV = NaN. |
+| 260805_EEG_NWU_CA | alternating6Blocks | **Blink removal skipped** (both blink channels failed QC). ECG first probed as signal‑free, but noise bursts were swamping the z‑score — with the bursts blanked (per‑session special case in `buildECGz`) a clean **62 bpm** rhythm emerged and the final has real HRV. Check the ECG/blink QC figures. |
+| 251006_OBE_NWU_RY_1 | breathingTasks_separate | **No cardiac signal on any ECG lead** (≤14 bpm even robust‑normalized, 0% noisy windows — genuinely absent, not masked) → HRV = NaN. |
+| 251111_EEG_NWU_VW + 251002_Dupi_NMH_AB_2, 251008_EEG_NWU_JC, 251110_EEG_NWU_GA | breathingTask | **Segmentation QC (overlay figures) shows systematic breath under‑detection** in lower‑amplitude stretches (breathMetrics' global amplitude criterion vs. non‑stationary belt amplitude). VW is severe (−65.7%; whole minutes of clean breathing, zero onsets). **Don't analyze these four breath tables as‑is.** Figures: `E:\reprocBackup_260824\segQC\`. |
 | 260811_EEG_NWU_MS | alternating6Blocks + EmotionalMovieTask | **Weak SniffLogic alignment** (\|r\|=0.47 vs 0.81–0.92 for everyone else) and −390 ppm clock drift; rspFlip=−1 was applied — eyeball the respiration trace to confirm polarity. Low breath count (272). |
 | 260625_OBE_NWU_HM_2 | breathingTasks_separate | Sleep section: **only 5 detected breaths in 18.8 min** — inspect the respiration trace for that section. |
 | 260227_EEG_NWU_HW | breathingTask | **Could not run**: its processedBehavior CSV was never generated (run `tidyDataImport_waveExp.R` in `experiment_EEGsync`, then rerun). |
@@ -51,10 +52,14 @@ specific review flag. QC figures: `R:\…\Lab_Common\Adam\Dupi_processing\<id>\`
 ### Task 3 soft‑flags (20 breathing finals — saved, but review breath counts)
 
 These finals verified structurally but their breathMetrics breath count differs >10%
-from the July final (expected where the legacy engine over/under‑segmented — the D8
-validation showed the legacy engine was usually the one in error, so treat these as
-review‑not‑rerun). The list with per‑session counts is in
-[runReport_260824.md](runReport_260824.md) §Task 3 Part B.
+from the July final. The list with per‑session counts is in
+[runReport_260824.md](runReport_260824.md) §Task 3 Part B. **Overlay QC on the ten
+>25% movers** (six random 1‑min segments each; figures in
+`E:\reprocBackup_260824\segQC\`) split them cleanly: the count *increases* (JM,
+GH_1, GH_2, DB_1, DB_2) are correctly segmented — July under‑counted; the count
+*decreases* (VW, AB_2, JC, GA — GH excepted, odd burst‑like data) are **real
+under‑detection** in low‑amplitude epochs and should not be analyzed as‑is (see
+the priority table above). The ≤25% movers remain ordinary review items.
 
 ### Not run (guess rows waiting for you; parameters already on the sheet)
 
@@ -70,7 +75,16 @@ promote its row).
    summer OBE sessions needed per‑session measurement (HM_2 `3,0,lt,-3.5`, SP_2
    `2,0,gt,3.5`, RC_1/KA_2 `1,0,lt,-3.5` — probe: `batch/task9_probeECGpolarity.m`).
    Worth fixing the lead wiring before the next cohort.
-2. **Two sessions have no cardiac signal at all** (CA, RY_1) — electrode contact.
+2. **RY_1 has no cardiac signal at all** (verified with robust normalization) —
+   electrode contact. CA initially looked the same but its rhythm was recoverable
+   (noise bursts were masking it — see the checklist); worth a look at what caused
+   CA's bursts regardless.
+2b. **breathMetrics under‑detects breaths when belt amplitude is non‑stationary**
+   (VW/AB_2/JC/GA): its amplitude criterion is global, so quiet‑epoch breaths
+   drop out when the same recording contains large bursts or gain shifts. If you
+   want these four rescued, a sliding‑window amplitude normalization ahead of
+   segmentation (per‑session or as an engine option) is the obvious candidate —
+   prototype offered, not built.
 3. **Missing raw data vs sheet**: PD_2 breathing (sheet says extracted, no raw on
    disk), RX_1 breathing (same), DB_3 breathing (raw not on server yet).
 4. **KA_2's cue/thresh raw folders** are named `raw_cueTask`/`raw_threshTask` —
@@ -106,9 +120,13 @@ promote its row).
 1. **MS's weak alignment (\|r\|=0.47) was accepted** with a REVIEW flag rather than
    failing the session: the peak is unique (runner‑up 0.26) and the lag sits in the
    same family as every other subject. Hard‑fail threshold is now \|r\|<0.40.
-2. **CA's and RY_1's HRV set to NaN** (no cardiac signal measured on any lead) rather
-   than saving implausible RRint; a viability probe (<20 bpm ⇒ NaN) now guards all
-   three new mains.
+2. **RY_1's HRV set to NaN** (no cardiac signal on any lead, confirmed robustly)
+   rather than saving implausible RRint; a viability probe (<20 bpm ⇒ NaN) now
+   guards all three new mains. **CA's HRV was recovered** after your mid‑run
+   correction: its "absent" rhythm was the global z‑score being swamped by noise
+   bursts; `buildECGz` now blanks CA's noisy windows (per‑session special case)
+   and the final carries a real 62 bpm. CA's sheet spec stays `1,0,lt,-3.5`
+   (what the final was built with; ch3⁻ is the cleaner lead if review prefers).
 3. **CA's blink removal skipped** (both blink channels failed wrapper QC) via a narrow
    degrade in `shared/preprocess_eeg` to the already‑defined `blinkRemoval=0` state.
 4. **Beat specs for HM_2/SP_2/RC_1/KA_2 were measured, not guessed** (per‑channel ×

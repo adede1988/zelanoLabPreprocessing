@@ -291,6 +291,19 @@ finals kept, X kept — review):
 (Bolded rows moved more than 25% — start the review there, especially VW at
 −65.7%.)
 
+**Segmentation QC (2026‑08‑25, `batch/task3_segQCfigs.m`; figures in
+`E:\reprocBackup_260824\segQC\` and delivered in chat).** Six seeded 1‑min
+overlay segments per >25% session show the two drift directions are different
+animals. The *increases* (JM, GH_1, GH_2, DB_1, DB_2) are well segmented —
+onsets on essentially every visible cycle — confirming July under‑counted.
+The *decreases* (**VW, AB_2, JC, GA**) share a systematic miss pattern:
+breaths in lower‑amplitude stretches go undetected when the recording also
+contains much larger‑amplitude stretches (belt gain shifts / sniff bursts),
+i.e. breathMetrics' global amplitude criterion rejects real breaths in quiet
+epochs — VW is severe (whole minutes of clean breathing with zero onsets).
+GH (−33.5%) is the one defensible decrease (burst‑and‑flat data). **Treat
+VW/AB_2/JC/GA as under‑counted — do not analyze their breath tables as‑is.**
+
 **Incident:** the Admin master workbook became unreadable (corrupt) during the
 verification stage's write burst (VPN/SMB + rapid `writecell` full-rewrites).
 The corrupt file is preserved at
@@ -451,17 +464,25 @@ perfect 7 × 6.0‑min block structure.
 
 JH 723 / MM 533 / GP 511 / IS 537 / AL 426 / MS 272 / HK 413 breaths across 7
 blocks each, HRV 58–87 bpm (beatSpec `1,0,lt,-3.5`, same measured basis as Task
-7). **CA: 323 in‑block breaths (507 total), HRV = NaN, blink removal skipped —
-double REVIEW.** CA's first pass failed because *both* blink channels flunked
+7). **CA: 323 in‑block breaths (507 total), HRV 62 bpm, blink removal skipped
+— REVIEW.** CA's first pass failed because *both* blink channels flunked
 `blinkRemoveWrapper`'s quality criteria; `shared/preprocess_eeg` now degrades
 that specific condition to the already‑defined `blinkRemoval=0` state (warning
-+ REVIEW) instead of losing the session. CA also records **no cardiac signal on
-any ECG lead** (~10 bpm symmetric noise, `batch/task8_probeCA.m`), so an ECG
-viability probe (<20 bpm ⇒ NaN HRV, mirroring Task 9's) now guards the movie
-and alternating mains, and CA's final carries NaN HRV instead of garbage RRint.
-Its two bad generations sit in `E:\reprocBackup_260824\alt6\`. (The rebuild
-also tripped the §2 case‑insensitivity quirk — deleting the "final" deletes the
-intermediate too; makeOutDat regenerated it, alignment bit‑identical.)
++ REVIEW) instead of losing the session. CA's ECG initially probed as "no
+cardiac signal" (~10 bpm symmetric), but that was the *global z‑score being
+swamped by intermittent noise bursts* (~5% of 10‑s windows at 10–100×
+amplitude): with the bursts blanked (per‑session special case in `buildECGz`,
+see `batch/task8_probeCA2.m` / `task89_probeBlankSim.m`), a clear 62‑bpm
+rhythm emerges and the final carries real HRV under the standard
+`1,0,lt,-3.5` spec (ch3⁻ is the cleanest lead — 62.0 vs 2.9 bpm asymmetry —
+if review wants a respec). An ECG viability probe (<20 bpm ⇒ NaN HRV,
+mirroring Task 9's) now guards the movie and alternating mains; RY_1 remains
+the only genuinely signal‑free session (0% noisy windows, ≤14 bpm robust).
+CA's three superseded generations sit in `E:\reprocBackup_260824\alt6\`. (The
+rebuilds also tripped the §2 case‑insensitivity quirk — deleting the "final"
+deletes the intermediate too; makeOutDat regenerates it, alignment
+bit‑identical. One transient sheet‑lock error required rewriting CA's X flag
+afterwards.)
 
 ## Task 9 — breathingTasks_separate pipeline (run 2026‑08‑25)
 
