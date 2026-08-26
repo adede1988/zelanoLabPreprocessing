@@ -26,14 +26,18 @@ for tt = 1:size(TASKS, 1)
         fd = dir(f);
         if isempty(fd), nSkip = nSkip + 1; continue; end
         % only breathMetrics finals are in scope: a final without bmFeatures
-        % (old-format, deliberately preserved) is left alone
+        % (old-format, deliberately preserved) is left alone.
+        % NB v7.3 files carry a hidden '#refs#' group that sorts FIRST - the
+        % variable group must be found by name, not by position (the original
+        % positional lookup left every final untouched)
+        bmOK = false;
         try
-            hasBM = ~isempty(who('-file', f, 'outDat')) || ~isempty(who('-file', f, 'chanDat')) || ~isempty(who('-file', f, 'out'));
             info = h5info(f);
-            top = {info.Groups.Name};
-            vn = strrep(top{1}, '/', '');
-            bmOK = false;
-            try, h5info(f, ['/' vn '/bmFeatures']); bmOK = true; catch, end
+            for g = 1:numel(info.Groups)
+                gn = info.Groups(g).Name;
+                if strcmp(gn, '/#refs#') || strcmp(gn, '/#subsystem#'), continue; end
+                try, h5info(f, [gn '/bmFeatures']); bmOK = true; break; catch, end
+            end
         catch
             bmOK = false;
         end
