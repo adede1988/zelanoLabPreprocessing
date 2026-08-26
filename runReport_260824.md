@@ -546,3 +546,74 @@ crashed every multi‑file session — labels contain string objects from
 `preprocess_eeg`'s `"blinkIndicator"`/`"badTS"` appends, which `strjoin`
 rejects); the inverted ECG lead on all 2026 summer rigs; and the blink‑channel
 degrade above. Full stack traces (`getReport`) now print in every main's catch.
+
+## QC round 2 — breath-detection review fixes + engine v3b + full re-detection (2026‑08‑26 → 27)
+
+### The review (breath_detection_qc_notes.md) and the fixes
+
+The manual review of the first `breathingQualityCheck` set found four systematic
+problems. Fixes, all in `shared/segmentBreaths_breathMetrics.m` (engine **v3b**,
+stamped in every final's `bmFeatures.conditioning.engineVersion`):
+
+1. **Whole‑minute dropouts** (SM, AK, GJ, AS, HM_2, DL_1 — all pre‑windowed
+   finals) → every final now uses the windowed normalization; window shortened
+   60 s → **30 s** (faster adaptation at loud↔quiet transitions).
+2. **Trough/peak‑placed onsets (1–3 s bias)** → **middle‑50% band correction**:
+   any onset outside the local 25–75th percentile band relocates to the nearest
+   upward p25 crossing (±3 s, never past a neighboring onset; engine originals
+   kept in `bmFeatures.engineInhaleOnsets`).
+3. **Double‑peak midpoints / ragged over‑detection** → **150 ms detection
+   smoothing** before normalization.
+4. **MS's leak section** (partially unplugged cannula tube) → **excluded**
+   (`blankBelowFrac=0.10` zeroes sub‑floor stretches in the detection copy),
+   per the review, instead of amplified.
+
+Validation ran against the notes' exact flagged minutes before any rerun
+(`batch/task10_validateV3.m`, figures `E:\reprocBackup_260824\v3check\`):
+dropout minutes recovered, onsets moved to the rising edge, double peaks
+merged, controls stable (DB_1 183→184, ZL 599→597, AB_1 244→242). Two
+engineering dead‑ends are recorded for posterity: a robust moving‑MAD scale
+collapsed sparse sharp breathing (MAD tracks the noise floor; peaks are
+outliers it ignores) and was replaced by moving std; and helper‑function
+arguments evaluate eagerly in MATLAB (the onset relocation crashed at the
+first/last onset until the neighbor limits used explicit branches).
+
+### Round 10 — every breathMetrics final re‑detected
+
+All 62 finals were backed up (`E:\reprocBackup_260824\r10\`), deleted, and
+rebuilt from raw under v3b. (First attempt deleted nothing: v7.3 files hide a
+`#refs#` group that sorts first, so the variable group must be found by name —
+`batch/task11_backupDelete.m`. Two breathing sessions, GH and ADtest, lost
+their first rebuild to parfor‑load artifacts — a spurious SMB "file not found"
+and an out‑of‑memory — and were rebuilt in a light repair pass.)
+
+Verification: **breathing ok=20 soft=19 bad=2 missing=17** (the 2 bad are the
+documented KS_3/JL_1 bare intermediates; the 17 missing are all documented
+blockers — see Part 2); **movie 7/7, alternating 8/8, separate 8/8 OK**.
+Alt6/movie final counts are *in‑task‑window* (alt6 keeps in‑block breaths,
+movie in‑clip): e.g. JH alt6 stores 748 of 925 whole‑recording breaths — the
+windowed engine's recoveries live mostly in between‑block rests, correctly
+excluded. Verified explicitly for JH movie: whole‑recording 421, in‑clip 359,
+stored 359. **The `breathingQualityCheck` overlays now shade out‑of‑window
+time gray** so intentionally empty minutes cannot read as detection dropout.
+
+### Part 2 — Dupi/OBE guessed breathingTask sessions
+
+`batch/task12_probeParams.m` measures per session: beatSpec (channel ×
+polarity × threshold sweep, side‑margin scored), macroRemove (railing ≥2% of
+samples or a ≥5 s pinned run), spikeClean (|z|>10 events >2/min), hasEEG=true.
+The breathing main accepts non‑EEG guess runs under `ZLP_ALLOW_GUESS_RUN_ALL=1`.
+
+Outcome: **no Dupi/OBE guess session could be fully preprocessed** —
+- **12 sessions missing their closed‑loop behavioral CSV**
+  (`experiment_EEGsync\processedBehavior\<id>.csv` — generate with
+  `tidyDataImport_waveExp.R`, then rerun): JL_2, TB_3, GH_3, AB_3, JN_3,
+  BS_1, AD_1, AD_2, PD_1, JA_1, JA_2, BW_1. (HW has the same blocker.)
+- **PC_2**: makeOutDat "load file not identified uniquely" (ambiguous
+  LoadData script) — needs a human look at its session folder.
+- **PD_2**: no breathing raw on disk (sheet says extracted).
+- **KS_3**: parameters were successfully measured (beatSpec `1,0,gt,3.5`,
+  61 bpm at 12× margin; 6 macros, none railing; spikeClean=0 — written to its
+  sheet row) but the main still fails mid‑pipeline with its documented
+  "Index must not exceed 2" error — same class as JL_1's. Both remain bare
+  intermediates, sheet flags clear.

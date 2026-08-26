@@ -80,15 +80,29 @@ promote its row).
    electrode contact. CA initially looked the same but its rhythm was recoverable
    (noise bursts were masking it — see the checklist); worth a look at what caused
    CA's bursts regardless.
-2b. **Engine change (round 9): windowed amplitude normalization.** breathMetrics
-   under‑detected breaths where belt amplitude was non‑stationary; detection now
-   runs on a 60‑s moving‑std‑normalized copy (floor 0.05× its median; MS 0.02)
-   while stored data and `bmObj` amplitudes stay in raw units. The five affected
-   breathing sessions and all fifteen August finals were rebuilt under it; the
-   other 34 breathing finals and 8 breathingTasks_separate finals still carry
-   global‑amplitude detection (plausible counts; each final records its mode in
-   `bmFeatures.conditioning`). Review surface: the `breathingQualityCheck\`
-   folder — one overlay per breathMetrics final, detection mode in the title.
+2b. **Engine v3b (QC round 2, final state).** After your manual review of the
+   first overlay set, detection now runs on a 150‑ms‑smoothed, 30‑s
+   moving‑std windowed‑normalized copy of the trace, onsets are constrained to
+   the middle 50% of the local amplitude distribution (relocated to the
+   nearest upward p25 crossing — fixes the trough/peak placement bias), MS's
+   leak section is **excluded** (blanked) rather than amplified, and **every
+   breathMetrics final was re‑detected from raw under this engine** (round
+   10) — each stamps `bmFeatures.conditioning.engineVersion = v3b`. Alt6 and
+   movie finals keep only in‑block/in‑clip breaths, so the
+   `breathingQualityCheck\` overlays shade out‑of‑window time gray —
+   unmarked gray minutes are intentional, not dropouts. Verification:
+   breathing ok=20 soft=19 bad=2 (KS_3/JL_1 documented) missing=17 (all
+   documented blockers); movie 7/7, alternating 8/8, separate 8/8 OK.
+2b′. **Dupi/OBE guessed breathingTask sessions (your Part‑2 instruction):
+   none could be fully preprocessed.** 12 are missing their
+   `experiment_EEGsync\processedBehavior\<id>.csv` (JL_2, TB_3, GH_3, AB_3,
+   JN_3, BS_1, AD_1, AD_2, PD_1, JA_1, JA_2, BW_1 — run
+   `tidyDataImport_waveExp.R`, then rerun; HW shares this blocker), PC_2 has
+   an ambiguous LoadData script, PD_2 has no breathing raw, and KS_3 —
+   parameters successfully measured and written (beatSpec `1,0,gt,3.5` at
+   61 bpm, no railed macros, spikeClean=0) — still dies on its documented
+   mid‑pipeline indexing error, like JL_1. The probe tooling
+   (`batch/task12_probeParams.m`) is ready for when the CSVs exist.
 2c. **August polarity correction.** The SniffLogic log's pressure column is
    inhale‑POSITIVE (first inferred the opposite, which put detections on exhale
    onsets): the whole August cohort runs **without a respiration flip**

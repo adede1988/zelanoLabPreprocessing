@@ -127,3 +127,16 @@ finals) after the defaults produced implausible rates.
 | 251027_Dupi_NMH_DL_1 | sleep | OBE_Dupi | inherited from curated DL_1 rows | inherited | run-on-guess | 323 breaths, 61 bpm |
 | 251006_OBE_NWU_RY_1 | focusedBreathing | OBEControl | inherited | inherited | run-on-guess | **no cardiac signal on any ECG lead (≤6.5 bpm both polarities) — HRV NaN, REVIEW** |
 | 260105_OBE_NWU_ZF_1 | sleep | OBEControl | inherited | inherited | run-on-guess | 195 breaths, 46 bpm |
+
+## Dupi/OBE breathingTask guess sessions — Part-2 probe pass (2026-08-27)
+
+Instruction: run these with critically-evaluated parameters (measured ECG
+beatSpec, railing-based macroRemove, spike-rate-based spikeClean, hasEEG=true).
+Probe: `batch/task12_probeParams.m` (needs the makeOutDat intermediate).
+
+| Subject ID | probe result | run outcome |
+|---|---|---|
+| 250623_Dupi_NMH_KS_3 | beatSpec=`1,0,gt,3.5` (61 bpm, 12.1× side margin); 6 macros, none railing; spikeClean=false; hasEEG=true — written to sheet | main still fails with its documented "Index must not exceed 2" mid-pipeline error (bare intermediate remains) |
+| JL_2, TB_3, GH_3, AB_3, JN_3, BS_1, AD_1, AD_2, PD_1, JA_1, JA_2, BW_1 | not probed — makeOutDat fails first | **blocked: `experiment_EEGsync\processedBehavior\<id>.csv` missing** (generate with `tidyDataImport_waveExp.R`, rerun makeOutDat → probe → main) |
+| 251110_Dupi_NMH_PC_2 | not probed | blocked: makeOutDat "load file not identified uniquely" — inspect the session folder's LoadData scripts |
+| 260316_Dupi_NMH_PD_2 | not probed | blocked: no breathing raw on disk (sheet says extracted) |
