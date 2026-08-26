@@ -70,6 +70,25 @@ for tt = 1:size(TASKS, 1)
         onsets = round(od.bmObj(:, 2) * fs);
         onsets = onsets(onsets >= 1 & onsets <= numel(rsp));
 
+        % task windows: alt6 keeps only in-block breaths and movie only
+        % in-clip breaths, so time OUTSIDE the windows is intentionally
+        % unmarked - shade it to prevent reading it as detection dropout
+        win = [];   % [start end] rows in samples
+        try
+            if istable(od.TTL) && ismember('clipOnset', od.TTL.Properties.VariableNames)
+                win = [od.TTL.clipOnset, od.TTL.clipEnd];
+            elseif strcmp(tkey, 'alternating6Blocks') && isfield(od, 'blocks') && istable(od.blocks)
+                bv = od.blocks.Properties.VariableNames;
+                sc = bv(contains(lower(bv), 'start')); ec = bv(contains(lower(bv), 'end'));
+                if ~isempty(sc) && ~isempty(ec)
+                    win = [od.blocks.(sc{1}), od.blocks.(ec{1})];
+                end
+            end
+        catch
+            win = [];
+        end
+        win = win(all(isfinite(win), 2) & win(:, 2) > win(:, 1), :);
+
         N = numel(rsp);
         W = round(60 * fs);
         sLoc = movstd(double(rsp), W);
@@ -88,12 +107,31 @@ for tt = 1:size(TASKS, 1)
             i0 = (bins(b) - 1) * 60 * fs + 1; i1 = bins(b) * 60 * fs;
             t = (i0:i1) / fs;
             subplot(numel(bins), 1, b); hold on
+            if ~isempty(win)
+                % shade the parts of this minute OUTSIDE every task window
+                outMask = true(1, i1 - i0 + 1);
+                for wr = 1:size(win, 1)
+                    a = max(i0, win(wr, 1)); z = min(i1, win(wr, 2));
+                    if z >= a, outMask(a - i0 + 1 : z - i0 + 1) = false; end
+                end
+                d = diff([0 outMask 0]);
+                sIdx = find(d == 1); eIdx = find(d == -1) - 1;
+                yl = [min(rsp(i0:i1)) max(rsp(i0:i1))];
+                for sg = 1:numel(sIdx)
+                    patch(([sIdx(sg) eIdx(sg) eIdx(sg) sIdx(sg)] + i0 - 1) / fs, ...
+                        yl([1 1 2 2]), [0.85 0.85 0.85], 'EdgeColor', 'none');
+                end
+            end
             plot(t, rsp(i0:i1), 'k', 'LineWidth', 0.75);
             oi = onsets(onsets >= i0 & onsets <= i1);
             plot(oi / fs, rsp(oi), 'rv', 'MarkerFaceColor', 'r', 'MarkerSize', 6);
             xlim([t(1) t(end)]); ylabel(sprintf('min %d', bins(b)));
             if b == 1
-                title({sprintf('%s  —  %s', strrep(id, '_', '\_'), tkey), ...
+                shadeTxt = '';
+                if ~isempty(win)
+                    shadeTxt = '  (gray = outside task windows: breaths intentionally excluded)';
+                end
+                title({sprintf('%s  —  %s%s', strrep(id, '_', '\_'), tkey, shadeTxt), ...
                        sprintf('breathMetrics, %s  —  n=%d breaths, rspFlip %+d', ...
                            mode, size(od.bmObj, 1), od.rspFlip)});
             end
