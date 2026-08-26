@@ -13,6 +13,8 @@ figures/
 *.png
 *.jpg
 *.jpeg
+# ...except the breath-segmentation QC overlays, which are review deliverables
+!breathingQualityCheck/*.jpg
 
 # OS cruft
 .DS_Store
