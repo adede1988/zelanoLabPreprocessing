@@ -155,8 +155,12 @@ function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs, floorFrac, 
         p75 = seg(max(1, round(0.75 * numel(seg))));
         v = rspDet(o);
         if v >= p25 && v <= p75, continue; end
-        lo = max([1, o - maxShift, ternGuard(k > 1, on(k-1) + 1, 1)]);
-        hi = min([N - 1, o + maxShift, ternGuard(k < numel(on), on(k+1) - 1, N - 1)]);
+        % NB: explicit branches - a helper call would evaluate on(k-1)/on(k+1)
+        % eagerly and crash at the first/last onset
+        if k > 1, prevLim = on(k-1) + 1; else, prevLim = 1; end
+        if k < numel(on), nextLim = on(k+1) - 1; else, nextLim = N - 1; end
+        lo = max([1, o - maxShift, prevLim]);
+        hi = min([N - 1, o + maxShift, nextLim]);
         if hi <= lo, continue; end
         w = lo:hi;
         cross = w(rspDet(w) < p25 & rspDet(w + 1) >= p25);
