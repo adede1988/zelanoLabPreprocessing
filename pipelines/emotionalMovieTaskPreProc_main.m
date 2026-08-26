@@ -76,7 +76,11 @@ for s = 1:numel(sessionIDs)
     isRsp  = cellfun(@(x) contains(x, 'rsp'), outDat.labels);
     rspDat = outDat.data(isRsp, :);
     rspDat = rspDat(P.rspIDX, :) .* P.rspFlip;
-    [outDat.bmObj, outDat.bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs);
+    % 260811_EEG_NWU_MS: leak-attenuated stretch (partially unplugged cannula
+    % tube) - lower amplitude-norm floor recovers its breaths (see alt6 main)
+    ff = [];
+    if strcmp(S.id, '260811_EEG_NWU_MS'), ff = 0.02; end
+    [outDat.bmObj, outDat.bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs, ff);
     outDat.moreThan1 = 1;
     outDat.rspIDX  = P.rspIDX;
     outDat.rspFlip = P.rspFlip;
