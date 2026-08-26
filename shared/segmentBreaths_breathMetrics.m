@@ -1,7 +1,12 @@
-function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
+function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs, floorFrac)
 %SEGMENTBREATHS_BREATHMETRICS  Per-breath segmentation via the breathMetrics toolbox.
 %
-%   [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
+%   [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs, floorFrac)
+%
+%   floorFrac (optional, default 0.05): the windowed amplitude normalization's
+%   floor as a fraction of the median 60-s moving std. Lower = more
+%   amplification of weak stretches (recovers leak-attenuated breathing, e.g.
+%   a partially unplugged cannula) at the cost of amplifying dead noise.
 %
 %   Shared breath-segmentation engine for every breath-based task
 %   (Tasks_260824.md Task 3 / D8). Replaces the per-breath engine inside
@@ -73,6 +78,7 @@ function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
 
     if size(rsp, 1) > 1, rsp = rsp'; end
     assert(isvector(rsp) && isnumeric(rsp), 'rsp must be a numeric vector');
+    if nargin < 3 || isempty(floorFrac), floorFrac = 0.05; end
 
     % discontinuous Neuralynx recordings can carry NaN samples, which poison
     % breathmetrics' FFT smoothing; interpolate them (same policy as the cue
@@ -91,7 +97,7 @@ function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
     % windowed amplitude normalization for DETECTION ONLY (raw data untouched)
     W = round(60 * fs);
     s = movstd(double(rsp), W);
-    sFloor = 0.1 * median(s);
+    sFloor = floorFrac * median(s);
     rspDet = double(rsp) ./ max(s, sFloor);
 
     bm = breathmetrics(rspDet, fs, 'humanAirflow');
@@ -151,8 +157,9 @@ function [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rsp, fs)
     bmFeatures.conditioning = struct( ...
         'callerConditioning',   'none (raw chosen trace, rspIDX/rspFlip applied upstream)', ...
         'nanSamplesFilled',     nNaN, ...
-        'windowedAmpNorm',      'detection trace = raw / max(movstd(raw, 60 s), 0.1 x median movstd); raw data untouched', ...
+        'windowedAmpNorm',      'detection trace = raw / max(movstd(raw, 60 s), floorFrac x median movstd); raw data untouched', ...
         'ampNormWindowSec',     60, ...
+        'ampNormFloorFrac',     floorFrac, ...
         'ampNormFloor',         sFloor, ...
         'bmObjAmplitudeUnits',  'raw signal units (60 s moving-mean baseline removed at detected indices)', ...
         'featureFlowUnits',     'windowed-normalized units (locally comparable across epochs)', ...
