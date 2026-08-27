@@ -21,6 +21,10 @@ for si = 1:numel(cfg.sessionIDs)
     fp = fullfile(cfg.root{si}, id, 'preProc', [id '_breathingPreproc.mat']);
     if ~exist(fp, 'file'), continue; end
     try
+        % rerun-safe: if a pristine backup exists, restore it first (covers
+        % re-reconstruction after an aligner change)
+        bk0 = fullfile(BK, [id '_breathingPreproc.mat']);
+        if exist(bk0, 'file'), copyfile(bk0, fp); end
         s = load(fp); fn = fieldnames(s); od = s.(fn{1}); clear s
         if ~isfield(od, 'behDat') || ~ismember('shadowFile', od.behDat.Properties.VariableNames), continue; end
         sfAll = unique(string(od.behDat.shadowFile));
@@ -43,7 +47,7 @@ for si = 1:numel(cfg.sessionIDs)
         targIQR = iqr(rsp(refIdx));
 
         rec = struct('shadowFile', {}, 'srcFile', {}, 'i0', {}, 'i1', {}, ...
-                     'lagSec', {}, 'r', {}, 'sgn', {}, 'scale', {}, 'status', {});
+                     'lagSec', {}, 'r', {}, 'sgn', {}, 'scale', {}, 'status', {}, 'strategy', {});
         changed = false;
         for tt = 1:numel(targets)
             sf = char(targets(tt));
@@ -57,7 +61,7 @@ for si = 1:numel(cfg.sessionIDs)
             csv = fullfile(GD, [id sf '_recording.csv']);
             if ~exist(csv, 'file'), csv = fullfile(GD, [id sf '_playback_recording.csv']); end
             R = struct('shadowFile', sf, 'srcFile', csv, 'i0', i0, 'i1', i1, ...
-                       'lagSec', NaN, 'r', NaN, 'sgn', 0, 'scale', NaN, 'status', 'no-file');
+                       'lagSec', NaN, 'r', NaN, 'sgn', 0, 'scale', NaN, 'status', 'no-file', 'strategy', 'none');
             if ~exist(csv, 'file'), rec(end+1) = R; continue; end %#ok<*SAGROW>
 
             P = readmatrix(csv);
@@ -72,11 +76,34 @@ for si = 1:numel(cfg.sessionIDs)
             tR = (0:numel(segR)-1)'/fs;
             tgr = (0:1/FSa:tR(end))';
             pR = lowpass(interp1(tR, double(segR)', tgr, 'linear') - mean(segR), 1, FSa);
+            % --- filter-aware alignment (0.1-Hz acquisition high-pass makes
+            % the RECORDED slow trace ~ the DERIVATIVE of the true one; a
+            % sine correlates with its derivative at r~1 a QUARTER-CYCLE OFF,
+            % so plain xcorr can look great at the wrong lag). Strategies:
+            %   plain : pR vs pL           (fine for sharp cyclicSigh events)
+            %   deriv : pR vs d/dt(pL)     (correct for high-passed slow)
+            %   events: steep-rise delta trains, 0.5-s smoothed (shape-free)
             Np = max(numel(pR), numel(pL));
-            [xc, lg] = xcorr([pR; zeros(Np-numel(pR),1)], [pL; zeros(Np-numel(pL),1)], 'normalized');
-            [pk, pi] = max(abs(xc));
-            R.r = pk; R.sgn = sign(xc(pi)); R.lagSec = lg(pi) / FSa;
-            if pk < 0.5
+            zp = @(v) [v(:); zeros(Np - numel(v), 1)];
+            dL = movmean([0; diff(pL(:))] * FSa, round(0.5 * FSa));
+            evTrain = @(v) movmean(double(([0; diff(v(:))] * FSa) > prctile([0; diff(v(:))] * FSa, 85)), round(0.5 * FSa));
+            cands = {zp(pR), zp(pL), 'plain'; zp(pR), zp(dL), 'deriv'; ...
+                     zp(evTrain(pR)), zp(evTrain(pL)), 'events'; ...
+                     zp(evTrain(-pR)), zp(evTrain(pL)), 'events-neg'};
+            bestR = 0; bestLag = NaN; bestSgn = 0; bestStrat = 'none';
+            for cc = 1:size(cands, 1)
+                [xc, lg] = xcorr(cands{cc, 1}, cands{cc, 2}, 'normalized');
+                [pkv, pii] = max(abs(xc));
+                thr = 0.5; if contains(cands{cc, 3}, 'events'), thr = 0.35; end
+                if pkv >= thr && pkv > bestR
+                    bestR = pkv; bestLag = lg(pii) / FSa; bestStrat = cands{cc, 3};
+                    if strcmp(cands{cc, 3}, 'events-neg'), bestSgn = -1;
+                    elseif contains(cands{cc, 3}, 'events'), bestSgn = 1;
+                    else, bestSgn = sign(xc(pii)); end
+                end
+            end
+            R.r = bestR; R.sgn = bestSgn; R.lagSec = bestLag; R.strategy = bestStrat;
+            if bestR == 0 || bestSgn == 0
                 R.status = 'weak-alignment-SKIPPED-REVIEW'; rec(end+1) = R; continue;
             end
             % playback time -> block-local seconds: tBlock = tP - tP(1) + lagSec
