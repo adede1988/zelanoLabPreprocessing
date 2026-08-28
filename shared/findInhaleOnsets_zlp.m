@@ -155,16 +155,20 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 % also pass rules 1+2 (rev6: an anchor inside rule 2's
                 % near-peak cutoff zone starts the walk with no valid landing
                 % ahead). Walk-stop thresholds stay on the WHOLE-window dmax.
-                dmaxA = max(dseg(ceil(numel(dseg) / 2):end));
-                im = find(dseg >= 0.7 * dmaxA & eSeg, 1, 'last');
-                % fallback (rev12, TI 4375s drill): when the slope and
-                % eligibility bands never overlap (a shallow final rise -
-                % rule 2's +0.4 is nearly the whole rise), anchor at the
-                % LAST ELIGIBLE sample, never the last high-slope sample:
-                % the high-slope fallback grabbed the exhale-recovery limb
-                % and the walk ran to the floor. The anchor belongs where
-                % onsets are allowed to exist. (Pruning guarantees eSeg has
-                % a true sample, so the remaining fallbacks are safety only.)
+                h2 = ceil(numel(dseg) / 2);
+                dmaxA = max(dseg(h2:end));
+                % (rev12b, TI 4375s verify): the primary anchor search is
+                % CONFINED to the second half of the pair - unconfined, the
+                % "last valid70" landed on the tail of a violent first-half
+                % exhale-recovery limb (slope and eligibility overlap there
+                % too) and the walk ran to the floor from the wrong rise.
+                im = find(dseg >= 0.7 * dmaxA & eSeg & ((1:numel(dseg)) >= h2), 1, 'last');
+                % fallback (rev12, TI 4375s drill): when slope and
+                % eligibility never overlap in the second half (a shallow
+                % final rise - rule 2's +0.4 is nearly the whole rise),
+                % anchor at the LAST ELIGIBLE sample: the anchor belongs
+                % where onsets are allowed to exist. (Pruning guarantees an
+                % eligible sample exists; later fallbacks are safety only.)
                 if isempty(im), im = find(eSeg, 1, 'last'); end
                 if isempty(im), im = find(dseg >= 0.7 * dmaxA, 1, 'last'); end
                 if isempty(im), [~, im] = max(dseg); end
