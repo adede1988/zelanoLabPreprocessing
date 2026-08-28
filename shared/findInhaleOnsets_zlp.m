@@ -135,7 +135,11 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 % inhales, anchoring the walk on an early sub-rise.
                 dmax = max(dseg);
                 surge = find(dseg >= 0.5 * dmax);
-                im = surge(end);
+                % prefer the last surge BELOW the upper amplitude band - an
+                % anchor at the rise tail lands where rule 2 can never pass
+                % (2026-08-28 fix: near-peak anchors NaN'd most breaths)
+                surgeOK = surge(seg(surge) <= hi);
+                if ~isempty(surgeOK), im = surgeOK(end); else, im = surge(end); end
                 % Stop only on a SUSTAINED dip (slope < 0.15 dmax for >=0.15 s)
                 % - knife-edge single-sample dips on drifting plateaus neither
                 % halt the walk early nor let it slide through a real pause.
@@ -191,8 +195,8 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
         % ineligible landing (e.g. changepoint at a descent) -> advance to the
         % first eligible sample in the window
         if isfinite(o) && ~eSeg(min(o, numel(eSeg)))
-            nxt = find(eSeg(o:end), 1);
-            if isempty(nxt), o = NaN; else, o = o + nxt - 1; end
+            cand = find(eSeg);   % nearest eligible in EITHER direction
+            if isempty(cand), o = NaN; else, [~, ci] = min(abs(cand - o)); o = cand(ci); end
         end
         if isfinite(o), onsets(k) = tr + o - 1; end
     end
