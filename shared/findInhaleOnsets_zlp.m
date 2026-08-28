@@ -1,6 +1,9 @@
-function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method, r2Factor, r3Factor)
+function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method, r2Factor, r3Factor, dipFrac, dipDur)
 % r2Factor (default 0.75): rule-2 rise target as a fraction of local amplitude
 % r3Factor (default 3): rule-3 slope-contrast ratio (max/min in -0.25..+0.5s)
+% dipFrac/dipDur (default 0.25 / 0.10 s): the kneeBacktrack walk's sustained
+%   -dip stop - slope < dipFrac*dmax continuously for >= dipDur seconds
+%   (exposed 2026-08-28 for the tri-variant early-onset review)
 %FINDINHALEONSETS_ZLP  Inhale onsets per trough->peak pair (QC round 3).
 %
 %   onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
@@ -65,6 +68,8 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     % point within 0.5 s after the mark.)
     if nargin < 6 || isempty(r2Factor), r2Factor = 0.75; end
     if nargin < 7 || isempty(r3Factor), r3Factor = 3; end
+    if nargin < 8 || isempty(dipFrac), dipFrac = 0.25; end
+    if nargin < 9 || isempty(dipDur),  dipDur  = 0.10; end
     % rule 3 (2026-08-28 final form): slope CONTRAST across a window
     % straddling the mark (-0.25s..+0.5s): max slope must exceed r3Factor x
     % the min slope (clamped at +0.1 units/s - the min is ~0/negative at true
@@ -151,12 +156,12 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 im = find(dseg >= 0.7 * dmax & eSeg, 1, 'last');
                 if isempty(im), im = find(dseg >= 0.7 * dmax, 1, 'last'); end
                 if isempty(im), [~, im] = max(dseg); end
-                % Stop only on a SUSTAINED dip (slope < 0.25 dmax for >=0.10 s;
-                % rev7 - was 0.15 dmax / 0.15 s, which walked past the true
-                % base into early placements) - knife-edge single-sample dips
-                % on drifting plateaus still cannot halt the walk.
-                susLen = max(1, round(0.10 * fs));
-                susDip = movsum(double(dseg < 0.25 * dmax), [susLen - 1, 0]) >= susLen;
+                % Stop only on a SUSTAINED dip (slope < dipFrac*dmax for
+                % >= dipDur s; default 0.25/0.10 s - rev7's fix for walks
+                % sliding past the true base into early placements) -
+                % knife-edge single-sample dips still cannot halt the walk.
+                susLen = max(1, round(dipDur * fs));
+                susDip = movsum(double(dseg < dipFrac * dmax), [susLen - 1, 0]) >= susLen;
                 % walk freely: eligibility applies to the LANDING (final
                 % snap), not the path - per-step gating halted walks at the
                 % anchor when rule 2's near-peak cutoff sat right behind it
