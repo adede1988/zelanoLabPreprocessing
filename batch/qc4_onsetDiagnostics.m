@@ -108,7 +108,7 @@ for tt = 1:size(TASKS, 1)
                 end
                 xlim([t(1) t(end)]); ylabel(strrep(condList{c}, '_', '\_'));
                 if c == 1
-                    title(sprintf('%s — %s — rev7 tri-variant dip stop: BLUE .15dmax/.15s, MAGENTA .25/.10s (current), ORANGE .50/.05s | red peak, green trough, black arrow = trough/late (magenta)', ...
+                    title(sprintf('%s — %s — rev8 tri-variant dip stop: BLUE .15dmax/.15s, MAGENTA .25/.10s (current), ORANGE .50/.05s | red peak, green trough, black arrow = trough/late (magenta)', ...
                         strrep(id, '_', '\_'), tkey));
                 end
             end

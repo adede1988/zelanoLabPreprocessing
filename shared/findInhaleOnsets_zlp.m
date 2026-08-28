@@ -147,14 +147,17 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 % to the closest point with slope >= 70% of the window max -
                 % no amplitude-band logic (the smoothed slope is not jittery)
                 dmax = max(dseg);
-                % anchor (2026-08-28 rev6, review): closest point back from
-                % the peak with slope >= 70% of the window max THAT ALSO
-                % PASSES rules 1+2 - an anchor inside rule 2's near-peak
-                % cutoff zone starts the walk where no valid landing exists
-                % (the PP 449s instant-snap), so require validity up front,
-                % which also starts the walk a little further down the slope.
-                im = find(dseg >= 0.7 * dmax & eSeg, 1, 'last');
-                if isempty(im), im = find(dseg >= 0.7 * dmax, 1, 'last'); end
+                % anchor (2026-08-28 rev8, BK 450s drill): the anchor's slope
+                % scale is the max slope of the SECOND HALF of the pair only -
+                % on two-phase breaths a violent first rise otherwise sets a
+                % 70% bar the final rise cannot meet, dragging the anchor
+                % (and the onset) onto the early sub-rise. The anchor must
+                % also pass rules 1+2 (rev6: an anchor inside rule 2's
+                % near-peak cutoff zone starts the walk with no valid landing
+                % ahead). Walk-stop thresholds stay on the WHOLE-window dmax.
+                dmaxA = max(dseg(ceil(numel(dseg) / 2):end));
+                im = find(dseg >= 0.7 * dmaxA & eSeg, 1, 'last');
+                if isempty(im), im = find(dseg >= 0.7 * dmaxA, 1, 'last'); end
                 if isempty(im), [~, im] = max(dseg); end
                 % Stop only on a SUSTAINED dip (slope < dipFrac*dmax for
                 % >= dipDur s; default 0.25/0.10 s - rev7's fix for walks
