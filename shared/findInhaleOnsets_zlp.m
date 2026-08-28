@@ -70,10 +70,15 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     % the min slope (clamped at +0.1 units/s - the min is ~0/negative at true
     % onsets, which is the point: flat-behind, steep-ahead passes easily even
     % when the mark is slightly late; uniform mid-rise and flat traces fail).
+    % (2026-08-28 restructure: rule 3 is NOT a global gate - smooth
+    % trough-to-peak sweeps have no flat/steep contrast anywhere, so gating
+    % on it wrongly invalidated whole windows. It now refines knee placement
+    % only, AFTER a knee is found - see the kneeBacktrack two-pass flow.)
     LB = round(0.25 * fs); LF = round(0.5 * fs);
     dMaxW = movmax(d, [LB LF]);
     dMinW = movmin(d, [LB LF]);
-    valid = elig & (dMaxW > r3Factor * max(dMinW, 0.1));
+    r3v = dMaxW > r3Factor * max(dMinW, 0.1);
+    valid = elig;                       % rules 1 (+2 per pair) gate candidates
     pairValid = @(w) valid(w) & ...
         (movmax(resp(w), [0 max(round(0.4 * fs), round(0.25 * numel(w)))]) ...
          - resp(w)) > r2Factor * median(Aloc(w));
@@ -139,9 +144,22 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 % the trough/peak MIDPOINT: on a smooth rise that is the
                 % steepest region, i.e. the morphological onset.
                 if seg(o) < resp(tr) + 0.2 * rng_
+                    % clean sweep: no knee exists - midpoint crossing
                     midLvl = resp(tr) + 0.5 * rng_;
                     cr = find(seg(1:end-1) < midLvl & seg(2:end) >= midLvl);
                     if ~isempty(cr), o = cr(end) + 1; end
+                else
+                    % knee FOUND: apply rule 3 (slope contrast) to narrow the
+                    % space and re-run the walk (2026-08-28 two-pass flow) -
+                    % the re-walk stops no later than pass 1 by construction
+                    nSeg = eSeg & r3v(w);
+                    if any(nSeg)
+                        o2 = im;
+                        while o2 > 1 && dseg(o2 - 1) > 0.15 * dmax && nSeg(o2 - 1)
+                            o2 = o2 - 1;
+                        end
+                        o = o2;
+                    end
                 end
 
             case 'changepoint'
