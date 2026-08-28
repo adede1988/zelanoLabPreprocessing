@@ -149,8 +149,12 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 % halt the walk early nor let it slide through a real pause.
                 susLen = max(1, round(0.15 * fs));
                 susDip = movsum(double(dseg < 0.15 * dmax), [susLen - 1, 0]) >= susLen;
+                % walk freely: eligibility applies to the LANDING (final
+                % snap), not the path - per-step gating halted walks at the
+                % anchor when rule 2's near-peak cutoff sat right behind it
+                % (PP 449s drill). Descents stop the walk via susDip anyway.
                 o = im;
-                while o > 1 && ~susDip(o - 1) && eSeg(o - 1)
+                while o > 1 && ~susDip(o - 1)
                     o = o - 1;
                 end
                 % late-landing extension (2026-08-28 rev4): a landing above
@@ -161,7 +165,7 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 if seg(o) > resp(tr) + 0.35 * rng_
                     susDip2 = movsum(double(dseg < 0.05 * dmax), [susLen - 1, 0]) >= susLen;
                     o2 = o;
-                    while o2 > 1 && ~susDip2(o2 - 1) && eSeg(o2 - 1)
+                    while o2 > 1 && ~susDip2(o2 - 1)
                         o2 = o2 - 1;
                     end
                     o = o2;
@@ -181,13 +185,12 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                     % knee FOUND: apply rule 3 (slope contrast) to narrow the
                     % space and re-run the walk (2026-08-28 two-pass flow) -
                     % the re-walk stops no later than pass 1 by construction
-                    nSeg = eSeg & r3v(w);
-                    if any(nSeg)
-                        o2 = im;
-                        while o2 > 1 && ~susDip(o2 - 1) && nSeg(o2 - 1)
-                            o2 = o2 - 1;
-                        end
-                        o = o2;
+                    % rule 3 refines the LANDING: if the mark lacks slope
+                    % contrast, move to the nearest contrasted sample in-window
+                    r3seg = r3v(w);
+                    if ~r3seg(min(o, numel(r3seg))) && any(r3seg)
+                        cnd = find(r3seg);
+                        [~, ci] = min(abs(cnd - o)); o = cnd(ci);
                     end
                 end
 
