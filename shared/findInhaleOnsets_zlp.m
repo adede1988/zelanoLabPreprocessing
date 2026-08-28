@@ -153,6 +153,19 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 while o > 1 && ~susDip(o - 1) && eSeg(o - 1)
                     o = o - 1;
                 end
+                % late-landing extension (2026-08-28 rev4): a landing above
+                % trough+35% of the swing is midway up a TWO-PHASE inhale
+                % (the slow first phase read as a dip). Keep walking with a
+                % stricter flatness demand to reach the true base; an
+                % overshoot is caught by the clean-sweep midpoint below.
+                if seg(o) > resp(tr) + 0.35 * rng_
+                    susDip2 = movsum(double(dseg < 0.05 * dmax), [susLen - 1, 0]) >= susLen;
+                    o2 = o;
+                    while o2 > 1 && ~susDip2(o2 - 1) && eSeg(o2 - 1)
+                        o2 = o2 - 1;
+                    end
+                    o = o2;
+                end
                 % no-inflection fallback (2026-08-28, ZL audit): on pause-free
                 % breaths the slope stays high nearly to the trough and the
                 % walk-back descends >80% of the peak-to-trough swing - there
