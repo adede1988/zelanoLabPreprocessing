@@ -1,4 +1,6 @@
-function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
+function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method, r2Factor, r3Factor)
+% r2Factor (default 0.75): rule-2 rise target as a fraction of local amplitude
+% r3Factor (default 1.25): rule-3 forward-slope factor vs abs(onset slope)
 %FINDINHALEONSETS_ZLP  Inhale onsets per trough->peak pair (QC round 3).
 %
 %   onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
@@ -61,12 +63,14 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     % in the rise the acceleration peaks - counts dropped semi-randomly.
     % Like rule 2, test the WINDOW: slope must reach the factor at some
     % point within 0.5 s after the mark.)
+    if nargin < 6 || isempty(r2Factor), r2Factor = 0.75; end
+    if nargin < 7 || isempty(r3Factor), r3Factor = 1.25; end
     L5 = round(0.5 * fs);
     dMaxFwd = movmax(d, [0 L5]);
-    valid = elig & (dMaxFwd > 1.25 * abs(d));
+    valid = elig & (dMaxFwd > r3Factor * abs(d));
     pairValid = @(w) valid(w) & ...
         (movmax(resp(w), [0 max(round(0.4 * fs), round(0.25 * numel(w)))]) ...
-         - resp(w)) > 0.75 * median(Aloc(w));
+         - resp(w)) > r2Factor * median(Aloc(w));
 
     % SPURIOUS-PAIR PRUNING: a trough->peak window with NO dual-valid sample
     % is a false split of one breath (extrema over-detection) - eliminate

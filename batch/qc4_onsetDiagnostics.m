@@ -1,6 +1,7 @@
-% qc4_onsetDiagnostics — per-session 3x3 grid (rows = prep: pwl /
-% conservative / twoscale; cols = onset algo: slopeGate / kneeBacktrack /
-% changepoint): overlay of the first 1000 ms after each detected inhale onset
+% qc4_onsetDiagnostics — per-session 3x3 RULE-PARAMETER sweep on the locked
+% pipeline (conservative prep x kneeBacktrack): rows = rule-2 rise factor
+% {0.5 0.75 1.0} x local amplitude (pair-scaled window), cols = rule-3 slope
+% factor {1.0 1.25 1.5} x abs onset slope (0.5-s window): overlay of the first 1000 ms after each detected inhale onset
 % on the WINDOWED-NORMALIZED trace (raw-amplitude drift would confound the
 % stats), bold mean waveform +/- 1 SD band, and a stats block per cell:
 %   n, br/min           breath count (carving-up inflates this)
@@ -20,8 +21,8 @@ TASKS = { ...
  'emotionalMovieTask',     '_EmotionalMovieTask*.mat'; ...
  'alternating6Blocks',     '_alternating6Blocks*.mat'; ...
  'breathingTasks_separate','_breathingTasks_separate*.mat'};
-MODES = {'pwl', 'conservative', 'twoscale'};
-METHODS = {'slopeGate', 'kneeBacktrack', 'changepoint'};
+R2F = [0.5 0.75 1.0];   % rule-2 rise factor (rows)
+R3F = [1.0 1.25 1.5];   % rule-3 slope factor (cols)
 outDir = getenv('ZLP_DIAG_DIR');
 if isempty(outDir), outDir = 'E:\reprocBackup_260824\qc4diag'; end
 if ~exist(outDir, 'dir'), mkdir(outDir); end
@@ -60,10 +61,10 @@ for tt = 1:size(TASKS, 1)
             W1 = round(1.0 * fs); W5 = round(0.5 * fs); W25 = round(0.25 * fs);
             mins = N / fs / 60;
             fig = figure('Visible', 'off', 'Position', [10 10 1550 1300]);
+            [det, pk, tr] = prepBreathTrace_zlp(rsp, fs, 'conservative', blankF); %#ok<ASGLU>
             for mo = 1:3
-                [det, pk, tr] = prepBreathTrace_zlp(rsp, fs, MODES{mo}, blankF); %#ok<ASGLU>
                 for mm = 1:3
-                    o = findInhaleOnsets_zlp(det, fs, pk, tr, METHODS{mm});
+                    o = findInhaleOnsets_zlp(det, fs, pk, tr, 'kneeBacktrack', R2F(mo), R3F(mm));
                     if ~isempty(cySpan)
                         keep = true(size(o)); lastKept = -Inf;
                         for k = 1:numel(o)
@@ -114,9 +115,9 @@ for tt = 1:size(TASKS, 1)
                         st.medY0 = NaN; st.iqrY0 = NaN; st.pctTrough = NaN; st.pctLate = NaN;
                         st.pctFall = NaN; st.rise500 = NaN; st.lat25 = NaN; st.pct1sdY0 = NaN; st.pct1sdY5 = NaN;
                     end
-                    if mo == 1, title(METHODS{mm}); end
-                    if mm == 1, ylabel(MODES{mo}, 'FontWeight', 'bold'); end
-                    SUM(end+1, :) = {id, tkey, MODES{mo}, METHODS{mm}, st.n, st.bpm, ...
+                    if mo == 1, title(sprintf('r3 = %.2f', R3F(mm))); end
+                    if mm == 1, ylabel(sprintf('r2 = %.2f', R2F(mo)), 'FontWeight', 'bold'); end
+                    SUM(end+1, :) = {id, tkey, R2F(mo), R3F(mm), st.n, st.bpm, ...
                         st.medY0, st.iqrY0, st.pctTrough, st.pctLate, st.pctFall, ...
                         st.rise500, st.lat25, st.pct1sdY0, st.pct1sdY5}; %#ok<AGROW>
                 end
@@ -131,7 +132,7 @@ for tt = 1:size(TASKS, 1)
         end
     end
 end
-T = cell2table(SUM, 'VariableNames', {'session', 'task', 'prep', 'algo', 'n', 'bpm', ...
+T = cell2table(SUM, 'VariableNames', {'session', 'task', 'r2Factor', 'r3Factor', 'n', 'bpm', ...
     'medY0', 'iqrY0', 'pctTrough', 'pctLate', 'pctFall', 'rise500', 'lat25s', 'pct1sdY0', 'pct1sdY500'});
 writetable(T, fullfile(outDir, 'onsetDiagnostics_summary.csv'));
 fprintf('qc4_onsetDiagnostics: DONE (%d rows)\n', height(T));
