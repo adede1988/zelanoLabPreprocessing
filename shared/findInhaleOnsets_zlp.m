@@ -97,8 +97,15 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 dm = dseg; dm(~inBand) = -Inf;
                 [dmax, im] = max(dm);
                 if ~isfinite(dmax), [dmax, im] = max(dseg); end
+                % level floor (2026-08-28 ZL audit): on pause-free breaths the
+                % slope stays high nearly to the trough, so the walk-back
+                % descended to the trough vicinity (which passes both
+                % eligibility rules - rounded troughs fall slowly and rise
+                % immediately). Onsets live "around zero, above the trough":
+                % never walk below the low-mid band.
+                floorLvl = max(resp(tr) + 0.25 * rng_, -0.25);
                 o = im;
-                while o > 1 && dseg(o - 1) > 0.15 * dmax && eSeg(o - 1)
+                while o > 1 && dseg(o - 1) > 0.15 * dmax && eSeg(o - 1) && seg(o - 1) > floorLvl
                     o = o - 1;
                 end
 
