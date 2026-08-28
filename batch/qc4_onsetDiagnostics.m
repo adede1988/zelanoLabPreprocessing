@@ -21,8 +21,8 @@ TASKS = { ...
  'emotionalMovieTask',     '_EmotionalMovieTask*.mat'; ...
  'alternating6Blocks',     '_alternating6Blocks*.mat'; ...
  'breathingTasks_separate','_breathingTasks_separate*.mat'};
-R2F = [0.5 0.75 1.0];   % rule-2 rise factor (rows)
-R3F = [2 3 4];   % rule-3 slope-contrast ratio (cols)
+R2F = [0.25 0.5 0.75];    % rule-2 rise factor (rows)
+R3F = [1.25 1.5 1.75];    % rule-3 slope-contrast ratio (cols)
 outDir = getenv('ZLP_DIAG_DIR');
 if isempty(outDir), outDir = 'E:\reprocBackup_260824\qc4diag'; end
 if ~exist(outDir, 'dir'), mkdir(outDir); end
@@ -58,7 +58,8 @@ for tt = 1:size(TASKS, 1)
                     cySpan = [min(od.behDat.finalOnset(cm)) - 15*fs, max(od.behDat.finalOnset(cm)) + 15*fs];
                 end
             end
-            W1 = round(1.0 * fs); W5 = round(0.5 * fs); W25 = round(0.25 * fs);
+            WB = round(0.5 * fs); WF = round(2.0 * fs);   % -0.5s .. +2s window
+            W5 = round(0.5 * fs); W25 = round(0.25 * fs);
             mins = N / fs / 60;
             fig = figure('Visible', 'off', 'Position', [10 10 1550 1300]);
             [det, pk, tr] = prepBreathTrace_zlp(rsp, fs, 'conservative', blankF); %#ok<ASGLU>
@@ -75,19 +76,20 @@ for tt = 1:size(TASKS, 1)
                         end
                         o = o(keep);
                     end
-                    o = o(o >= 1 & o + W1 <= N);
+                    o = o(o >= WB + 1 & o + WF <= N);
                     nB = numel(o);
                     subplot(3, 3, (mo-1)*3 + mm); hold on
                     st = struct('n', nB, 'bpm', nB / mins);
                     if nB >= 5
-                        seg = zeros(nB, W1 + 1);
-                        for k = 1:nB, seg(k, :) = xN(o(k):o(k)+W1); end
-                        y0 = seg(:, 1); y5 = seg(:, W5 + 1);
-                        slope0 = (seg(:, W25 + 1) - y0);
-                        riseAmt = max(seg, [], 2) - y0;
+                        seg = zeros(nB, WB + WF + 1);
+                        for k = 1:nB, seg(k, :) = xN(o(k)-WB:o(k)+WF); end
+                        i0c = WB + 1;                    % column of t = 0
+                        y0 = seg(:, i0c); y5 = seg(:, i0c + W5);
+                        slope0 = (seg(:, i0c + W25) - y0);
+                        riseAmt = max(seg(:, i0c:end), [], 2) - y0;
                         lat = nan(nB, 1);
                         for k = 1:nB
-                            c = find(seg(k, :) - y0(k) >= 0.25 * max(riseAmt(k), eps), 1);
+                            c = find(seg(k, i0c:end) - y0(k) >= 0.25 * max(riseAmt(k), eps), 1);
                             if ~isempty(c), lat(k) = (c - 1) / fs; end
                         end
                         st.medY0 = median(y0); st.iqrY0 = iqr(y0);
@@ -98,7 +100,7 @@ for tt = 1:size(TASKS, 1)
                         st.lat25     = median(lat, 'omitnan');
                         st.pct1sdY0  = 100 * mean(abs(y0 - mean(y0)) <= std(y0));
                         st.pct1sdY5  = 100 * mean(abs(y5 - mean(y5)) <= std(y5));
-                        tv = (0:W1) / fs * 1000;
+                        tv = (-WB:WF) / fs * 1000;
                         show = 1:nB;
                         if nB > 150, rng(6000 + ctr); show = sort(randperm(nB, 150)); end
                         plot(tv, seg(show, :)', 'Color', [0 0 0 0.06]);
@@ -108,8 +110,9 @@ for tt = 1:size(TASKS, 1)
                         yline(0, ':');
                         txt = sprintf('n=%d %.1f/min\nY0 %.2f iqr %.2f\ntrough %.0f%% late %.0f%% fall %.0f%%\nrise500 %.2f lat25 %.2fs\n1SD Y0 %.0f%% Y500 %.0f%%', ...
                             st.n, st.bpm, st.medY0, st.iqrY0, st.pctTrough, st.pctLate, st.pctFall, st.rise500, st.lat25, st.pct1sdY0, st.pct1sdY5);
-                        text(0.02, 0.98, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'FontSize', 7, 'BackgroundColor', [1 1 1 0.7]);
-                        xlim([0 1000]);
+                        text(0.98, 0.02, txt, 'Units', 'normalized', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', 'FontSize', 7, 'BackgroundColor', [1 1 1 0.7]);
+                        xline(0, ':');
+                        xlim([-500 2000]); ylim([-5 5]);
                     else
                         text(0.5, 0.5, sprintf('n=%d (too few)', nB), 'Units', 'normalized', 'HorizontalAlignment', 'center');
                         st.medY0 = NaN; st.iqrY0 = NaN; st.pctTrough = NaN; st.pctLate = NaN;
