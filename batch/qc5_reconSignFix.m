@@ -19,12 +19,25 @@
 % way) and update the provenance row (sgn, status 'reconstructed-signfixed').
 %
 % DRY RUN by default: reports every block of every session with
-% reconstructedBlocks. Set ZLP_RECONFIX_APPLY=1 to write; each modified
-% final is first backed up to E:\reprocBackup_260824\reconSignFix\.
-% Blocks whose CSV lacks a usable target (|corr| < 0.3 or constant column)
-% are reported UNRESOLVED and never modified.
+% reconstructedBlocks. The zero-lag corr(voltage,target) turned out to be
+% UNRELIABLE for cyclic patterns (tracking lag flips the sign - everyone's
+% cyclicSigh reads ~-0.2), so CSV verdicts are REPORT-ONLY. Writes happen
+% ONLY for sessions named in ZLP_RECONFIX_FORCE ('id=+1,...'): for those,
+% every reconstructed block whose stored sgn differs from the forced
+% required sgn is flipped in place (about its local mean). Requires
+% ZLP_RECONFIX_APPLY=1 as well; finals are backed up to
+% E:\reprocBackup_260824\reconSignFix\ first.
 
 APPLY = strcmp(getenv('ZLP_RECONFIX_APPLY'), '1');
+FORCE = containers.Map('KeyType', 'char', 'ValueType', 'double');
+fEnv = getenv('ZLP_RECONFIX_FORCE');
+if ~isempty(fEnv)
+    pairs = strsplit(fEnv, ',');
+    for p = 1:numel(pairs)
+        kv = strsplit(strtrim(pairs{p}), '=');
+        FORCE(kv{1}) = str2double(kv{2});
+    end
+end
 BKD = 'E:\reprocBackup_260824\reconSignFix';
 if APPLY && ~exist(BKD, 'dir'), mkdir(BKD); end
 fprintf('qc5_reconSignFix: APPLY=%d\n', APPLY);
@@ -46,6 +59,34 @@ for si = 1:numel(cfg.sessionIDs)
         isRsp = cellfun(@(x) contains(x, 'rsp'), od.labels);
         rspRow = find(isRsp); rspRow = rspRow(od.rspIDX);
         modified = false;
+
+        % ---- forced session-level fix (the only write path) ----
+        if APPLY && FORCE.isKey(id)
+            sgnReq = FORCE(id);
+            for b = 1:height(RB)
+                if RB.sgn(b) == sgnReq, continue; end
+                if ~modified
+                    bfile = fullfile(BKD, hits(1).name);
+                    if ~exist(bfile, 'file'), copyfile(fpath, bfile); end
+                end
+                seg = od.data(rspRow, RB.i0(b):RB.i1(b));
+                mu = mean(seg);
+                od.data(rspRow, RB.i0(b):RB.i1(b)) = mu - (seg - mu);
+                od.reconstructedBlocks.sgn(b) = sgnReq;
+                od.reconstructedBlocks.status(b) = {'reconstructed-signfixed'};
+                fprintf('RSF FORCEFIX %s %-24s: sgn %+d -> %+d, block [%d..%d] flipped\n', ...
+                    id, char(string(RB.shadowFile(b))), RB.sgn(b), sgnReq, RB.i0(b), RB.i1(b));
+                modified = true;
+            end
+            if modified
+                tmp = struct(); tmp.(vName) = od;
+                save(fpath, '-struct', 'tmp', '-v7.3');
+                fprintf('RSF SAVED %s\n', id);
+                nFix = nFix + 1;
+            end
+            clear od; continue;
+        end
+
         for b = 1:height(RB)
             src = char(string(RB.srcFile(b)));
             sgnUsed = RB.sgn(b);
@@ -80,27 +121,10 @@ for si = 1:numel(cfg.sessionIDs)
                     id, lbl, cv, sgnCSV, od.rspFlip, sgnUsed);
                 nOK = nOK + 1;
             else
-                fprintf('RSF WRONG %s %-24s: corr(v,t)=%+.2f sgnCSV=%+d rspFlip=%+d sgnUsed=%+d -> flip stored block [%d..%d]%s\n', ...
-                    id, lbl, cv, sgnCSV, od.rspFlip, sgnUsed, RB.i0(b), RB.i1(b), ternS(APPLY, ' APPLYING', ' (dry run)'));
+                fprintf('RSF WRONG %s %-24s: corr(v,t)=%+.2f sgnCSV=%+d rspFlip=%+d sgnUsed=%+d (report-only; fix via ZLP_RECONFIX_FORCE)\n', ...
+                    id, lbl, cv, sgnCSV, od.rspFlip, sgnUsed);
                 nFix = nFix + 1;
-                if APPLY
-                    if ~modified
-                        bfile = fullfile(BKD, hits(1).name);
-                        if ~exist(bfile, 'file'), copyfile(fpath, bfile); end
-                    end
-                    seg = od.data(rspRow, RB.i0(b):RB.i1(b));
-                    mu = mean(seg);   % flip about the local mean, not zero
-                    od.data(rspRow, RB.i0(b):RB.i1(b)) = mu - (seg - mu);
-                    od.reconstructedBlocks.sgn(b) = sgnReq;
-                    od.reconstructedBlocks.status(b) = {'reconstructed-signfixed'};
-                    modified = true;
-                end
             end
-        end
-        if APPLY && modified
-            tmp = struct(); tmp.(vName) = od;
-            save(fpath, '-struct', 'tmp', '-v7.3');
-            fprintf('RSF SAVED %s\n', id);
         end
         clear od
     catch ME
