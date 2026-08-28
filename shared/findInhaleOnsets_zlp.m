@@ -47,8 +47,11 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     % Flat/drifting stretches can never qualify. Local scale = 30-s moving
     % std of the (already windowed-normalized) trace, so the threshold
     % adapts to residual amplitude variation.
-    L4 = round(0.4 * fs);
-    fmax = movmax(resp, [0 L4]);
+    % rule 2's time window is PAIR-SCALED (2026-08-28: a fixed 0.4-s window
+    % demands ~1.9 units/s of rise, which no slow breath can meet - whole
+    % pairs got pruned and rates collapsed to ~3/min). The rise target stays
+    % 0.75 x local amplitude; the window is max(0.4 s, 25% of the pair's
+    % trough->peak duration), evaluated per pair below.
     Aloc = movstd(resp, round(30 * fs));
     % rule 3 (2026-08-28): the rise must be ACCELERATING at the onset - the
     % slope 0.25 s later must exceed 1.25x the ABSOLUTE slope at the mark (a
@@ -60,7 +63,10 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     % point within 0.5 s after the mark.)
     L5 = round(0.5 * fs);
     dMaxFwd = movmax(d, [0 L5]);
-    valid = elig & ((fmax - resp) > 0.75 * Aloc) & (dMaxFwd > 1.25 * abs(d));
+    valid = elig & (dMaxFwd > 1.25 * abs(d));
+    pairValid = @(w) valid(w) & ...
+        (movmax(resp(w), [0 max(round(0.4 * fs), round(0.25 * numel(w)))]) ...
+         - resp(w)) > 0.75 * median(Aloc(w));
 
     % SPURIOUS-PAIR PRUNING: a trough->peak window with NO dual-valid sample
     % is a false split of one breath (extrema over-detection) - eliminate
@@ -72,7 +78,7 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
             t0 = troughs(troughs < peaks(k));
             if isempty(t0), continue; end
             t0 = t0(end);
-            if ~any(valid(t0:peaks(k)))
+            if ~any(pairValid(t0:peaks(k)))
                 troughs(troughs == t0) = [];
                 peaks(k) = [];
                 pruned = true;
@@ -92,7 +98,7 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
         if numel(w) < round(0.2 * fs), continue; end
         seg  = resp(w);
         dseg = d(w);
-        eSeg = valid(w);   % dual rule: not-descending AND rising ahead
+        eSeg = pairValid(w);   % all three rules, rule 2 pair-scaled
         rng_ = resp(pk) - resp(tr);
         lo = resp(tr) + 0.15 * rng_;
         hi = resp(pk) - 0.25 * rng_;
