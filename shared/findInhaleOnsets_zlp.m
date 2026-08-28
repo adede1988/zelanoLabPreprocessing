@@ -129,12 +129,20 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 if isnan(o) && ~isempty(cand), o = cand(1); end
 
             case 'kneeBacktrack'
-                inBand = seg >= lo & seg <= hi;
-                dm = dseg; dm(~inBand) = -Inf;
-                [dmax, im] = max(dm);
-                if ~isfinite(dmax), [dmax, im] = max(dseg); end
+                % (2026-08-28 JH_1 drill fixes) Anchor at the LAST major slope
+                % surge before the peak, computed WITHOUT the amplitude cap -
+                % the mid-band cap had excluded the final rise of multi-stage
+                % inhales, anchoring the walk on an early sub-rise.
+                dmax = max(dseg);
+                surge = find(dseg >= 0.5 * dmax);
+                im = surge(end);
+                % Stop only on a SUSTAINED dip (slope < 0.15 dmax for >=0.15 s)
+                % - knife-edge single-sample dips on drifting plateaus neither
+                % halt the walk early nor let it slide through a real pause.
+                susLen = max(1, round(0.15 * fs));
+                susDip = movsum(double(dseg < 0.15 * dmax), [susLen - 1, 0]) >= susLen;
                 o = im;
-                while o > 1 && dseg(o - 1) > 0.15 * dmax && eSeg(o - 1)
+                while o > 1 && ~susDip(o - 1) && eSeg(o - 1)
                     o = o - 1;
                 end
                 % no-inflection fallback (2026-08-28, ZL audit): on pause-free
@@ -155,7 +163,7 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                     nSeg = eSeg & r3v(w);
                     if any(nSeg)
                         o2 = im;
-                        while o2 > 1 && dseg(o2 - 1) > 0.15 * dmax && nSeg(o2 - 1)
+                        while o2 > 1 && ~susDip(o2 - 1) && nSeg(o2 - 1)
                             o2 = o2 - 1;
                         end
                         o = o2;
