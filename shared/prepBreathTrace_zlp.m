@@ -89,7 +89,9 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
             % be 0.5 below the peak (a real peak is followed by an exhale,
             % a pause crest by flatness).
             fwdMin = movmin(det, [0 round(1.0 * fs)]);
-            pk = pk(det(pk) >= 0.5 & (det(pk) - fwdMin(pk)) >= 0.5);
+            % (rev11b: peaks >= 1.0 are exempt from the descent demand - a
+            % tall peak is real even if the exhale is slow to start)
+            pk = pk(det(pk) >= 1.0 | (det(pk) >= 0.5 & (det(pk) - fwdMin(pk)) >= 0.5));
             [peaks, troughs] = enforceAlt(det, pk, tr, 0, 0);
             % rise-fraction filter: a trough->peak rise under 40% of the local
             % breath amplitude is a bump, not a breath
