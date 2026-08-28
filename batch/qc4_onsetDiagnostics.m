@@ -33,7 +33,7 @@ for tt = 1:size(TASKS, 1)
             fs = od.fs; N = numel(rsp);
             blankF = [];
             if strcmp(id, '260811_EEG_NWU_MS') && ~strcmp(tkey, 'breathingTask'), blankF = 0.10; end
-            base = movmean(fillmissing(rsp, 'linear', 'EndValues', 'nearest'), round(0.15 * fs));
+            base = movmean(fillmissing(rsp, 'linear', 'EndValues', 'nearest'), round(0.30 * fs));
             scN = movstd(base, round(30 * fs));
             xN = base ./ max(scN, 0.05 * median(scN));
 

@@ -40,7 +40,7 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     % landed in a trough - never an inhale onset. Candidates must satisfy
     % x(t) - x(t - 0.33 s) > -THETA (normalized units).
     LAG = round(0.33 * fs);
-    THETA = 0.10;
+    THETA = 0.20;
     d33 = resp - [repmat(resp(1), 1, LAG), resp(1:end-LAG)];
     elig = d33 > -THETA;
     % rule 2 (2026-08-28, final form per review): within 0.4 s after a true

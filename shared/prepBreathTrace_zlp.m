@@ -33,7 +33,7 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
     rsp = double(rsp(:))';
     rsp = fillmissing(rsp, 'linear', 'EndValues', 'nearest');
 
-    base = movmean(rsp, round(0.15 * fs));            % light common smoothing
+    base = movmean(rsp, round(0.30 * fs));            % 300-ms common smoothing (2026-08-28 rev3)
     sc = movstd(base, round(30 * fs));
     scFloor = 0.05 * median(sc);
     x = base ./ max(sc, scFloor);                     % normalized, light
