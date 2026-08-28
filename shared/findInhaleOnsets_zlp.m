@@ -175,11 +175,11 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 end
                 % no-inflection fallback (rev9, BK 450s review): the clean
                 % sweep fires ONLY when the MAIN walk itself ran to the floor
-                % (below trough+20% of the swing) - pause-free breaths where
-                % no knee exists. Take the LAST upward crossing of the
-                % trough/peak MIDPOINT: on a smooth rise that is the steepest
-                % region, i.e. the morphological onset.
-                if seg(o) < resp(tr) + 0.2 * rng_
+                % (below trough+10% of the swing; was 20%) - pause-free
+                % breaths where no knee exists. Take the LAST upward crossing
+                % of the trough/peak MIDPOINT: on a smooth rise that is the
+                % steepest region, i.e. the morphological onset.
+                if seg(o) < resp(tr) + 0.1 * rng_
                     midLvl = resp(tr) + 0.5 * rng_;
                     cr = find(seg(1:end-1) < midLvl & seg(2:end) >= midLvl);
                     if ~isempty(cr), o = cr(end) + 1; end
