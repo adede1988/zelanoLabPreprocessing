@@ -76,8 +76,10 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
 
         case 'conservative'
             det = x;
-            [~, pk] = findpeaks(det,  'MinPeakProminence', 0.6, 'MinPeakDistance', round(2.0 * fs));
-            [~, tr] = findpeaks(-det, 'MinPeakProminence', 0.6, 'MinPeakDistance', round(2.0 * fs));
+            [~, pk] = findpeaks(det,  'MinPeakProminence', 0.6, 'MinPeakDistance', round(1.0 * fs));
+            [~, tr] = findpeaks(-det, 'MinPeakProminence', 0.6, 'MinPeakDistance', round(1.0 * fs));
+            % (rev11: min separation 2.0 s -> 1.0 s - nearby real breaths
+            % were being eliminated; the validity rules below carry the load)
             % peak validity (2026-08-28 rev10, PP 133s drill): exhale-recovery
             % crests before a pause pass prominence AND the rise filter
             % because both measure against the deep trough BELOW them. Two

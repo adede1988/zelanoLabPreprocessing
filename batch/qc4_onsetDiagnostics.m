@@ -67,7 +67,7 @@ for tt = 1:size(TASKS, 1)
             end
 
             [det, pk0, tr0] = prepBreathTrace_zlp(rsp, fs, 'conservative', blankF, cySpan);
-            [o, pk, tr] = findInhaleOnsets_zlp(det, fs, pk0, tr0, 'kneeBacktrack', R2L, R3L, 0.25, 0.10);
+            [o, pk, tr] = findInhaleOnsets_zlp(det, fs, pk0, tr0, 'kneeBacktrack', R2L, R3L, 0.50, 0.10);
 
             WB = round(0.5 * fs); WF = round(2.0 * fs);
             o = o(o >= WB + 1 & o + WF <= N);
@@ -94,7 +94,7 @@ for tt = 1:size(TASKS, 1)
                 end
                 xlim([t(1) t(end)]); ylabel(strrep(condList{c}, '_', '\_'));
                 if c == 1
-                    title(sprintf('%s — %s — conservative x kneeBacktrack rev10 (blue onset, red peak, green trough, black arrow = trough/late)', ...
+                    title(sprintf('%s — %s — conservative x kneeBacktrack rev11 (blue onset, red peak, green trough, black arrow = trough/late)', ...
                         strrep(id, '_', '\_'), tkey));
                 end
             end
