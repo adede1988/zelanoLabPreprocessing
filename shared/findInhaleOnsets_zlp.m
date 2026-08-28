@@ -151,11 +151,12 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 im = find(dseg >= 0.7 * dmax & eSeg, 1, 'last');
                 if isempty(im), im = find(dseg >= 0.7 * dmax, 1, 'last'); end
                 if isempty(im), [~, im] = max(dseg); end
-                % Stop only on a SUSTAINED dip (slope < 0.15 dmax for >=0.15 s)
-                % - knife-edge single-sample dips on drifting plateaus neither
-                % halt the walk early nor let it slide through a real pause.
-                susLen = max(1, round(0.15 * fs));
-                susDip = movsum(double(dseg < 0.15 * dmax), [susLen - 1, 0]) >= susLen;
+                % Stop only on a SUSTAINED dip (slope < 0.25 dmax for >=0.10 s;
+                % rev7 - was 0.15 dmax / 0.15 s, which walked past the true
+                % base into early placements) - knife-edge single-sample dips
+                % on drifting plateaus still cannot halt the walk.
+                susLen = max(1, round(0.10 * fs));
+                susDip = movsum(double(dseg < 0.25 * dmax), [susLen - 1, 0]) >= susLen;
                 % walk freely: eligibility applies to the LANDING (final
                 % snap), not the path - per-step gating halted walks at the
                 % anchor when rule 2's near-peak cutoff sat right behind it
@@ -170,7 +171,8 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 % stricter flatness demand to reach the true base; an
                 % overshoot is caught by the clean-sweep midpoint below.
                 if seg(o) > resp(tr) + 0.35 * rng_
-                    susDip2 = movsum(double(dseg < 0.05 * dmax), [susLen - 1, 0]) >= susLen;
+                    susLen2 = max(1, round(0.15 * fs));   % extension keeps its own 0.15-s demand
+                    susDip2 = movsum(double(dseg < 0.05 * dmax), [susLen2 - 1, 0]) >= susLen2;
                     o2 = o;
                     while o2 > 1 && ~susDip2(o2 - 1)
                         o2 = o2 - 1;

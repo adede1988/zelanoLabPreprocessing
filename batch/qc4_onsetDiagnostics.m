@@ -33,7 +33,7 @@ for tt = 1:size(TASKS, 1)
             fs = od.fs; N = numel(rsp);
             blankF = [];
             if strcmp(id, '260811_EEG_NWU_MS') && ~strcmp(tkey, 'breathingTask'), blankF = 0.10; end
-            base = movmean(fillmissing(rsp, 'linear', 'EndValues', 'nearest'), round(0.30 * fs));
+            base = movmean(fillmissing(rsp, 'linear', 'EndValues', 'nearest'), round(0.50 * fs));
             scN = movstd(base, round(30 * fs));
             xN = base ./ max(scN, 0.05 * median(scN));
 
@@ -94,7 +94,7 @@ for tt = 1:size(TASKS, 1)
                 end
                 xlim([t(1) t(end)]); ylabel(strrep(condList{c}, '_', '\_'));
                 if c == 1
-                    title(sprintf('%s — %s — conservative x kneeBacktrack rev6 (blue onset, red peak, green trough, black arrow = trough/late)', ...
+                    title(sprintf('%s — %s — conservative x kneeBacktrack rev7 (blue onset, red peak, green trough, black arrow = trough/late)', ...
                         strrep(id, '_', '\_'), tkey));
                 end
             end
