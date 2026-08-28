@@ -110,21 +110,17 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
             error('unknown prep mode %s', mode);
     end
 
-    % cyclicSigh (2026-08-28): the paced 10-s cycle has a DOUBLE inhale -
-    % inside the span, peaks must be >= 6 s apart (the more extreme of a
-    % too-close pair wins), so the second inhale merges at the SEGMENTATION
-    % level and one onset per cycle follows automatically.
+    % cyclicSigh (2026-08-28 rev7, review): the paced 10-s cycle has a DOUBLE
+    % inhale. Regular peak detection runs first; then inside the span,
+    % whenever two peaks fall within 5 s of each other the FIRST wins and the
+    % second is removed (the sigh's top-up peak follows the primary inhale),
+    % so one onset per cycle follows automatically.
     if ~isempty(cySpan) && numel(peaks) > 1
         keep = true(size(peaks)); last = -Inf;
         for k = 1:numel(peaks)
             inSpan = peaks(k) >= cySpan(1) && peaks(k) <= cySpan(2);
-            if inSpan && (peaks(k) - last) < 6 * fs
-                prev = find(keep(1:k-1), 1, 'last');
-                if ~isempty(prev) && det(peaks(k)) > det(peaks(prev))
-                    keep(prev) = false; last = peaks(k);
-                else
-                    keep(k) = false;
-                end
+            if inSpan && (peaks(k) - last) < 5 * fs
+                keep(k) = false;          % keep the FIRST of the pair
             else
                 last = peaks(k);
             end
