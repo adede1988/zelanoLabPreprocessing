@@ -34,13 +34,16 @@ for si = 1:numel(cfg.sessionIDs)
         if exist(bk0, 'file'), copyfile(bk0, fp); end
         s = load(fp); fn = fieldnames(s); od = s.(fn{1}); clear s
         if ~isfield(od, 'behDat') || ~ismember('shadowFile', od.behDat.Properties.VariableNames), continue; end
+        % anything not scalar text crashes string(): NaNs, multi-element
+        % strings, multi-row chars -> 'NA'. Both text columns need it (GH's
+        % task column was polluted too, not just shadowFile).
+        sanit = @(c) subsasgn(c, substruct('()', {cellfun(@(x) ...
+            ~((ischar(x) && (isrow(x) || isempty(x))) || ...
+              (isstring(x) && isscalar(x))), c)}), {'NA'});
         sfRaw = od.behDat.shadowFile;
-        if iscell(sfRaw)   % anything not a scalar text crashes string(): NaNs,
-                           % multi-element strings, multi-row chars -> 'NA'
-            bad = cellfun(@(x) ~((ischar(x) && (isrow(x) || isempty(x))) || ...
-                                 (isstring(x) && isscalar(x))), sfRaw);
-            sfRaw(bad) = {'NA'};
-        end
+        if iscell(sfRaw), sfRaw = sanit(sfRaw); end
+        tkRaw = od.behDat.task;
+        if iscell(tkRaw), tkRaw = sanit(tkRaw); end
         sfAll = unique(string(sfRaw));
         targets = sfAll(contains(sfAll, STEMS) & contains(sfAll, 'playback'));
         if isempty(targets), continue; end
@@ -51,7 +54,7 @@ for si = 1:numel(cfg.sessionIDs)
         fs = od.fs; N = numel(rsp);
 
         % session amplitude reference: free-breathing blocks
-        freeM = ismember(string(od.behDat.task), ["audio", "naturalFocus", "fastFocus"]);
+        freeM = ismember(string(tkRaw), ["audio", "naturalFocus", "fastFocus"]);
         refIdx = [];
         if any(freeM)
             oR = od.behDat.finalOnset(freeM);
