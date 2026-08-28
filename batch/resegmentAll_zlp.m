@@ -12,9 +12,11 @@
 %
 % Env vars:
 %   ZLP_RESEG_ONLY  comma-separated session ids - validation subset
-%   ZLP_FLIPFIX     'id=-1,id2=1' rspFlip overrides decided by the qc5
-%                   flip audit; updates od.rspFlip in the final (sheet
-%                   updates + review flags are handled by the caller)
+%   ZLP_FLIPFIX     'task|id=-1,task2|id2=1' rspFlip overrides decided by
+%                   the qc5 flip audit, keyed task|id because one session
+%                   can carry different verdicts per task (DL_1: breathing
+%                   keep, sep invert); updates od.rspFlip in the final
+%                   (sheet updates + review flags handled by the caller)
 
 BKD = 'E:\reprocBackup_260824\r12';
 TASKS = { ...
@@ -69,11 +71,12 @@ for tt = 1:size(TASKS, 1)
             bfile = fullfile(bdir, hits(1).name);
             if ~exist(bfile, 'file'), copyfile(fpath, bfile); end
 
-            % ---- flip decision ----
+            % ---- flip decision (keyed task|id) ----
             fl = od.rspFlip;
-            if flipFix.isKey(id)
-                fl = flipFix(id);
-                fprintf('RESEG FLIPFIX %s: rspFlip %+d -> %+d\n', id, od.rspFlip, fl);
+            fkey = [tkey '|' id];
+            if flipFix.isKey(fkey)
+                fl = flipFix(fkey);
+                fprintf('RESEG FLIPFIX %s %s: rspFlip %+d -> %+d\n', tkey, id, od.rspFlip, fl);
             end
             od.rspFlip = fl;
             isRsp = cellfun(@(x) contains(x, 'rsp'), od.labels);
