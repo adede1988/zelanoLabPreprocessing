@@ -22,8 +22,10 @@ ctr = 0; nFig = 0;
 for tt = 1:size(TASKS, 1)
     [tkey, glb] = TASKS{tt, :};
     cfg = applyParams(tkey, 'main');
+    onlyIDs = strtrim(strsplit(getenv('ZLP_QC3_ONLY'), ','));   % optional filter
     for si = 1:numel(cfg.sessionIDs)
         id = cfg.sessionIDs{si}; ctr = ctr + 1;
+        if ~isempty(onlyIDs{1}) && ~ismember(id, onlyIDs), continue; end
         hits = dir(fullfile(cfg.root{si}, id, 'preProc', [id glb]));
         if isempty(hits), continue; end
         try

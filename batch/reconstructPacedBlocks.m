@@ -26,8 +26,15 @@ for si = 1:numel(cfg.sessionIDs)
         bk0 = fullfile(BK, [id '_breathingPreproc.mat']);
         if exist(bk0, 'file'), copyfile(bk0, fp); end
         s = load(fp); fn = fieldnames(s); od = s.(fn{1}); clear s
+        if isfield(od, 'reconstructedBlocks')
+            fprintf('RECON %s: already reconstructed - skipped\n', id); continue;
+        end
         if ~isfield(od, 'behDat') || ~ismember('shadowFile', od.behDat.Properties.VariableNames), continue; end
-        sfAll = unique(string(od.behDat.shadowFile));
+        sfRaw = od.behDat.shadowFile;
+        if iscell(sfRaw)   % NaN cells crash string(); treat them as 'NA'
+            sfRaw(cellfun(@(x) ~ischar(x) && ~isstring(x), sfRaw)) = {'NA'};
+        end
+        sfAll = unique(string(sfRaw));
         targets = sfAll(contains(sfAll, STEMS) & contains(sfAll, 'playback'));
         if isempty(targets), continue; end
 
@@ -51,7 +58,7 @@ for si = 1:numel(cfg.sessionIDs)
         changed = false;
         for tt = 1:numel(targets)
             sf = char(targets(tt));
-            m = strcmp(string(od.behDat.shadowFile), sf);
+            m = strcmp(string(sfRaw), sf);
             o0 = min(od.behDat.finalOnset(m)); o1 = max(od.behDat.finalOnset(m));
             % expand to enclosing TTL block boundaries
             T = od.TTL(:)';
