@@ -1,4 +1,4 @@
-function onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
+function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
 %FINDINHALEONSETS_ZLP  Inhale onsets per trough->peak pair (QC round 3).
 %
 %   onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
@@ -41,6 +41,30 @@ function onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
     THETA = 0.10;
     d33 = resp - [repmat(resp(1), 1, LAG), resp(1:end-LAG)];
     elig = d33 > -THETA;
+    % rule 2 (2026-08-28): a true onset RISES - x(t+0.2s) must exceed x(t)
+    % by a margin. Candidates must pass BOTH rules.
+    L2 = round(0.2 * fs);
+    f20 = [resp(1+L2:end), repmat(resp(end), 1, L2)] - resp;
+    valid = elig & (f20 > 0.05);
+
+    % SPURIOUS-PAIR PRUNING: a trough->peak window with NO dual-valid sample
+    % is a false split of one breath (extrema over-detection) - eliminate
+    % that trough and peak so the region absorbs into the adjacent breath.
+    pruned = true;
+    while pruned
+        pruned = false;
+        for k = 1:numel(peaks)
+            t0 = troughs(troughs < peaks(k));
+            if isempty(t0), continue; end
+            t0 = t0(end);
+            if ~any(valid(t0:peaks(k)))
+                troughs(troughs == t0) = [];
+                peaks(k) = [];
+                pruned = true;
+                break;
+            end
+        end
+    end
 
     % pair each peak with the last trough before it
     onsets = nan(1, numel(peaks));
@@ -53,7 +77,7 @@ function onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
         if numel(w) < round(0.2 * fs), continue; end
         seg  = resp(w);
         dseg = d(w);
-        eSeg = elig(w);
+        eSeg = valid(w);   % dual rule: not-descending AND rising ahead
         rng_ = resp(pk) - resp(tr);
         lo = resp(tr) + 0.15 * rng_;
         hi = resp(pk) - 0.25 * rng_;
