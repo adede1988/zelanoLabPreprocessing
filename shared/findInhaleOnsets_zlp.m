@@ -41,12 +41,16 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     THETA = 0.10;
     d33 = resp - [repmat(resp(1), 1, LAG), resp(1:end-LAG)];
     elig = d33 > -THETA;
-    % rule 2 (2026-08-28, tightened per review): a true onset is followed by
-    % a SUBSTANTIAL rise - x(t+0.3s) must exceed x(t) by 0.5 normalized
-    % units. Candidates must pass BOTH rules.
-    L2 = round(0.3 * fs);
-    f20 = [resp(1+L2:end), repmat(resp(end), 1, L2)] - resp;
-    valid = elig & (f20 > 0.5);
+    % rule 2 (2026-08-28, final form per review): within 0.4 s after a true
+    % onset the trace must AT SOME POINT rise 0.75 x the LOCAL amplitude
+    % scale above the onset value - agnostic to exactly when in that window.
+    % Flat/drifting stretches can never qualify. Local scale = 30-s moving
+    % std of the (already windowed-normalized) trace, so the threshold
+    % adapts to residual amplitude variation.
+    L4 = round(0.4 * fs);
+    fmax = movmax(resp, [0 L4]);
+    Aloc = movstd(resp, round(30 * fs));
+    valid = elig & ((fmax - resp) > 0.75 * Aloc);
 
     % SPURIOUS-PAIR PRUNING: a trough->peak window with NO dual-valid sample
     % is a false split of one breath (extrema over-detection) - eliminate
