@@ -1,6 +1,6 @@
 function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method, r2Factor, r3Factor)
 % r2Factor (default 0.75): rule-2 rise target as a fraction of local amplitude
-% r3Factor (default 1.25): rule-3 forward-slope factor vs abs(onset slope)
+% r3Factor (default 3): rule-3 slope-contrast ratio (max/min in -0.25..+0.5s)
 %FINDINHALEONSETS_ZLP  Inhale onsets per trough->peak pair (QC round 3).
 %
 %   onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
@@ -64,10 +64,16 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     % Like rule 2, test the WINDOW: slope must reach the factor at some
     % point within 0.5 s after the mark.)
     if nargin < 6 || isempty(r2Factor), r2Factor = 0.75; end
-    if nargin < 7 || isempty(r3Factor), r3Factor = 1.25; end
-    L5 = round(0.5 * fs);
-    dMaxFwd = movmax(d, [0 L5]);
-    valid = elig & (dMaxFwd > r3Factor * abs(d));
+    if nargin < 7 || isempty(r3Factor), r3Factor = 3; end
+    % rule 3 (2026-08-28 final form): slope CONTRAST across a window
+    % straddling the mark (-0.25s..+0.5s): max slope must exceed r3Factor x
+    % the min slope (clamped at +0.1 units/s - the min is ~0/negative at true
+    % onsets, which is the point: flat-behind, steep-ahead passes easily even
+    % when the mark is slightly late; uniform mid-rise and flat traces fail).
+    LB = round(0.25 * fs); LF = round(0.5 * fs);
+    dMaxW = movmax(d, [LB LF]);
+    dMinW = movmin(d, [LB LF]);
+    valid = elig & (dMaxW > r3Factor * max(dMinW, 0.1));
     pairValid = @(w) valid(w) & ...
         (movmax(resp(w), [0 max(round(0.4 * fs), round(0.25 * numel(w)))]) ...
          - resp(w)) > r2Factor * median(Aloc(w));

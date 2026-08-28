@@ -22,7 +22,7 @@ TASKS = { ...
  'alternating6Blocks',     '_alternating6Blocks*.mat'; ...
  'breathingTasks_separate','_breathingTasks_separate*.mat'};
 R2F = [0.5 0.75 1.0];   % rule-2 rise factor (rows)
-R3F = [1.0 1.25 1.5];   % rule-3 slope factor (cols)
+R3F = [2 3 4];   % rule-3 slope-contrast ratio (cols)
 outDir = getenv('ZLP_DIAG_DIR');
 if isempty(outDir), outDir = 'E:\reprocBackup_260824\qc4diag'; end
 if ~exist(outDir, 'dir'), mkdir(outDir); end
