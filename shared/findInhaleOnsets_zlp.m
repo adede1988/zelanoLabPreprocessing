@@ -51,12 +51,12 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     fmax = movmax(resp, [0 L4]);
     Aloc = movstd(resp, round(30 * fs));
     % rule 3 (2026-08-28): the rise must be ACCELERATING at the onset - the
-    % slope 0.25 s later must be at least 1.5x the slope at the mark. Late
-    % placements (past max slope, derivative falling) fail by construction;
-    % a ~zero/negative onset slope passes with any positive slope ahead.
+    % slope 0.25 s later must exceed 1.5x the ABSOLUTE slope at the mark (a
+    % negative onset slope must be followed by a real positive rise, not a
+    % shallower fall). Late placements past max slope fail by construction.
     L25 = round(0.25 * fs);
     dFwd = [d(1+L25:end), repmat(d(end), 1, L25)];
-    valid = elig & ((fmax - resp) > 0.75 * Aloc) & (dFwd > 1.5 * d);
+    valid = elig & ((fmax - resp) > 0.75 * Aloc) & (dFwd > 1.5 * abs(d));
 
     % SPURIOUS-PAIR PRUNING: a trough->peak window with NO dual-valid sample
     % is a false split of one breath (extrema over-detection) - eliminate
