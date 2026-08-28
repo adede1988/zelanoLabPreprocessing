@@ -41,11 +41,12 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     THETA = 0.10;
     d33 = resp - [repmat(resp(1), 1, LAG), resp(1:end-LAG)];
     elig = d33 > -THETA;
-    % rule 2 (2026-08-28): a true onset RISES - x(t+0.2s) must exceed x(t)
-    % by a margin. Candidates must pass BOTH rules.
-    L2 = round(0.2 * fs);
+    % rule 2 (2026-08-28, tightened per review): a true onset is followed by
+    % a SUBSTANTIAL rise - x(t+0.3s) must exceed x(t) by 0.5 normalized
+    % units. Candidates must pass BOTH rules.
+    L2 = round(0.3 * fs);
     f20 = [resp(1+L2:end), repmat(resp(end), 1, L2)] - resp;
-    valid = elig & (f20 > 0.05);
+    valid = elig & (f20 > 0.5);
 
     % SPURIOUS-PAIR PRUNING: a trough->peak window with NO dual-valid sample
     % is a false split of one breath (extrema over-detection) - eliminate
