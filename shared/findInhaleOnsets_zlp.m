@@ -79,9 +79,14 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
     dMinW = movmin(d, [LB LF]);
     r3v = dMaxW > r3Factor * max(dMinW, 0.1);
     valid = elig;                       % rules 1 (+2 per pair) gate candidates
+    % rule 2 ABSOLUTE (2026-08-28 review): somewhere in the pair-scaled
+    % window the trace must sit 0.4 normalized units above the candidate
+    % (was multiplicative in local amplitude; r2Factor now IS the absolute
+    % threshold, default raised 0.25 -> 0.4)
+    if r2Factor == 0.25, r2Factor = 0.4; end
     pairValid = @(w) valid(w) & ...
         (movmax(resp(w), [0 max(round(0.4 * fs), round(0.25 * numel(w)))]) ...
-         - resp(w)) > r2Factor * median(Aloc(w));
+         - resp(w)) > r2Factor;
 
     % SPURIOUS-PAIR PRUNING: a trough->peak window with NO dual-valid sample
     % is a false split of one breath (extrema over-detection) - eliminate
@@ -133,13 +138,12 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 % surge before the peak, computed WITHOUT the amplitude cap -
                 % the mid-band cap had excluded the final rise of multi-stage
                 % inhales, anchoring the walk on an early sub-rise.
+                % anchor (2026-08-28 review): start at the peak and walk back
+                % to the closest point with slope >= 70% of the window max -
+                % no amplitude-band logic (the smoothed slope is not jittery)
                 dmax = max(dseg);
-                surge = find(dseg >= 0.5 * dmax);
-                % prefer the last surge BELOW the upper amplitude band - an
-                % anchor at the rise tail lands where rule 2 can never pass
-                % (2026-08-28 fix: near-peak anchors NaN'd most breaths)
-                surgeOK = surge(seg(surge) <= hi);
-                if ~isempty(surgeOK), im = surgeOK(end); else, im = surge(end); end
+                im = find(dseg >= 0.7 * dmax, 1, 'last');
+                if isempty(im), [~, im] = max(dseg); end
                 % Stop only on a SUSTAINED dip (slope < 0.15 dmax for >=0.15 s)
                 % - knife-edge single-sample dips on drifting plateaus neither
                 % halt the walk early nor let it slide through a real pause.

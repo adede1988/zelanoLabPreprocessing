@@ -1,4 +1,4 @@
-function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankBelowFrac)
+function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankBelowFrac, cySpan)
 %PREPBREATHTRACE_ZLP  Step-1 preparation + peak/trough detection (QC round 4).
 %
 %   [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankBelowFrac)
@@ -29,6 +29,7 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
 %   normalization (floor 0.05 x median), optional blankBelowFrac exclusion.
 
     if nargin < 4, blankBelowFrac = []; end
+    if nargin < 5, cySpan = []; end
     rsp = double(rsp(:))';
     rsp = fillmissing(rsp, 'linear', 'EndValues', 'nearest');
 
@@ -75,8 +76,8 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
 
         case 'conservative'
             det = x;
-            [~, pk] = findpeaks(det,  'MinPeakProminence', 0.6, 'MinPeakDistance', round(2.5 * fs));
-            [~, tr] = findpeaks(-det, 'MinPeakProminence', 0.6, 'MinPeakDistance', round(2.5 * fs));
+            [~, pk] = findpeaks(det,  'MinPeakProminence', 0.6, 'MinPeakDistance', round(2.0 * fs));
+            [~, tr] = findpeaks(-det, 'MinPeakProminence', 0.6, 'MinPeakDistance', round(2.0 * fs));
             [peaks, troughs] = enforceAlt(det, pk, tr, 0, 0);
             % rise-fraction filter: a trough->peak rise under 40% of the local
             % breath amplitude is a bump, not a breath
@@ -107,6 +108,28 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
 
         otherwise
             error('unknown prep mode %s', mode);
+    end
+
+    % cyclicSigh (2026-08-28): the paced 10-s cycle has a DOUBLE inhale -
+    % inside the span, peaks must be >= 6 s apart (the more extreme of a
+    % too-close pair wins), so the second inhale merges at the SEGMENTATION
+    % level and one onset per cycle follows automatically.
+    if ~isempty(cySpan) && numel(peaks) > 1
+        keep = true(size(peaks)); last = -Inf;
+        for k = 1:numel(peaks)
+            inSpan = peaks(k) >= cySpan(1) && peaks(k) <= cySpan(2);
+            if inSpan && (peaks(k) - last) < 6 * fs
+                prev = find(keep(1:k-1), 1, 'last');
+                if ~isempty(prev) && det(peaks(k)) > det(peaks(prev))
+                    keep(prev) = false; last = peaks(k);
+                else
+                    keep(k) = false;
+                end
+            else
+                last = peaks(k);
+            end
+        end
+        [peaks, troughs] = enforceAlt(det, peaks(keep), troughs, 0, 0);
     end
 end
 
