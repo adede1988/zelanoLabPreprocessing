@@ -67,19 +67,10 @@ for tt = 1:size(TASKS, 1)
             end
 
             [det, pk0, tr0] = prepBreathTrace_zlp(rsp, fs, 'conservative', blankF, cySpan);
-            % step-15 sustained-dip variants (2026-08-28 tri-color review):
-            % A .15dmax/.15s (early) - B .25/.10s (current; stats+overlays) -
-            % C .50/.05s (late). Pair pruning ignores the dip rule, so
-            % peaks/troughs are identical across variants.
-            [oA, pk, tr] = findInhaleOnsets_zlp(det, fs, pk0, tr0, 'kneeBacktrack', R2L, R3L, 0.15, 0.15);
-            oB = findInhaleOnsets_zlp(det, fs, pk0, tr0, 'kneeBacktrack', R2L, R3L, 0.25, 0.10);
-            oC = findInhaleOnsets_zlp(det, fs, pk0, tr0, 'kneeBacktrack', R2L, R3L, 0.50, 0.05);
+            [o, pk, tr] = findInhaleOnsets_zlp(det, fs, pk0, tr0, 'kneeBacktrack', R2L, R3L, 0.25, 0.10);
 
             WB = round(0.5 * fs); WF = round(2.0 * fs);
-            oA = oA(oA >= WB + 1 & oA + WF <= N);
-            oB = oB(oB >= WB + 1 & oB + WF <= N);
-            oC = oC(oC >= WB + 1 & oC + WF <= N);
-            o = oB;
+            o = o(o >= WB + 1 & o + WF <= N);
             y0all = xN(o);
             isBad = (y0all < -0.5) | (y0all > 1.0);
 
@@ -94,13 +85,8 @@ for tt = 1:size(TASKS, 1)
                 pkl = pk(pk >= i0 & pk <= i1); trl = tr(tr >= i0 & tr <= i1);
                 plot(pkl / fs, rsp(pkl), '.', 'Color', [0.85 0.1 0.1], 'MarkerSize', 11);
                 plot(trl / fs, rsp(trl), '.', 'Color', [0.05 0.6 0.2], 'MarkerSize', 11);
-                % tri-color onset dots, largest first so agreements nest
-                oc_ = oC(oC >= i0 & oC <= i1);
-                plot(oc_ / fs, rsp(oc_), '.', 'Color', [0.95 0.55 0.10], 'MarkerSize', 22);
-                ob_ = oB(oB >= i0 & oB <= i1);
-                plot(ob_ / fs, rsp(ob_), '.', 'Color', [0.70 0.10 0.70], 'MarkerSize', 14);
-                oa_ = oA(oA >= i0 & oA <= i1);
-                plot(oa_ / fs, rsp(oa_), '.', 'Color', [0.10 0.30 0.90], 'MarkerSize', 7);
+                ol = o(o >= i0 & o <= i1);
+                plot(ol / fs, rsp(ol), 'v', 'Color', [0.1 0.3 0.9], 'MarkerFaceColor', [0.1 0.3 0.9], 'MarkerSize', 6);
                 bl = o(isBad & o >= i0 & o <= i1);
                 if ~isempty(bl)
                     yr = max(rsp(i0:i1)) - min(rsp(i0:i1));
@@ -108,7 +94,7 @@ for tt = 1:size(TASKS, 1)
                 end
                 xlim([t(1) t(end)]); ylabel(strrep(condList{c}, '_', '\_'));
                 if c == 1
-                    title(sprintf('%s — %s — rev9 tri-variant dip stop: BLUE .15dmax/.15s, MAGENTA .25/.10s (current), ORANGE .50/.05s | red peak, green trough, black arrow = trough/late (magenta)', ...
+                    title(sprintf('%s — %s — conservative x kneeBacktrack rev9 (blue onset, red peak, green trough, black arrow = trough/late)', ...
                         strrep(id, '_', '\_'), tkey));
                 end
             end
@@ -140,7 +126,7 @@ for tt = 1:size(TASKS, 1)
             saveas(fig, fullfile(outDir, sprintf('diag_%s_%s.jpg', tkey, id)));
             close(fig);
             SUM(end+1, :) = {id, tkey, st.n, st.bpm, st.medY0, st.pctTrough}; %#ok<AGROW>
-            fprintf('DIAG %s %s: nB=%d (A=%d C=%d) bpm=%.1f trough=%.0f%%\n', tkey, id, st.n, numel(oA), numel(oC), st.bpm, st.pctTrough);
+            fprintf('DIAG %s %s: n=%d bpm=%.1f trough=%.0f%%\n', tkey, id, st.n, st.bpm, st.pctTrough);
             clear od rsp xN det
         catch ME
             fprintf('DIAG FAIL %s %s: %s\n', tkey, id, ME.message);
