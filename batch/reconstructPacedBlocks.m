@@ -21,18 +21,25 @@ for si = 1:numel(cfg.sessionIDs)
     fp = fullfile(cfg.root{si}, id, 'preProc', [id '_breathingPreproc.mat']);
     if ~exist(fp, 'file'), continue; end
     try
+        % skip-if-done FIRST (cheap h5 field check), THEN the restore path -
+        % restoring before checking made every rerun redo every session
+        already = false;
+        try, h5info(fp, '/outDat/reconstructedBlocks'); already = true; catch, end
+        if already
+            fprintf('RECON %s: already reconstructed - skipped\n', id); continue;
+        end
         % rerun-safe: if a pristine backup exists, restore it first (covers
-        % re-reconstruction after an aligner change)
+        % re-reconstruction after an aligner change on a FAILED/reverted session)
         bk0 = fullfile(BK, [id '_breathingPreproc.mat']);
         if exist(bk0, 'file'), copyfile(bk0, fp); end
         s = load(fp); fn = fieldnames(s); od = s.(fn{1}); clear s
-        if isfield(od, 'reconstructedBlocks')
-            fprintf('RECON %s: already reconstructed - skipped\n', id); continue;
-        end
         if ~isfield(od, 'behDat') || ~ismember('shadowFile', od.behDat.Properties.VariableNames), continue; end
         sfRaw = od.behDat.shadowFile;
-        if iscell(sfRaw)   % NaN cells crash string(); treat them as 'NA'
-            sfRaw(cellfun(@(x) ~ischar(x) && ~isstring(x), sfRaw)) = {'NA'};
+        if iscell(sfRaw)   % anything not a scalar text crashes string(): NaNs,
+                           % multi-element strings, multi-row chars -> 'NA'
+            bad = cellfun(@(x) ~((ischar(x) && (isrow(x) || isempty(x))) || ...
+                                 (isstring(x) && isscalar(x))), sfRaw);
+            sfRaw(bad) = {'NA'};
         end
         sfAll = unique(string(sfRaw));
         targets = sfAll(contains(sfAll, STEMS) & contains(sfAll, 'playback'));
