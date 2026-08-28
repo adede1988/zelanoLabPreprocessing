@@ -5,8 +5,8 @@
 % stats), bold mean waveform +/- 1 SD band, and a stats block per cell:
 %   n, br/min           breath count (carving-up inflates this)
 %   medY0 / iqrY0       onset-height bias and jitter (normalized units)
-%   %trough             Y(0) < -0.25  (trough onsets - the key failure)
-%   %late               Y(0) > +0.50  (marked on the risen slope)
+%   %trough             Y(0) < -0.5   (trough onsets - the key failure)
+%   %late               Y(0) > +1.0   (marked on the risen slope)
 %   %fall               negative slope in the first 250 ms (early onsets)
 %   rise500             median Y(+500ms) - Y(0)
 %   lat25               median onset -> 25%-of-rise crossing latency (s)
@@ -89,8 +89,8 @@ for tt = 1:size(TASKS, 1)
                             if ~isempty(c), lat(k) = (c - 1) / fs; end
                         end
                         st.medY0 = median(y0); st.iqrY0 = iqr(y0);
-                        st.pctTrough = 100 * mean(y0 < -0.25);
-                        st.pctLate   = 100 * mean(y0 > 0.5);
+                        st.pctTrough = 100 * mean(y0 < -0.5);
+                        st.pctLate   = 100 * mean(y0 > 1.0);
                         st.pctFall   = 100 * mean(slope0 < 0);
                         st.rise500   = median(y5 - y0);
                         st.lat25     = median(lat, 'omitnan');
