@@ -46,6 +46,34 @@ for tt = 1:size(TASKS, 1)
             ons = cell(1, 3);
             for mm = 1:3, ons{mm} = findInhaleOnsets_zlp(det, fs, pk, tr, METHODS{mm}); end
 
+            % cyclicSigh blocks: the paced cycle is 10 s with a DOUBLE inhale;
+            % the second (top-up) inhale is part of the SAME cycle. Enforce a
+            % 6-s keep-first refractory inside each cyclicSigh block span so
+            % every 10-s cycle yields exactly one onset (the first inhale).
+            try
+                if isfield(od, 'behDat') && ismember('task', od.behDat.Properties.VariableNames)
+                    tkc = od.behDat.task;
+                    if iscell(tkc), tkc(cellfun(@(x) ~(ischar(x) && isrow(x)) && ~(isstring(x) && isscalar(x)), tkc)) = {'NA'}; end
+                    cm = strcmp(string(tkc), 'cyclicSigh');
+                    if any(cm) && ismember('finalOnset', od.behDat.Properties.VariableNames)
+                        c0 = min(od.behDat.finalOnset(cm)) - 15 * fs;
+                        c1 = max(od.behDat.finalOnset(cm)) + 15 * fs;
+                        for mm = 1:3
+                            o = ons{mm}; keep = true(size(o)); lastKept = -Inf;
+                            for k = 1:numel(o)
+                                if o(k) >= c0 && o(k) <= c1 && (o(k) - lastKept) < 6 * fs
+                                    keep(k) = false;
+                                else
+                                    lastKept = o(k);
+                                end
+                            end
+                            ons{mm} = o(keep);
+                        end
+                    end
+                end
+            catch
+            end
+
             N = numel(rsp); nBins = floor(N / (60 * fs));
             if nBins < 1, continue; end
             binAmp = zeros(1, nBins);
