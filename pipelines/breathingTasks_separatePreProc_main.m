@@ -76,7 +76,7 @@ for s = 1:numel(sessionIDs)
         isRsp  = cellfun(@(x) contains(x, 'rsp'), od.labels);
         rspDat = od.data(isRsp, :);
         rspDat = rspDat(P.rspIDX, :) .* P.rspFlip;
-        [od.bmObj, od.bmFeatures] = segmentBreaths_breathMetrics(rspDat, od.fs);
+        [od.bmObj, od.bmFeatures] = segmentBreaths_zlp(rspDat, od.fs);
 
         hasECG = sum(cellfun(@(x) contains(x, 'ECG'), od.labels)) > 0;
         if hasECG && c == 1

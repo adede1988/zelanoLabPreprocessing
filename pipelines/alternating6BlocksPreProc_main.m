@@ -89,7 +89,7 @@ for s = 1:numel(sessionIDs)
     % stretch (blank it in the detection copy) rather than amplify it
     blank = [];
     if strcmp(S.id, '260811_EEG_NWU_MS'), blank = 0.10; end
-    [outDat.bmObj, outDat.bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs, [], blank);
+    [outDat.bmObj, outDat.bmFeatures] = segmentBreaths_zlp(rspDat, outDat.fs, [], blank, []);
     outDat.moreThan1 = 1;
     outDat.rspIDX  = P.rspIDX;
     outDat.rspFlip = P.rspFlip;

@@ -1,4 +1,4 @@
-function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankBelowFrac, cySpan)
+function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankBelowFrac, cySpan, floorFrac)
 %PREPBREATHTRACE_ZLP  Step-1 preparation + peak/trough detection (QC round 4).
 %
 %   [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankBelowFrac)
@@ -30,12 +30,13 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
 
     if nargin < 4, blankBelowFrac = []; end
     if nargin < 5, cySpan = []; end
+    if nargin < 6 || isempty(floorFrac), floorFrac = 0.05; end
     rsp = double(rsp(:))';
     rsp = fillmissing(rsp, 'linear', 'EndValues', 'nearest');
 
     base = movmean(rsp, round(0.50 * fs));            % 500-ms common smoothing (2026-08-28 rev7; was 300 ms - extrema over-detection)
     sc = movstd(base, round(30 * fs));
-    scFloor = 0.05 * median(sc);
+    scFloor = floorFrac * median(sc);
     x = base ./ max(sc, scFloor);                     % normalized, light
     if ~isempty(blankBelowFrac)
         x(sc < blankBelowFrac * median(sc)) = 0;
