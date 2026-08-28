@@ -173,35 +173,34 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 while o > 1 && ~susDip(o - 1)
                     o = o - 1;
                 end
-                % late-landing extension (2026-08-28 rev4): a landing above
-                % trough+35% of the swing is midway up a TWO-PHASE inhale
-                % (the slow first phase read as a dip). Keep walking with a
-                % stricter flatness demand to reach the true base; an
-                % overshoot is caught by the clean-sweep midpoint below.
-                if seg(o) > resp(tr) + 0.35 * rng_
-                    susLen2 = max(1, round(0.15 * fs));   % extension keeps its own 0.15-s demand
-                    susDip2 = movsum(double(dseg < 0.05 * dmax), [susLen2 - 1, 0]) >= susLen2;
-                    o2 = o;
-                    while o2 > 1 && ~susDip2(o2 - 1)
-                        o2 = o2 - 1;
-                    end
-                    o = o2;
-                end
-                % no-inflection fallback (2026-08-28, ZL audit): on pause-free
-                % breaths the slope stays high nearly to the trough and the
-                % walk-back descends >80% of the peak-to-trough swing - there
-                % is no knee to find. Fall back to the LAST upward crossing of
-                % the trough/peak MIDPOINT: on a smooth rise that is the
-                % steepest region, i.e. the morphological onset.
+                % no-inflection fallback (rev9, BK 450s review): the clean
+                % sweep fires ONLY when the MAIN walk itself ran to the floor
+                % (below trough+20% of the swing) - pause-free breaths where
+                % no knee exists. Take the LAST upward crossing of the
+                % trough/peak MIDPOINT: on a smooth rise that is the steepest
+                % region, i.e. the morphological onset.
                 if seg(o) < resp(tr) + 0.2 * rng_
-                    % clean sweep: no knee exists - midpoint crossing
                     midLvl = resp(tr) + 0.5 * rng_;
                     cr = find(seg(1:end-1) < midLvl & seg(2:end) >= midLvl);
                     if ~isempty(cr), o = cr(end) + 1; end
                 else
-                    % knee FOUND: apply rule 3 (slope contrast) to narrow the
-                    % space and re-run the walk (2026-08-28 two-pass flow) -
-                    % the re-walk stops no later than pass 1 by construction
+                    % late-landing extension (rev9 restructure): a landing
+                    % above trough+35% of the swing may be midway up a
+                    % TWO-PHASE inhale - try the stricter-flatness walk, but
+                    % accept its landing ONLY if susDip2 actually fired. An
+                    % extension that runs to the window edge found no base
+                    % (0.05 dmax is unreachable on drifting plateaus, BK
+                    % 450s) - REVERT to the main walk's landing rather than
+                    % handing a knee-ful breath to the clean sweep.
+                    if seg(o) > resp(tr) + 0.35 * rng_
+                        susLen2 = max(1, round(0.15 * fs));
+                        susDip2 = movsum(double(dseg < 0.05 * dmax), [susLen2 - 1, 0]) >= susLen2;
+                        o2 = o;
+                        while o2 > 1 && ~susDip2(o2 - 1)
+                            o2 = o2 - 1;
+                        end
+                        if o2 > 1, o = o2; end
+                    end
                     % rule 3 refines the LANDING: if the mark lacks slope
                     % contrast, move to the nearest contrasted sample in-window
                     r3seg = r3v(w);
