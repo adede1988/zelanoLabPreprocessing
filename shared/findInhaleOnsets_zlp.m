@@ -33,6 +33,15 @@ function onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
     % onsets early, the ZL lesson)
     d = movmean([0, diff(resp)] * fs, round(0.12 * fs));
 
+    % HARD ELIGIBILITY RULE (2026-08-28 review): a sample sitting more than
+    % THETA below where the trace was 0.33 s earlier is mid-descent or just
+    % landed in a trough - never an inhale onset. Candidates must satisfy
+    % x(t) - x(t - 0.33 s) > -THETA (normalized units).
+    LAG = round(0.33 * fs);
+    THETA = 0.10;
+    d33 = resp - [repmat(resp(1), 1, LAG), resp(1:end-LAG)];
+    elig = d33 > -THETA;
+
     % pair each peak with the last trough before it
     onsets = nan(1, numel(peaks));
     for k = 1:numel(peaks)
@@ -44,6 +53,7 @@ function onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
         if numel(w) < round(0.2 * fs), continue; end
         seg  = resp(w);
         dseg = d(w);
+        eSeg = elig(w);
         rng_ = resp(pk) - resp(tr);
         lo = resp(tr) + 0.15 * rng_;
         hi = resp(pk) - 0.25 * rng_;
@@ -51,7 +61,7 @@ function onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
             case 'slopeGate'
                 th = 0.20 * max(dseg);
                 sustain = round(0.10 * fs);
-                cand = find(dseg(1:end-sustain) > th & seg(1:end-sustain) >= lo & seg(1:end-sustain) <= hi);
+                cand = find(dseg(1:end-sustain) > th & seg(1:end-sustain) >= lo & seg(1:end-sustain) <= hi & eSeg(1:end-sustain));
                 o = NaN;
                 for c = cand
                     if all(dseg(c:c+sustain) > th * 0.5), o = c; break; end
@@ -64,7 +74,7 @@ function onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
                 [dmax, im] = max(dm);
                 if ~isfinite(dmax), [dmax, im] = max(dseg); end
                 o = im;
-                while o > 1 && dseg(o - 1) > 0.15 * dmax
+                while o > 1 && dseg(o - 1) > 0.15 * dmax && eSeg(o - 1)
                     o = o - 1;
                 end
 
@@ -85,6 +95,12 @@ function onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
 
             otherwise
                 error('unknown method %s', method);
+        end
+        % ineligible landing (e.g. changepoint at a descent) -> advance to the
+        % first eligible sample in the window
+        if isfinite(o) && ~eSeg(min(o, numel(eSeg)))
+            nxt = find(eSeg(o:end), 1);
+            if isempty(nxt), o = NaN; else, o = o + nxt - 1; end
         end
         if isfinite(o), onsets(k) = tr + o - 1; end
     end
