@@ -22,7 +22,8 @@ TASKS = { ...
  'breathingTasks_separate','_breathingTasks_separate*.mat'};
 MODES = {'pwl', 'conservative', 'twoscale'};
 METHODS = {'slopeGate', 'kneeBacktrack', 'changepoint'};
-outDir = 'E:\reprocBackup_260824\qc4diag';
+outDir = getenv('ZLP_DIAG_DIR');
+if isempty(outDir), outDir = 'E:\reprocBackup_260824\qc4diag'; end
 if ~exist(outDir, 'dir'), mkdir(outDir); end
 SUM = {};
 ctr = 0;
