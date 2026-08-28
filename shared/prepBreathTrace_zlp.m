@@ -78,6 +78,16 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
             det = x;
             [~, pk] = findpeaks(det,  'MinPeakProminence', 0.6, 'MinPeakDistance', round(2.0 * fs));
             [~, tr] = findpeaks(-det, 'MinPeakProminence', 0.6, 'MinPeakDistance', round(2.0 * fs));
+            % peak validity (2026-08-28 rev10, PP 133s drill): exhale-recovery
+            % crests before a pause pass prominence AND the rise filter
+            % because both measure against the deep trough BELOW them. Two
+            % absolute demands kill them without touching real breaths:
+            % HEIGHT FLOOR - a peak must reach +0.5 (a pause crest sits at
+            % baseline); SOFT DESCENT - some point within the next 1 s must
+            % be 0.5 below the peak (a real peak is followed by an exhale,
+            % a pause crest by flatness).
+            fwdMin = movmin(det, [0 round(1.0 * fs)]);
+            pk = pk(det(pk) >= 0.5 & (det(pk) - fwdMin(pk)) >= 0.5);
             [peaks, troughs] = enforceAlt(det, pk, tr, 0, 0);
             % rise-fraction filter: a trough->peak rise under 40% of the local
             % breath amplitude is a bump, not a breath

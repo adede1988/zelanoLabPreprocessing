@@ -94,7 +94,7 @@ for tt = 1:size(TASKS, 1)
                 end
                 xlim([t(1) t(end)]); ylabel(strrep(condList{c}, '_', '\_'));
                 if c == 1
-                    title(sprintf('%s — %s — conservative x kneeBacktrack rev9 (blue onset, red peak, green trough, black arrow = trough/late)', ...
+                    title(sprintf('%s — %s — conservative x kneeBacktrack rev10 (blue onset, red peak, green trough, black arrow = trough/late)', ...
                         strrep(id, '_', '\_'), tkey));
                 end
             end
