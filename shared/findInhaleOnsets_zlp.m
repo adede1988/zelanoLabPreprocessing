@@ -142,7 +142,14 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
                 % to the closest point with slope >= 70% of the window max -
                 % no amplitude-band logic (the smoothed slope is not jittery)
                 dmax = max(dseg);
-                im = find(dseg >= 0.7 * dmax, 1, 'last');
+                % anchor (2026-08-28 rev6, review): closest point back from
+                % the peak with slope >= 70% of the window max THAT ALSO
+                % PASSES rules 1+2 - an anchor inside rule 2's near-peak
+                % cutoff zone starts the walk where no valid landing exists
+                % (the PP 449s instant-snap), so require validity up front,
+                % which also starts the walk a little further down the slope.
+                im = find(dseg >= 0.7 * dmax & eSeg, 1, 'last');
+                if isempty(im), im = find(dseg >= 0.7 * dmax, 1, 'last'); end
                 if isempty(im), [~, im] = max(dseg); end
                 % Stop only on a SUSTAINED dip (slope < 0.15 dmax for >=0.15 s)
                 % - knife-edge single-sample dips on drifting plateaus neither
