@@ -40,16 +40,24 @@ fprintf('AUDIT LIST (%d): %s\n', numel(auditIDs), strjoin(auditIDs', ', '));
 
 WB = round(0.5 * 500); WF = round(2.0 * 500);   % fs is 500 throughout
 
-% ---------- template: EEG ZL audiobook mean waveform ----------
-cfgSep = applyParams('breathingTasks_separate', 'main');
-zi = find(contains(cfgSep.sessionIDs, 'EEG') & contains(cfgSep.sessionIDs, '_ZL'), 1);
-zid = cfgSep.sessionIDs{zi};
-hits = dir(fullfile(cfgSep.root{zi}, zid, 'preProc', [zid '_breathingTasks_separate*.mat']));
+% ---------- template: EEG ZL (breathingTask) audio-block mean waveform ----------
+cfgB = applyParams('breathingTask', 'main');
+zi = find(contains(cfgB.sessionIDs, '_ZL'), 1);
+zid = cfgB.sessionIDs{zi};
+hits = dir(fullfile(cfgB.root{zi}, zid, 'preProc', [zid '_breathing*.mat']));
 s = load(fullfile(hits(1).folder, hits(1).name)); fn = fieldnames(s); zod = s.(fn{1}); clear s
-[tmplMean, ~] = flipMeanWave(zod, zod.rspFlip, WB, WF, 'audio');
-assert(~isempty(tmplMean), 'ZL audiobook template failed');
-fprintf('TEMPLATE: %s audiobook, %d-sample mean waveform\n', zid, numel(tmplMean));
-clear zod
+[~, ~, ~, ~, ~, xNz, oz] = flipStats(zod, zod.rspFlip, WB, WF, 'breathingTask');
+tkz = zod.behDat.task;
+if iscell(tkz), tkz(cellfun(@(x) ~(ischar(x) && isrow(x)) && ~(isstring(x) && isscalar(x)), tkz)) = {'NA'}; end
+tkz = string(tkz);
+osz = zod.behDat.finalOnset(contains(lower(tkz), 'audio'));
+oz = oz(oz >= min(osz) & oz <= max(osz));
+assert(numel(oz) >= 5, 'ZL audio template: too few onsets');
+segZ = zeros(numel(oz), WB + WF + 1);
+for k = 1:numel(oz), segZ(k, :) = xNz(oz(k)-WB:oz(k)+WF); end
+tmplMean = mean(segZ, 1);
+fprintf('TEMPLATE: %s audio block, %d breaths\n', zid, numel(oz));
+clear zod xNz segZ
 
 R = {};
 for tt = 1:size(TASKS, 1)
@@ -180,23 +188,6 @@ function cc = condCorr(xN, o, lo, hi, WB, WF, tmplMean)
             cc = corr(mean(seg, 1)', tmplMean(:));
         end
     catch
-    end
-end
-
-function [mw, o] = flipMeanWave(od, fl, WB, WF, sectLabel)
-    [~, ~, ~, ~, ~, xN, o] = flipStats(od, fl, WB, WF, 'template');
-    if isfield(od, 'sections') && istable(od.sections)
-        m = contains(lower(string(od.sections.label)), lower(sectLabel));
-        if any(m)
-            k = find(m, 1);
-            o = o(o >= od.sections.startSample(k) & o <= od.sections.endSample(k));
-        end
-    end
-    mw = [];
-    if numel(o) >= 5
-        seg = zeros(numel(o), WB + WF + 1);
-        for k = 1:numel(o), seg(k, :) = xN(o(k)-WB:o(k)+WF); end
-        mw = mean(seg, 1);
     end
 end
 
