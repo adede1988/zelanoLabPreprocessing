@@ -374,6 +374,14 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         else
             blockStartSec = [112 555 1214];    % audio focus shadow
         end
+        % discontinuous Neuralynx samples: NaNs inside a block window kill
+        % downsample_data's filters ("Expected input signal to be finite") -
+        % same interpolation policy as the other branches
+        nNan = sum(sum(isnan(dat.rawData.trial{1})));
+        if nNan > 0
+            dat.rawData.trial{1} = fillmissing(dat.rawData.trial{1}, 'linear', 2);
+            dat.rawData.trial{1} = fillmissing(dat.rawData.trial{1}, 'nearest', 2);
+        end
         fsRaw = dat.rawData.fsample;
         TTLs = round(blockStartSec * fsRaw);
         TTLs = max(TTLs, 1);
