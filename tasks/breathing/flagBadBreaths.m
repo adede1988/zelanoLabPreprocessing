@@ -16,11 +16,22 @@ function outDat = flagBadBreaths(outDat)
     rrDat = outDat.data(idx, :); 
 
 
-    %new values to add: 
+    %new values to add:
     %Good Breaths indicator 1 = good 0 = bad
     %RRmin
     %RRmax
     %RRmax - RRmin
+
+    % pre-initialize to NaN (2026-08-29 review fix): breaths whose 20-s QC
+    % window falls off the recording edge (or bL >= 18 s) are never
+    % evaluated - they must read NaN, not a silent table-default 0 that is
+    % indistinguishable from a computed-bad breath.
+    nB = size(outDat.behDat, 1);
+    outDat.behDat.goodBreath = nan(nB, 1);
+    outDat.behDat.maxRR      = nan(nB, 1);
+    outDat.behDat.minRR      = nan(nB, 1);
+    outDat.behDat.RR_max_min = nan(nB, 1);
+
     for bb = 1:size(outDat.behDat, 1)
        
         idx = outDat.behDat.finalOnset(bb);
@@ -91,13 +102,15 @@ function outDat = flagBadBreaths(outDat)
            else
                 outDat.behDat.goodBreath(bb) = 0; 
 
-               %get RR variability: 
+               %get RR variability:
                 %col15: RRmin
                 %col16: RRmax
                 %col17: RRmax - RRmin
-               outDat.behDat.maxRR(bb) = max(rrDat( ...
+               % (2026-08-29 review fix: was rrDat(bonset:boffset) - absolute
+               % recording-start samples, not this breath's window)
+               outDat.behDat.maxRR(bb) = max(curRR( ...
                                             bonset:boffset));
-               outDat.behDat.minRR(bb) = min(rrDat( ...
+               outDat.behDat.minRR(bb) = min(curRR( ...
                                             bonset:boffset));
                outDat.behDat.RR_max_min(bb) = outDat.behDat.maxRR(bb) -...
                                             outDat.behDat.minRR(bb);
