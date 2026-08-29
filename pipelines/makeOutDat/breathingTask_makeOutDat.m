@@ -25,7 +25,16 @@ newList    = cfg.newIDs;
 rspIDX     = cfg.rspIDX;
 rspFlip    = cfg.rspFlip;
 
+% targeted-run filter (2026-08-29): comma-separated session ids in
+% ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
+onlyEnv = getenv('ZLP_MAKEOUTDAT_ONLY');
+onlyList = {};
+if ~isempty(onlyEnv), onlyList = strtrim(strsplit(onlyEnv, ',')); end
+
 parfor sessi = 1:length(sessionIDs)
+    if ~isempty(onlyList) && ~any(strcmp(onlyList, sessionIDs{sessi}))
+        continue
+    end
     % if ~ismember(sessi, [27, 29, 37, 33, 32, 31, 40])
     %     continue
     % end
@@ -175,8 +184,14 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         end
     
     
-    elseif strcmp(sessionIDs{sessi}, '250623_DUPI_NMH_KS_2')
+    elseif strcmpi(sessionIDs{sessi}, '250623_Dupi_NMH_KS_2')
         %SPECIALIZED PROCESSING FOR KS 2
+        % (2026-08-29 fix: this branch was written against the old
+        % UPPERCASE id '250623_DUPI_NMH_KS_2'; the sheet id is mixed-case,
+        % so the case-sensitive strcmp never matched and KS_2 fell through
+        % to standard photodiode processing - which is exactly what cannot
+        % work here. strcmpi + the sheet-cased id restores the intended
+        % hard-coded block times.)
         dat = load([datPre{datPrei(sessi)} sessionIDs{sessi} ...
                        '\raw\raw_breathingTasks/raw_breathingTasks.mat']);
         dat = dat.curDat; 
@@ -561,13 +576,22 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
     outDat.task = "breathing"; 
     outDat.sessID = sessionIDs{sessi};
     outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
-    tmp = dir([datPre{datPrei(sessi)} sessionIDs{sessi}]);
-    tmp = tmp(cellfun(@(x) contains(x, '.m'), {tmp.name}));
-    tmp = tmp(cellfun(@(x) contains(x, 'LoadData'), {tmp.name}));
-    if size(tmp,1) == 1
-        outDat.loadFile = tmp.name;
-    else 
-        error('load file not identified uniquely')
+    % (2026-08-29, PC_2 incident): macOS browsing leaves AppleDouble junk
+    % ('._LoadData_*.m') that can make the wildcard match non-unique.
+    % Prefer the session's canonical script when it exists; fall back to a
+    % unique wildcard match; anything else is still a loud error.
+    canonicalLD = ['LoadData_' sessionIDs{sessi} '.m'];
+    if exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\' canonicalLD], 'file')
+        outDat.loadFile = canonicalLD;
+    else
+        tmp = dir([datPre{datPrei(sessi)} sessionIDs{sessi}]);
+        tmp = tmp(cellfun(@(x) contains(x, '.m'), {tmp.name}));
+        tmp = tmp(cellfun(@(x) contains(x, 'LoadData'), {tmp.name}));
+        if size(tmp,1) == 1
+            outDat.loadFile = tmp.name;
+        else
+            error('load file not identified uniquely')
+        end
     end
     outDat.preProcScript = 'BreathingTask_makeOutDat.m'; 
     if datPrei(sessi) == 1

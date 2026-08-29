@@ -43,6 +43,12 @@ sessionIDs = cfg.sessionIDs;
 % guess). Every other guess session still halts at the gate.
 allowGuessRunEnv = strcmp(getenv('ZLP_ALLOW_GUESS_RUN'), '1');
 
+% targeted-run filter (2026-08-29): comma-separated session ids in
+% ZLP_MAIN_ONLY restrict the sweep (blank = all sessions)
+mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
+mainOnlyList = {};
+if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
+
 success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
@@ -50,6 +56,7 @@ for s = 1:numel(sessionIDs)
     % --- Session descriptor (adjust to your system) ---
     S = struct;
     S.id   = sessionIDs{s};
+    if ~isempty(mainOnlyList) && ~any(strcmp(mainOnlyList, S.id)), continue; end
     S.root = cfg.root{s};
     S.fig  = fullfile(figPath, S.id);
     
