@@ -349,6 +349,46 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         end
 
      
+    elseif strcmpi(sessionIDs{sessi}, '250623_Dupi_NMH_KS_3') || ...
+           strcmpi(sessionIDs{sessi}, '251120_Dupi_NMH_JL_1')
+        % (2026-08-29 audit) In these two sessions the AUDIO block shows NO
+        % photodiode flicker (dark screen), so flicker-based detection found
+        % only focus+shadow, mislabeled them blocks 1-2, and the downstream
+        % order-3 joins crashed ("Index must not exceed 2"). Block windows
+        % below were measured by sliding-correlating each block's own
+        % closed-loop recording CSV (audioResp/focusedResp/shadow4 voltage,
+        % on its native timestamp grid) against the session respiration at
+        % 20 Hz: peaks r=0.70-0.85 with runner-ups <0.28. The six ~20-s
+        % photodiode bursts between focus and shadow are the breathing
+        % calibration mini-trials (deep/normal/shallow + matches), not a
+        % task block. Order: audio (dark) -> focus -> calibration -> shadow.
+        dat = load([datPre{datPrei(sessi)} sessionIDs{sessi} ...
+                       '\raw\raw_breathingTasks/raw_breathingTasks.mat']);
+        dat = dat.curDat;
+        behDat = ['closed-loop-respiration\processedBehavior\' ...
+                    sessionIDs{sessi} '.csv'];
+        behDat = readtable([codePre behDat]);
+
+        if strcmpi(sessionIDs{sessi}, '250623_Dupi_NMH_KS_3')
+            blockStartSec = [1 424 1163];      % audio focus shadow
+        else
+            blockStartSec = [112 555 1214];    % audio focus shadow
+        end
+        fsRaw = dat.rawData.fsample;
+        TTLs = round(blockStartSec * fsRaw);
+        TTLs = max(TTLs, 1);
+
+        outDat = struct;
+        outDat.data = zeros(size(dat.rawData.trial{1}, 1), 600000, numel(TTLs));
+        for ii = 1:numel(TTLs)
+            outDat.data(:,:,ii) = dat.rawData.trial{1}(:, TTLs(ii):TTLs(ii)+599999);
+        end
+        outDat.tim = .0005:.0005:300;
+        outDat.behDat = behDat;
+        outDat.labels = dat.outLabs;
+        outDat.CSClist = dat.ncslabels;
+        outDat.fs = dat.rawData.fsample;
+
     elseif sum(cellfun(@(x) strcmp(x, sessionIDs{sessi}), newList))==1 %new standard
         try
             dat = load([datPre{datPrei(sessi)} sessionIDs{sessi} ...
