@@ -103,9 +103,19 @@ function outDat = build_behavior_table_breathingTask(outDat, bmObj)
 
         % Add one column per Q/type combination: e.g., "Happy_pre" etc.
         for q = 1:length(Qs)
+            % (2026-09-01) 'SKIP' marks a rating that was never collected
+            % (e.g. AD_1's audio block) - an all-SKIP set otherwise matches
+            % 12 rows at once and breaks the scalar assignment below
+            if strcmp(Qs{q}, 'SKIP'), continue; end
             ii = find(cellfun(@(x) strcmp(Qs{q}, x), tmp.Q_short));
             if isempty(ii)
                 continue;
+            end
+            if numel(ii) > 1
+                warning('build_behavior_table_breathingTask:dupQ', ...
+                    '%s: Q_short "%s" appears %d times in condition %d - using the first', ...
+                    outDat.sessID, Qs{q}, numel(ii), cndi);
+                ii = ii(1);
             end
             varName = [Qs{q} '_' tmp.type{ii}];
             outDat.behDat.(varName)(idx) = tmp.rsp(ii);
@@ -124,10 +134,12 @@ function outDat = build_behavior_table_breathingTask(outDat, bmObj)
         baseEmotion.warp       = tmp.warp(1);
 
         for q = 1:length(Qs)
+            if strcmp(Qs{q}, 'SKIP'), continue; end   % never-collected marker
             ii = find(cellfun(@(x) strcmp(Qs{q}, x), tmp.Q_short));
             if isempty(ii)
                 continue;
             end
+            ii = ii(1);
             varName = [Qs{q} '_' tmp.type{ii}];
             baseEmotion.(varName) = tmp.rsp(ii);
         end
