@@ -60,12 +60,12 @@ for ii = 1:numel(ids)
         numOf = @(n) str2double(string(df.(n)));            % cell/str/num safe
         strOf = @(n, r) cellstr(fillmissing(strtrim(string(df.(n)(r))), 'constant', string('NA')));
 
-        q = cellstr(fillmissing(string(df.question), 'constant', string('')));
+        q = cellstr(fillmissing(strtrim(string(df.question)), 'constant', string('')));
         cndCount = sum(strcmp(q, 'relaxed'));
         assert(cndCount >= 2, '%s: cndCount=%d too small', id, cndCount);
         qIdxAll = find(ismember(q, qShort.keys));
         if mod(numel(qIdxAll), 12) ~= 0
-            fprintf('TIDY WARN %s: question rows %d not multiple of 12\n', id, numel(qIdxAll));
+            fprintf('TIDY WARN %s: map-question rows %d not multiple of 12\n', id, numel(qIdxAll));
         end
         qShortOf = @(qc) cellfun(@(x) mapOr(qShort, x), qc, 'UniformOutput', false);
         isWave = has('slider_3.response');
@@ -82,12 +82,16 @@ for ii = 1:numel(ids)
         O.cndSpacing = nan(n, 1);
         O.waveMean = nan(n, 1); O.waveMin = nan(n, 1); O.waveMax = nan(n, 1);
         O.waveSD = nan(n, 1);   O.waveIQR = nan(n, 1);
-        tt = numOf('trialTime'); O.trialTim = repmat(tt(find(~isnan(tt), 1)), n, 1);
-        fr = numOf('frameRate'); O.FPS = repmat(fr(find(~isnan(fr), 1)), n, 1);
+        tt = NaN;
+        if has('trialTime'), v_ = numOf('trialTime'); v_ = v_(~isnan(v_)); if ~isempty(v_), tt = v_(1); end, end
+        fr = NaN;
+        if has('frameRate'), v_ = numOf('frameRate'); v_ = v_(~isnan(v_)); if ~isempty(v_), fr = v_(1); end, end
+        O.trialTim = repmat(tt, n, 1); O.FPS = repmat(fr, n, 1);
 
         % ---- pre (order 0), shared by both formats ----
         r = 1:12;
-        sp = numOf('slider.response');
+        sp = nan(height(df), 1);
+        if has('slider.response'), sp = numOf('slider.response'); end
         idx = find(~isnan(sp));
         O.task(r) = {'pre'}; O.cndName(r) = {'pre'};
         O.order(r) = 0; O.lenQ(r) = NaN;
@@ -212,53 +216,69 @@ for ii = 1:numel(ids)
             outp = fullfile(outWave, [id '.csv']);
         else
             % ================= DUPI / closed-loop format =================
-            % blocks = temporal order of audio/focus/shadow start events
+            % Rating sets = contiguous RUNS of rows with nonempty question
+            % text (the pre set uses variant phrasings that are not all in
+            % the 12-question map - TB_3 has 36 map rows for 4 sets - so
+            % map-index arithmetic is wrong for this format). Runs pair
+            % 1:1 in temporal order with the block events.
+            qRows = find(~cellfun(@isempty, q));
+            runB = [1; find(diff(qRows) > 1) + 1];
+            runE = [runB(2:end) - 1; numel(qRows)];
+            runs = arrayfun(@(a, b) qRows(a:b), runB, runE, 'UniformOutput', false);
+            runs = runs(cellfun(@numel, runs) >= 6);      % drop stray rows
             ev = zeros(0, 3);   % [onset offset family] 1=audio 2=focus 3=shadow
             fams = {'audioRecording', 'focusedBreathing', 'playBackNormal'};
             for f = 1:3
                 if ~has([fams{f} '.started']), continue; end
                 a = numOf([fams{f} '.started']); a = a(~isnan(a));
-                b = numOf([fams{f} '.stopped']); b = b(~isnan(b));
+                bb = numOf([fams{f} '.stopped']); bb = bb(~isnan(bb));
                 for k = 1:numel(a)
-                    if k <= numel(b), off = b(k); else, off = NaN; end
+                    if k <= numel(bb), off = bb(k); else, off = NaN; end
                     ev(end+1, :) = [a(k), off, f]; %#ok<AGROW>
                 end
             end
             ev = sortrows(ev, 1);
             nBlocks = size(ev, 1);
-            if nBlocks ~= cndCount - 1
-                fprintf('TIDY WARN %s: %d blocks vs %d rating sets (using min)\n', id, nBlocks, cndCount - 1);
+            if nBlocks ~= numel(runs) - 1
+                fprintf('TIDY WARN %s: %d block events vs %d rating runs (pairing in order, min taken)\n', ...
+                    id, nBlocks, numel(runs) - 1);
             end
             famName = {'audio', 'focus', 'shadow'};
-            s2 = nan(height(df), 1);
-            if has('slider_2.response'), s2 = numOf('slider_2.response'); end
-            s2rt = nan(height(df), 1);
-            if has('slider_2.rt'), s2rt = numOf('slider_2.rt'); end
-            for b = 1:min(nBlocks, cndCount - 1)
-                r = (b*12+1):((b+1)*12);
-                sel = qIdxAll((b*12+1):((b+1)*12));
-                i1 = sel(1);
-                O.task(r) = famName(ev(b, 3));
-                O.cndName(r) = famName(ev(b, 3));
-                O.cndOnset(r) = ev(b, 1); O.cndOffset(r) = ev(b, 2);
-                O.order(r) = b;
-                O.type(r) = strOf('trialType', sel);
-                O.Q_long(r) = q(sel); O.Q_short(r) = qShortOf(q(sel));
-                O.rsp(r) = s2(sel); O.rt(r) = s2rt(sel);
-                nmv = {'nose'};
+            s2 = nan(height(df), 1);   if has('slider_2.response'), s2 = numOf('slider_2.response'); end
+            s2rt = nan(height(df), 1); if has('slider_2.rt'), s2rt = numOf('slider_2.rt'); end
+            OD = struct2table(emptyRows(0));
+            sel = runs{1};
+            P = emptyRows(numel(sel));
+            P.task(:) = {'pre'}; P.order(:) = 0;
+            P.type = strOf('trialType', sel);
+            P.Q_long = q(sel); P.Q_short = qShortOf(q(sel));
+            P.rsp = sp(sel);
+            v = nan(height(df), 1); if has('slider.rt'), v = numOf('slider.rt'); end
+            P.rt = v(sel);
+            OD = [OD; struct2table(P)];
+            for b = 1:min(nBlocks, numel(runs) - 1)
+                sel = runs{b + 1}; i1 = sel(1);
+                P = emptyRows(numel(sel));
+                P.task(:) = famName(ev(b, 3)); P.order(:) = b;
+                P.cndOnset(:) = ev(b, 1); P.cndOffset(:) = ev(b, 2);
+                P.type = strOf('trialType', sel);
+                P.Q_long = q(sel); P.Q_short = qShortOf(q(sel));
+                P.rsp = s2(sel); P.rt = s2rt(sel);
+                nmv = 'nose';
                 if has('noseMouth')
                     t = strOf('noseMouth', i1);
-                    if ~strcmp(t{1}, 'NA'), nmv = t; end
+                    if ~strcmp(t{1}, 'NA'), nmv = t{1}; end
                 end
-                O.noseMouth(r) = nmv;
+                P.noseMouth(:) = {nmv};
                 if ev(b, 3) == 3    % shadow: source + warp
-                    if has('fileType'), O.shadowFile(r) = strOf('fileType', i1); end
-                    if has('warpRatio'), v = numOf('warpRatio'); O.warp(r) = v(i1); end
+                    if has('fileType'), P.shadowFile(:) = strOf('fileType', i1); end
+                    if has('warpRatio'), v = numOf('warpRatio'); P.warp(:) = v(i1); end
                 end
+                OD = [OD; struct2table(P)]; %#ok<AGROW>
             end
-            T = struct2table(rmfield(O, {'cndName', 'lenQ', 'cndSpacing', ...
-                'waveMean', 'waveMin', 'waveMax', 'waveSD', 'waveIQR'}));
-            T = addvars(T, (1:n)', 'Before', 1, 'NewVariableNames', 'Var1');
+            OD.trialTim(:) = tt; OD.FPS(:) = fr;
+            T = addvars(OD, (1:height(OD))', 'Before', 1, 'NewVariableNames', 'Var1');
+            n = height(OD); cndCount = min(nBlocks, numel(runs) - 1) + 1;
             outp = fullfile(outDupi, [id '.csv']);
         end
         writetable(T, outp);
@@ -272,6 +292,17 @@ fprintf('tidyImport_waveExp_matlab: DONE\n');
 
 function v = mapOr(m, k)
     if m.isKey(k), v = m(k); else, v = 'SKIP'; end
+end
+function P = emptyRows(m)
+% one rating set's worth of closed-loop-schema rows, defaults filled
+    P = struct();
+    P.task = repmat({'NA'}, m, 1); P.type = repmat({'NA'}, m, 1);
+    P.noseMouth = repmat({'NA'}, m, 1); P.shadowFile = repmat({'NA'}, m, 1);
+    P.Q_long = repmat({'SKIP'}, m, 1); P.Q_short = repmat({'SKIP'}, m, 1);
+    P.rsp = nan(m, 1); P.rt = nan(m, 1); P.warp = nan(m, 1);
+    P.cndOnset = zeros(m, 1); P.cndOffset = zeros(m, 1);
+    P.order = zeros(m, 1);
+    P.trialTim = nan(m, 1); P.FPS = nan(m, 1);
 end
 function out = ternS(cond, a, b)
     if cond, out = a; else, out = b; end
