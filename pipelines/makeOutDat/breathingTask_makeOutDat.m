@@ -350,7 +350,8 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
 
      
     elseif strcmpi(sessionIDs{sessi}, '250623_Dupi_NMH_KS_3') || ...
-           strcmpi(sessionIDs{sessi}, '251120_Dupi_NMH_JL_1')
+           strcmpi(sessionIDs{sessi}, '251120_Dupi_NMH_JL_1') || ...
+           strcmpi(sessionIDs{sessi}, '251002_Dupi_NMH_AB_3')
         % (2026-08-29 audit) In these two sessions the AUDIO block shows NO
         % photodiode flicker (dark screen), so flicker-based detection found
         % only focus+shadow, mislabeled them blocks 1-2, and the downstream
@@ -371,6 +372,11 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
 
         if strcmpi(sessionIDs{sessi}, '250623_Dupi_NMH_KS_3')
             blockStartSec = [1 424 1163];      % audio focus shadow
+        elseif strcmpi(sessionIDs{sessi}, '251002_Dupi_NMH_AB_3')
+            % (2026-08-31) AB_3's photodiode recorded NOTHING (zero events);
+            % windows measured the same way (audioResp r=-.78, focusedResp
+            % r=+.90, shadow4 r=+.84; runner-ups <=.34)
+            blockStartSec = [39 516 1281];     % audio focus shadow
         else
             blockStartSec = [112 555 1214];    % audio focus shadow
         end
