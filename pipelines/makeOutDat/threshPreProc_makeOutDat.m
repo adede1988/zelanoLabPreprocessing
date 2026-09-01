@@ -103,6 +103,16 @@ for sessi = 1:numel(sessionIDs)
         behDir = behDir(~[behDir.isdir]);
         matIdx = find(contains({behDir.name}, '.mat'));
 
+        if isempty(matIdx)
+            % 2026-09-01: the summer-2026 task build saves into a DOUBLED
+            % results\results\<id> subfolder (PD_2/JA_2/HM_2/SP_2/KA_2 all
+            % live there; the _echem-suffixed folders are separate
+            % electrochemistry recordings and are deliberately not matched)
+            behDir = dir(fullfile(behDatPath_newSet, 'results', sessID));
+            behDir = behDir(~[behDir.isdir]);
+            matIdx = find(contains({behDir.name}, '.mat'));
+        end
+
         if numel(matIdx) > 1
             error('PEA loader: expected exactly 1 behavioral .mat for newSet %s in %s, found %d.', ...
                 sessID, fullfile(behDatPath_newSet, sessID), numel(matIdx));
