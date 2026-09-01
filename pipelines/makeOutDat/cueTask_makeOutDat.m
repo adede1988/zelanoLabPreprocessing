@@ -33,7 +33,17 @@ newSet     = cfg.newIDs;
 rspIDX     = cfg.rspIDX;
 rspFlip    = cfg.rspFlip;
 
+% targeted-run filter (2026-09-01): comma-separated session ids in
+% ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
+onlyEnv = getenv('ZLP_MAKEOUTDAT_ONLY');
+onlyList = {};
+if ~isempty(onlyEnv), onlyList = strtrim(strsplit(onlyEnv, ',')); end
+
 for sessi = 1:length(sessionIDs)
+    if ~isempty(onlyList) && ~any(strcmp(onlyList, sessionIDs{sessi}))
+        continue
+    end
+    try
     disp(['Working on: ' sessionIDs{sessi}])
 
     
@@ -47,9 +57,14 @@ if sum(cellfun(@(x) strcmp(sessionIDs{sessi}, x), newSet))==1
                        '\raw\']);
 
     idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor'), {datFolders.name});
-    idx = find(idx); 
-    
-    %new behavioral data location 
+    if ~any(idx)
+        % 260720_OBE_NWU_KA_2 shipped its cue raw as raw_cueTask (same task,
+        % nonstandard folder name); the preProc output name stays standard
+        idx = cellfun(@(x) strcmpi(x, 'raw_cueTask'), {datFolders.name});
+    end
+    idx = find(idx);
+
+    %new behavioral data location
     dat1 = load([datFolders(idx(1)).folder '\' ...
                      datFolders(idx(1)).name  '\' ...
                      datFolders(idx(1)).name  '.mat']);
@@ -294,7 +309,11 @@ else
                        '\raw\']);
 
     idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor'), {datFolders.name});
-    idx = find(idx); 
+    if ~any(idx)
+        % nonstandard raw_cueTask folder name (same task) - see new-set branch
+        idx = cellfun(@(x) strcmpi(x, 'raw_cueTask'), {datFolders.name});
+    end
+    idx = find(idx);
     
 %% double file participants: 
     if length(idx) == 2
@@ -896,6 +915,10 @@ end
     else
         disp(['already done on: ' sessionIDs{sessi}])
     end
-
+    catch ME
+        disp(['fail for ', sessionIDs{sessi}, ': ', ME.message])
+        disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
+    end
+    close all
 end
 

@@ -38,9 +38,19 @@ newSet     = cfg.newIDs;
 rspIDX     = cfg.rspIDX;
 rspFlip    = cfg.rspFlip;
 
+% targeted-run filter (2026-09-01): comma-separated session ids in
+% ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
+onlyEnv = getenv('ZLP_MAKEOUTDAT_ONLY');
+onlyList = {};
+if ~isempty(onlyEnv), onlyList = strtrim(strsplit(onlyEnv, ',')); end
+
 for sessi = 1:numel(sessionIDs)
 
     sessID = sessionIDs{sessi};
+    if ~isempty(onlyList) && ~any(strcmp(onlyList, sessID))
+        continue
+    end
+    try
     disp(['Working on: ' sessID])
 
   preProcDir = fullfile(datPre{datPrei(sessi)}, sessID, 'preProc');
@@ -55,9 +65,18 @@ for sessi = 1:numel(sessionIDs)
     datFolders = datFolders([datFolders.isdir]);
 
     idx = find(cellfun(@(x) contains(x, 'raw_PEAintensityPleasantness'), {datFolders.name}));
+    if isempty(idx)
+        % 260720_OBE_NWU_KA_2 shipped its thresh raw as raw_threshTask (same
+        % task, nonstandard folder name); output filename stays standard.
+        % raw_threshTask_echem is a different recording - exact match only.
+        idx = find(cellfun(@(x) strcmpi(x, 'raw_threshTask'), {datFolders.name}));
+    else
+        % never pick the _echem variant when the standard folder also exists
+        idx = idx(cellfun(@(x) ~contains(lower(x), 'echem'), {datFolders(idx).name}));
+    end
 
     if ~isscalar(idx)
-        error('PEA loader: expected exactly 1 raw_PEAintensityPleasantness folder for %s, found %d.', ...
+        error('PEA loader: expected exactly 1 raw thresh folder for %s, found %d.', ...
             sessID, numel(idx));
     end
 
@@ -84,14 +103,21 @@ for sessi = 1:numel(sessionIDs)
         behDir = behDir(~[behDir.isdir]);
         matIdx = find(contains({behDir.name}, '.mat'));
 
-        if ~isscalar(matIdx)
+        if numel(matIdx) > 1
             error('PEA loader: expected exactly 1 behavioral .mat for newSet %s in %s, found %d.', ...
                 sessID, fullfile(behDatPath_newSet, sessID), numel(matIdx));
+        elseif isempty(matIdx)
+            % 2026-09-01: several summer-2026 sessions have an EMPTY
+            % centralized results folder; fall back to the old-set style
+            % search of the participant's behavior folder rather than failing
+            warning('PEA loader: no centralized behavioral .mat for %s; falling back to participant folder search', sessID);
+            isNew = false;
+        else
+            behFile = fullfile(behDir(matIdx).folder, behDir(matIdx).name);
         end
+    end
 
-        behFile = fullfile(behDir(matIdx).folder, behDir(matIdx).name);
-
-    else
+    if ~isNew
         % Find behavioral folder inside subject directory (folder name containing 'ehavior')
         subFolders = dir(fullfile(datPre{datPrei(sessi)}, sessID));
         subFolders = subFolders([subFolders.isdir]);
@@ -306,4 +332,9 @@ for sessi = 1:numel(sessionIDs)
     clear datFolders idx rawMatPath dat behDir behLoaded behDat behFile ...
           photoDiode rawData downs ups difVals TTLs tmp tmp2 idxEvt
  end
+    catch ME
+        disp(['fail for ', sessID, ': ', ME.message])
+        disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
+    end
+    close all
 end

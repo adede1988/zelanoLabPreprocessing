@@ -28,21 +28,43 @@ EEGLOC  = readtable(L.eegLocCsv);   % load once, reuse
 cfg        = applyParams('O15','main');
 sessionIDs = cfg.sessionIDs;
 
-for s = 38:numel(sessionIDs)
+% Run-on-guess batch override + targeted-run filter (2026-09-01): identical
+% mechanics to breathingTaskPreProc_main (Tasks_260824.md D4). Guess sessions
+% run headlessly when allowed, QC figures are saved, paramSource is NEVER
+% promoted - the outputs get checked by hand later.
+allowGuessRunEnv = strcmp(getenv('ZLP_ALLOW_GUESS_RUN'), '1');
+mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
+mainOnlyList = {};
+if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
 
-  
+for s = 1:numel(sessionIDs)
+  try
 
-  disp(['working on ', sessionIDs{s}])
+  S = struct;
   S.id   = sessionIDs{s};
+  if ~isempty(mainOnlyList) && ~any(strcmp(mainOnlyList, S.id)), continue; end
+  disp(['working on ', sessionIDs{s}])
   S.root = cfg.root{s};
    matPath = fullfile(S.root, S.id);
-  if ~exist(fullfile(matPath,  'preProc       REDO ALL ', ...
-                [S.id '_O15preproc.mat']), 'file')
-  S.figPath = figPath; 
+  % done-check (2026-09-01: the old check pointed at a non-existent folder so
+  % every sweep re-ran everything and the loop start was hand-edited instead)
+  if ~exist(fullfile(matPath, 'preProc', [S.id '_O15preproc.mat']), 'file')
+  S.figPath = figPath;
   if ~isfolder(fullfile(S.figPath, S.id))
       mkdir(fullfile(S.figPath, S.id))
   end
   P             = applyParams('O15', S.id);
+  % anything not explicitly curated is treated as a guess
+  isGuess = ~strcmpi(strtrim(P.paramSource), 'curated');
+  P.allowGuessRun = allowGuessRunEnv && (strcmp(P.type, 'EEG') || ...
+      strcmp(getenv('ZLP_ALLOW_GUESS_RUN_ALL'), '1'));
+  % task subfolder (matches assembleOutDat's outDat.figs) so paramCheck
+  % PNGs from different tasks of one session cannot overwrite each other
+  P.figDir = fullfile(figPath, S.id, 'O15');
+  if isGuess && allowGuessRunEnv && ~P.allowGuessRun
+      disp(['SKIP (guess, not run per D4): ' S.id])
+      continue
+  end
 
 
   % trialStarts, buttonPresses, sniffMarks
@@ -52,7 +74,7 @@ for s = 38:numel(sessionIDs)
   outDat     = assembleOutDat_O15extras(outDat, S, raw); % <-- TASK-SPECIFIC: O15-only outDat fields
   disp(['........................Loaded ', sessionIDs{s}])
 
-  if strcmp(P.paramSource, 'guess')
+  if isGuess
         [outDat, P] = paramCheck(outDat, P);
   end
   outDat.rspIDX = P.rspIDX;
@@ -76,12 +98,17 @@ for s = 38:numel(sessionIDs)
 
   sniffs = detect_sniffs_from_TTLs(R, P, outDat);  % returns table or matrix
 
-    if strcmp(P.paramSource, 'guess')
-        error('check that onsets have been well-detected')
-        
+    % --- Guess gate: under the run-on-guess override the save proceeds but
+    %     paramSource stays guess (never promoted). ---
+    if isGuess
+        if ~P.allowGuessRun
+            error('check that onsets have been well-detected')
+        end
+        disp(['RUN-ON-GUESS (D4): saving outputs for ' S.id '; paramSource stays guess'])
+    else
+        P.paramSource = 'curated';
+        writeParams(P, S.id);
     end
-    P.paramSource = 'curated'; 
-    writeParams(P, S.id);
 
 
   % ----- TASK-SPECIFIC (O15): behavior table from sniffs + raw behavior -----
@@ -104,5 +131,10 @@ for s = 38:numel(sessionIDs)
        disp(['finished file detected for: ', sessionIDs{s}])
   end
 
+  catch ME
+      disp(['fail for ', sessionIDs{s}, ': ', ME.message])
+      disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
+  end
+  close all   % unattended batches must not accumulate figures
 end
 

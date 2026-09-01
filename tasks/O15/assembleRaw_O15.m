@@ -19,7 +19,18 @@ function [raw, TTL] = assembleRaw_O15(S, P)
     behPath = fullfile(S.root, S.id, 'Behavioral_data', 'O15', ...
                        sprintf('O15_responses_%s.csv', S.id));
     if ~exist(behPath, 'file')
-        error('assembleRaw_O15:MissingBehavior', 'Behavior CSV not found: %s', behPath);
+        % 2026-09-01: some sessions keep the responses CSV outside the
+        % standard Behavioral_data\O15\ location - search the participant
+        % folder before failing (exactly one match required)
+        hits = dir(fullfile(S.root, S.id, '**', 'O15_responses*.csv'));
+        if isscalar(hits)
+            behPath = fullfile(hits.folder, hits.name);
+            warning('assembleRaw_O15:BehaviorFallback', ...
+                'Behavior CSV found off the standard path: %s', behPath);
+        else
+            error('assembleRaw_O15:MissingBehavior', ...
+                'Behavior CSV not found: %s (%d fallback matches)', behPath, numel(hits));
+        end
     end
 
     raw.sessID = char(S.id);

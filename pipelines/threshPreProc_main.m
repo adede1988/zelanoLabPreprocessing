@@ -30,30 +30,52 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 cfg        = applyParams('threshTask','main');
 sessionIDs = cfg.sessionIDs;
 
-for s = 29:numel(sessionIDs)
+% Run-on-guess batch override + targeted-run filter (2026-09-01): identical
+% mechanics to breathingTaskPreProc_main (Tasks_260824.md D4). Guess sessions
+% run headlessly when allowed, QC figures are saved, paramSource is NEVER
+% promoted - the outputs get checked by hand later.
+allowGuessRunEnv = strcmp(getenv('ZLP_ALLOW_GUESS_RUN'), '1');
+mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
+mainOnlyList = {};
+if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
+
+for s = 1:numel(sessionIDs)
+    try
     % --- Session descriptor (adjust to your system) ---
+    S = struct;
     S.id   = sessionIDs{s};
+    if ~isempty(mainOnlyList) && ~any(strcmp(mainOnlyList, S.id)), continue; end
     S.root = cfg.root{s};
     S.fig  = fullfile(figPath, S.id);
     disp(['working on ', sessionIDs{s}])
     preDir = fullfile(S.root, S.id, 'preProc');
     outDat = load(fullfile(preDir, [S.id '_PEA_threshold_preproc.mat']));
-    
+
     if isfield(outDat, 'out')
-        outDat = outDat.out; 
+        outDat = outDat.out;
     elseif isfield(outDat, 'outDat')
-        outDat = outDat.outDat; 
+        outDat = outDat.outDat;
     else
         error('unexpected missing field in outDat')
     end
-   
+
     if isfield(outDat, 'moreThan1')
         disp(['Done with ' S.id ' ; ' num2str(s)])
         continue
     end
     % --- Params + raw load ---
     P = applyParams('threshTask', S.id);
-    isGuess = strcmp(P.paramSource, 'guess');
+    % anything not explicitly curated is treated as a guess
+    isGuess = ~strcmpi(strtrim(P.paramSource), 'curated');
+    P.allowGuessRun = allowGuessRunEnv && (strcmp(P.type, 'EEG') || ...
+        strcmp(getenv('ZLP_ALLOW_GUESS_RUN_ALL'), '1'));
+    % task subfolder (matches assembleOutDat's outDat.figs) so paramCheck
+    % PNGs from different tasks of one session cannot overwrite each other
+    P.figDir = fullfile(S.fig, 'threshTask');
+    if isGuess && allowGuessRunEnv && ~P.allowGuessRun
+        disp(['SKIP (guess, not run per D4): ' S.id])
+        continue
+    end
 
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
     raw    = assembleRaw_threshTask(S);   % <-- TASK-SPECIFIC: edit/replace for a new task
@@ -99,15 +121,19 @@ for s = 29:numel(sessionIDs)
   disp(['........................breath behave ', sessionIDs{s}])
 
     % --- Guess gate: stop before writing back / saving so the user can verify
-    %     onset detection in the saved figures first ---
+    %     onset detection in the saved figures first. Under the run-on-guess
+    %     override the save proceeds but paramSource stays guess. ---
     if isGuess
-        
-        error(['threshTask guess params: inspect the saved figures, then set ' ...
-               'paramSource=curated in dataTracking.xlsx (or call ' ...
-               'writeParams(P, S.id)) and re-run.']);
+        if ~P.allowGuessRun
+            error(['threshTask guess params: inspect the saved figures, then set ' ...
+                   'paramSource=curated in dataTracking.xlsx (or call ' ...
+                   'writeParams(P, S.id)) and re-run.']);
+        end
+        disp(['RUN-ON-GUESS (D4): saving outputs for ' S.id '; paramSource stays guess'])
+    else
+        P.paramSource = 'curated';
+        writeParams(P, S.id);
     end
-    P.paramSource = 'curated';
-    writeParams(P, S.id);
 
     % --- Save ---
     preDir = fullfile(S.root, S.id, 'preProc');
@@ -115,5 +141,11 @@ for s = 29:numel(sessionIDs)
     save(fullfile(preDir, [S.id '_PEA_threshold_preproc.mat']), 'outDat','-v7.3');
 
     writePreProcX(P, S.id);   % mark Data Preprocessed = X in dataTracking.xlsx
+
+    catch ME
+        disp(['fail for ', sessionIDs{s}, ': ', ME.message])
+        disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
+    end
+    close all   % unattended batches must not accumulate figures
 end
 

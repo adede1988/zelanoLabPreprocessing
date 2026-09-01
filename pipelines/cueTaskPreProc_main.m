@@ -30,35 +30,58 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 cfg        = applyParams('cueTask','main');
 sessionIDs = cfg.sessionIDs;
 
+% Run-on-guess batch override + targeted-run filter (2026-09-01): identical
+% mechanics to breathingTaskPreProc_main (Tasks_260824.md D4). Guess sessions
+% run headlessly when allowed, QC figures are saved, paramSource is NEVER
+% promoted - the outputs get checked by hand later.
+allowGuessRunEnv = strcmp(getenv('ZLP_ALLOW_GUESS_RUN'), '1');
+mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
+mainOnlyList = {};
+if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
+
 for s = 1:numel(sessionIDs)
+    try
     % --- Session descriptor (adjust to your system) ---
+    S = struct;
     S.id   = sessionIDs{s};
+    if ~isempty(mainOnlyList) && ~any(strcmp(mainOnlyList, S.id)), continue; end
     S.root = cfg.root{s};
     S.fig  = fullfile(figPath, S.id);
     disp(['working on ', sessionIDs{s}])
     preDir = fullfile(S.root, S.id, 'preProc');
     outDat = load(fullfile(preDir, [S.id '_cueTaskPreproc.mat']));
-    
+
     if isfield(outDat, 'out')
-        outDat = outDat.out; 
+        outDat = outDat.out;
     elseif isfield(outDat, 'outDat')
-        outDat = outDat.outDat; 
+        outDat = outDat.outDat;
     else
         error('unexpected missing field in outDat')
     end
-   
+
     if isfield(outDat, 'moreThan1')
         disp(['Done with ' S.id ' ; ' num2str(s)])
         continue
     end
     % --- Params + raw load ---
     P = applyParams('cueTask', S.id);
+    % anything not explicitly curated is treated as a guess
+    isGuess = ~strcmpi(strtrim(P.paramSource), 'curated');
+    P.allowGuessRun = allowGuessRunEnv && (strcmp(P.type, 'EEG') || ...
+        strcmp(getenv('ZLP_ALLOW_GUESS_RUN_ALL'), '1'));
+    % task subfolder (matches assembleOutDat's outDat.figs) so paramCheck
+    % PNGs from different tasks of one session cannot overwrite each other
+    P.figDir = fullfile(S.fig, 'cueTask');
+    if isGuess && allowGuessRunEnv && ~P.allowGuessRun
+        disp(['SKIP (guess, not run per D4): ' S.id])
+        continue
+    end
 
-    if strcmp(P.paramSource, 'guess')
+    if isGuess
         [outDat, P] = paramCheck(outDat, P);
     end
     outDat.rspIDX = P.rspIDX;
-    outDat.rspFlip = P.rspFlip; 
+    outDat.rspFlip = P.rspFlip;
 
 
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
@@ -85,15 +108,21 @@ for s = 1:numel(sessionIDs)
 
     outDat = refine_onsets_with_phase(outDat, R, P); % uses precomputed phase
 
-    if strcmp(P.paramSource, 'guess')
-        error('check that onsets have been well-detected')
-        
+    % --- Guess gate: stop before promoting/saving so the user can verify the
+    %     onset figures first. Under the run-on-guess override the save
+    %     proceeds but paramSource stays guess (never promoted). ---
+    if isGuess
+        if ~P.allowGuessRun
+            error('check that onsets have been well-detected')
+        end
+        disp(['RUN-ON-GUESS (D4): saving outputs for ' S.id '; paramSource stays guess'])
+    else
+        P.paramSource = 'curated';
+        writeParams(P, S.id);
     end
-    P.paramSource = 'curated'; 
-    writeParams(P, S.id);
 
     plot_sniff_epochs(outDat, R);
-   
+
   disp(['........................breath behave ', sessionIDs{s}])
     % --- Save ---
     preDir = fullfile(S.root, S.id, 'preProc');
@@ -101,5 +130,11 @@ for s = 1:numel(sessionIDs)
     save(fullfile(preDir, [S.id '_cueTaskPreproc.mat']), 'outDat','-v7.3');
 
     writePreProcX(P, S.id);   % mark Data Preprocessed = X in dataTracking.xlsx
+
+    catch ME
+        disp(['fail for ', sessionIDs{s}, ': ', ME.message])
+        disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
+    end
+    close all   % unattended batches must not accumulate figures
 end
 
