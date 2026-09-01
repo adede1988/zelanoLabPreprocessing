@@ -183,6 +183,9 @@ for s = 1:numel(sessionIDs)
     catch ME
         success(s) = 0;
         disp(['fail for ', sessionIDs{s}, ': ', ME.message])
+        % full stack (2026-08-31): message-only reporting made remote
+        % debugging needlessly slow - twice
+        disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
     end
     close all   % long unattended batches must not accumulate figures
     

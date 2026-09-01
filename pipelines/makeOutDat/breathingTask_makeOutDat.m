@@ -663,6 +663,7 @@ end
 
 
 catch ME
-    disp(['fail for ', num2str(sessi), ': ', ME.message])
+    disp(['fail for ', num2str(sessi), ' (', sessionIDs{sessi}, '): ', ME.message])
+    disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
 end
 end
