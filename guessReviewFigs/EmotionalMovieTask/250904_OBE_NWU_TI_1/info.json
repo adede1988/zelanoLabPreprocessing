@@ -1,0 +1,25 @@
+{
+  "sessID": "250904_OBE_NWU_TI_1",
+  "task": "EmotionalMovieTask",
+  "paramSource": "guess",
+  "status": "INCOMPLETE final (no moreThan1) - intermediate only",
+  "notes": [
+    "FLAG: no blinkRemoval field (no EEG preprocessing ran)"
+  ],
+  "sheet_type": "OBE",
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": true,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 3,
+  "sheet_rspFlip": 1,
+  "sheet_beatSpec": "1,0,lt,-2 & 2,1,gt,3 & 3,2,lt,0",
+  "sheet_hasMacros": true,
+  "finalFile": "250904_OBE_NWU_TI_1_EmotionalMovieTaskPreProc.mat",
+  "fs": 2000,
+  "durMin": 34.6,
+  "blinkRemoval": -1,
+  "nMacro": 6,
+  "nMacBP": 0,
+  "spikeCleanRan": 0,
+  "nHarvested": 1
+}

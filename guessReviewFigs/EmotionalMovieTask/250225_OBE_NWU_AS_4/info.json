@@ -1,0 +1,35 @@
+{
+  "sessID": "250225_OBE_NWU_AS_4",
+  "task": "EmotionalMovieTask",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "FLAG: no blinkRemoval field (no EEG preprocessing ran)",
+    "spikeCleanVec all-ones: spike clean ran but removed nothing",
+    "no ECG channels in final"
+  ],
+  "sheet_type": "OBE",
+  "sheet_hasEEG": false,
+  "sheet_spikeClean": false,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 1,
+  "sheet_rspFlip": 1,
+  "sheet_beatSpec": "1,0,gt,3.5",
+  "sheet_hasMacros": true,
+  "finalFile": "250225_OBE_NWU_AS_4_EmotionalMovieTaskpreproc.mat",
+  "fs": 500,
+  "durMin": 31.7,
+  "blinkRemoval": -1,
+  "nMacro": 6,
+  "nMacBP": 5,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 0,
+  "nBreaths": 548,
+  "conditions": [
+    "condition 0: 4 breaths",
+    "condition 1: 198 breaths",
+    "condition 2: 171 breaths",
+    "condition 3: 175 breaths"
+  ],
+  "nHarvested": 502
+}

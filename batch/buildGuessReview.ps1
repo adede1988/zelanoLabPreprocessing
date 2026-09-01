@@ -106,12 +106,18 @@ $ad2 = $all | Where-Object { $_.Id -eq '260326_OBE_NWU_AD_2' -and $_.Task -eq 'b
 if ($ad2 -and $ad2.Info -and $ad2.Info.PSObject.Properties['ad2_nPulseGroups']) {
   $H.Add('<h2>AD_2 breathing: block structure from the event channel</h2>')
   $H.Add('<div class="meta"><ul>')
-  $H.Add('<li>Distinct photodiode pulse groups detected across the session: <b>' + (FmtVal $ad2.Info.ad2_nPulseGroups) + '</b> (total pulses: ' + (FmtVal $ad2.Info.ad2_nPulses) + ')</li>')
+  if ($ad2.Info.PSObject.Properties['ad2_raw_durMin']) {
+    $H.Add('<li>Raw recording analyzed: ' + (FmtVal $ad2.Info.ad2_raw_durMin) + ' min at native rate (NaN fraction ' + (FmtVal $ad2.Info.ad2_raw_nanFrac) + ')</li>')
+  }
+  $H.Add('<li>Distinct photodiode pulse groups detected across the session: <b>' + (FmtVal $ad2.Info.ad2_nPulseGroups) + '</b> (downward pulses: ' + (FmtVal $ad2.Info.ad2_nPulses) + '; upward: ' + (FmtVal $ad2.Info.ad2_nPulsesUp) + ')</li>')
   foreach ($g in (AsList $ad2.Info.ad2_groups)) { $H.Add('<li>' + (HtmlEnc $g) + '</li>') }
   if ($ad2.Info.PSObject.Properties['ad2_TTLstored']) {
     $H.Add('<li>TTL block boundaries stored in the final (s): ' + (FmtVal $ad2.Info.ad2_TTLstored) + '</li>')
   }
-  $H.Add('<li>Known block: audio (measured sliding-correlation window, 30&ndash;330 s). Behavioral ratings stop after the audio block; no later blocks are identifiable in the log.</li>')
+  if ($ad2.Info.PSObject.Properties['ad2_note']) {
+    $H.Add('<li>' + (HtmlEnc (FmtVal $ad2.Info.ad2_note)) + '</li>')
+  }
+  $H.Add('<li>Known block: audio (measured sliding-correlation window, 30&ndash;330 s). Behavioral ratings stop after the audio block; no later blocks are identifiable in the log, and the dead photodiode leaves no TTL evidence for any block.</li>')
   $H.Add('</ul></div>')
   $rel = ($FigDir + '/breathingTask/260326_OBE_NWU_AD_2/260326_OBE_NWU_AD_2_qc8_ad2events.png')
   if (Test-Path (Join-Path $figRoot 'breathingTask/260326_OBE_NWU_AD_2/260326_OBE_NWU_AD_2_qc8_ad2events.png')) {

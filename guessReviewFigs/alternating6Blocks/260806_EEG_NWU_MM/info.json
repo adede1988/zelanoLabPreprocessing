@@ -1,0 +1,44 @@
+{
+  "sessID": "260806_EEG_NWU_MM",
+  "task": "alternating6Blocks",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "no macro channels recorded"
+  ],
+  "sheet_type": "EEG",
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": false,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 1,
+  "sheet_rspFlip": 1,
+  "sheet_beatSpec": "1,0,lt,-3.5",
+  "sheet_hasMacros": false,
+  "finalFile": "260806_EEG_NWU_MM_alternating6BlocksPreProc.mat",
+  "fs": 500,
+  "durMin": 59.4,
+  "blinkRemoval": 1,
+  "badChans": [
+    "F7",
+    "T8",
+    "FC6",
+    "F4",
+    "F8"
+  ],
+  "nMacro": 0,
+  "nMacBP": 0,
+  "spikeCleanRan": 0,
+  "nBeats": 4496,
+  "bpm": 75.7,
+  "nBreaths": 549,
+  "conditions": [
+    "condition 1: 108 breaths task=audiobook noseMouth=NA shadowFile=NA",
+    "condition 2: 58 breaths task=focused_noEntrain noseMouth=NA shadowFile=NA",
+    "condition 3: 99 breaths task=focused_entrainment noseMouth=NA shadowFile=NA",
+    "condition 4: 66 breaths task=focused_noEntrain noseMouth=NA shadowFile=NA",
+    "condition 5: 83 breaths task=focused_entrainment noseMouth=NA shadowFile=NA",
+    "condition 6: 63 breaths task=focused_noEntrain noseMouth=NA shadowFile=NA",
+    "condition 7: 72 breaths task=focused_entrainment noseMouth=NA shadowFile=NA"
+  ],
+  "nHarvested": 9
+}

@@ -1,0 +1,34 @@
+{
+  "sessID": "260504_Dupi_NMH_JA_2",
+  "task": "threshTask",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "FLAG: no blinkRemoval field (no EEG preprocessing ran)",
+    "spike clean altered 173568 samples (43.69% of recording)"
+  ],
+  "sheet_type": "Dupi",
+  "sheet_hasEEG": false,
+  "sheet_spikeClean": true,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 3,
+  "sheet_rspFlip": 1,
+  "sheet_respThresh": 800,
+  "sheet_cuedBackBuff": 350,
+  "sheet_adjWin": 500,
+  "finalFile": "260504_Dupi_NMH_JA_2_PEA_threshold_preproc.mat",
+  "fs": 500,
+  "durMin": 13.2,
+  "blinkRemoval": -1,
+  "nMacro": 6,
+  "nMacBP": 5,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 173568,
+  "nTrials": 44,
+  "trialTypes": [
+    "air=15",
+    "low=15",
+    "med=14"
+  ],
+  "nHarvested": 51
+}

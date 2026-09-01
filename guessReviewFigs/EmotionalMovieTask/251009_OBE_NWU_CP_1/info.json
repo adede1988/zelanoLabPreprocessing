@@ -1,0 +1,39 @@
+{
+  "sessID": "251009_OBE_NWU_CP_1",
+  "task": "EmotionalMovieTask",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "spike clean altered 236467 samples (23.78% of recording)",
+    "FLAG: no stored heartbeats (empty heartBeats)"
+  ],
+  "sheet_type": "OBE",
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": true,
+  "sheet_macroRemove": 6,
+  "sheet_rspIDX": 1,
+  "sheet_rspFlip": 1,
+  "sheet_beatSpec": "3,0,lt,-3",
+  "sheet_hasMacros": true,
+  "finalFile": "251009_OBE_NWU_CP_1_EmotionalMovieTaskpreproc.mat",
+  "fs": 500,
+  "durMin": 33.1,
+  "blinkRemoval": 1,
+  "badChans": [
+    "T8",
+    "P7"
+  ],
+  "nMacro": 6,
+  "nMacBP": 4,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 236467,
+  "nBeats": 0,
+  "nBreaths": 386,
+  "conditions": [
+    "condition 0: 6 breaths",
+    "condition 1: 132 breaths",
+    "condition 2: 133 breaths",
+    "condition 3: 115 breaths"
+  ],
+  "nHarvested": 392
+}

@@ -1,0 +1,35 @@
+{
+  "sessID": "260622_OBE_NWU_RC_1",
+  "task": "breathingTasks_separate",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "spike clean altered 80997 samples (6.39% of recording)"
+  ],
+  "sheet_type": "OBE",
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": true,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 1,
+  "sheet_rspFlip": 1,
+  "sheet_beatSpec": "1,0,lt,-3.5",
+  "sheet_hasMacros": true,
+  "finalFile": "260622_OBE_NWU_RC_1_breathingTasks_separatepreproc.mat",
+  "fs": 500,
+  "durMin": 42.2,
+  "blinkRemoval": 1,
+  "nMacro": 6,
+  "nMacBP": 5,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 80997,
+  "nBeats": 2145,
+  "bpm": 50.8,
+  "nBreaths": 608,
+  "conditions": [
+    "condition 1: 227 breaths task=sleep noseMouth=NA shadowFile=NA",
+    "condition 2: 81 breaths task=restingBaseline noseMouth=NA shadowFile=NA",
+    "condition 3: 226 breaths task=sleepWithOdor noseMouth=NA shadowFile=NA",
+    "condition 4: 74 breaths task=audiobook noseMouth=NA shadowFile=NA"
+  ],
+  "nHarvested": 20
+}

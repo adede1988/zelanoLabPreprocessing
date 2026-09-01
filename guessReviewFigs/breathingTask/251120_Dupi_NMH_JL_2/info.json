@@ -1,0 +1,35 @@
+{
+  "sessID": "251120_Dupi_NMH_JL_2",
+  "task": "breathingTask",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "FLAG: no blinkRemoval field (no EEG preprocessing ran)",
+    "spikeCleanVec all-ones: spike clean ran but removed nothing"
+  ],
+  "sheet_type": "Dupi",
+  "sheet_hasEEG": false,
+  "sheet_spikeClean": false,
+  "sheet_macroRemove": 6,
+  "sheet_rspIDX": 3,
+  "sheet_rspFlip": -1,
+  "sheet_beatSpec": "3,0,lt,-3.5",
+  "sheet_hasMacros": true,
+  "finalFile": "251120_Dupi_NMH_JL_2_breathingPreProc.mat",
+  "fs": 500,
+  "durMin": 15,
+  "blinkRemoval": -1,
+  "nMacro": 6,
+  "nMacBP": 4,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 0,
+  "nBeats": 929,
+  "bpm": 62,
+  "nBreaths": 236,
+  "conditions": [
+    "condition 1: 93 breaths task=audio noseMouth= shadowFile=NA",
+    "condition 2: 69 breaths task=focus noseMouth= shadowFile=NA",
+    "condition 3: 74 breaths task=shadow noseMouth=nose shadowFile=focusedResp"
+  ],
+  "nHarvested": 12
+}

@@ -1,0 +1,50 @@
+{
+  "sessID": "251006_OBE_NWU_RY_1",
+  "task": "breathingTasks_separate",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "spikeCleanVec all-ones: spike clean ran but removed nothing",
+    "FLAG: no stored heartbeats (empty heartBeats)"
+  ],
+  "sheet_type": "OBE",
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": true,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 1,
+  "sheet_rspFlip": 1,
+  "sheet_beatSpec": "1,0,gt,3.5",
+  "sheet_hasMacros": true,
+  "finalFile": "251006_OBE_NWU_RY_1_breathingTasks_separatepreproc.mat",
+  "fs": 500,
+  "durMin": 5.2,
+  "blinkRemoval": 1,
+  "badChans": [
+    "Fz",
+    "F3",
+    "F7",
+    "FT9",
+    "FC5",
+    "C3",
+    "T7",
+    "TP9",
+    "CP5",
+    "TP10",
+    "CP6",
+    "C4",
+    "T8",
+    "FT10",
+    "FC6",
+    "F8"
+  ],
+  "nMacro": 6,
+  "nMacBP": 5,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 0,
+  "nBeats": 0,
+  "nBreaths": 45,
+  "conditions": [
+    "condition 1: 45 breaths task=focusedBreathing noseMouth=NA shadowFile=NA"
+  ],
+  "nHarvested": 7
+}

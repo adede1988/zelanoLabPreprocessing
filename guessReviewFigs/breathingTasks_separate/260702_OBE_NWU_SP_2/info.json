@@ -1,0 +1,52 @@
+{
+  "sessID": "260702_OBE_NWU_SP_2",
+  "task": "breathingTasks_separate",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "spike clean altered 42335 samples (9.15% of recording)"
+  ],
+  "sheet_type": "OBE",
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": true,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 1,
+  "sheet_rspFlip": 1,
+  "sheet_beatSpec": "2,0,gt,3.5",
+  "sheet_hasMacros": true,
+  "finalFile": "260702_OBE_NWU_SP_2_breathingTasks_separatepreproc.mat",
+  "fs": 500,
+  "durMin": 15.4,
+  "blinkRemoval": 1,
+  "badChans": [
+    "F3",
+    "F7",
+    "FT9",
+    "FC5",
+    "C3",
+    "T7",
+    "P7",
+    "O1",
+    "Oz",
+    "O2",
+    "TP10",
+    "T8",
+    "FT10",
+    "FC6",
+    "F4",
+    "F8"
+  ],
+  "nMacro": 6,
+  "nMacBP": 5,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 42335,
+  "nBeats": 1041,
+  "bpm": 67.5,
+  "nBreaths": 259,
+  "conditions": [
+    "condition 1: 76 breaths task=restingBaseline noseMouth=NA shadowFile=NA",
+    "condition 2: 105 breaths task=audiobook noseMouth=NA shadowFile=NA",
+    "condition 3: 78 breaths task=focusedBreathing noseMouth=NA shadowFile=NA"
+  ],
+  "nHarvested": 17
+}

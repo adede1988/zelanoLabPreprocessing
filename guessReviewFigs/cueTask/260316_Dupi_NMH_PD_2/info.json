@@ -1,0 +1,49 @@
+{
+  "sessID": "260316_Dupi_NMH_PD_2",
+  "task": "cueTask",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "spikeCleanVec all-ones: spike clean ran but removed nothing"
+  ],
+  "sheet_type": "Dupi",
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": true,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 1,
+  "sheet_rspFlip": 1,
+  "sheet_respThresh": 5000,
+  "sheet_cuedBackBuff": 350,
+  "sheet_adjWin": 500,
+  "finalFile": "260316_Dupi_NMH_PD_2_cueTaskPreProc.mat",
+  "fs": 500,
+  "durMin": 16,
+  "blinkRemoval": 1,
+  "badChans": [
+    "FT9",
+    "T7",
+    "TP9",
+    "P7",
+    "O1",
+    "Oz",
+    "O2",
+    "P8",
+    "TP10",
+    "T8",
+    "FT10",
+    "FC6",
+    "F8"
+  ],
+  "nMacro": 6,
+  "nMacBP": 5,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 0,
+  "nTrials": 40,
+  "trialTypes": [
+    "cr=17",
+    "fa=3",
+    "hit=18",
+    "miss=2"
+  ],
+  "nHarvested": 47
+}

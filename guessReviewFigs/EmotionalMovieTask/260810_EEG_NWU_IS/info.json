@@ -1,0 +1,41 @@
+{
+  "sessID": "260810_EEG_NWU_IS",
+  "task": "EmotionalMovieTask",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "no macro channels recorded"
+  ],
+  "sheet_type": "EEG",
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": false,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 1,
+  "sheet_rspFlip": 1,
+  "sheet_beatSpec": "1,0,lt,-3.5",
+  "sheet_hasMacros": false,
+  "finalFile": "260810_EEG_NWU_IS_EmotionalMovieTaskPreProc.mat",
+  "fs": 500,
+  "durMin": 32.7,
+  "blinkRemoval": 1,
+  "badChans": [
+    "FC5",
+    "T7",
+    "T8",
+    "FT10",
+    "FC6",
+    "F8"
+  ],
+  "nMacro": 0,
+  "nMacBP": 0,
+  "spikeCleanRan": 0,
+  "nBeats": 1814,
+  "bpm": 55.5,
+  "nBreaths": 356,
+  "conditions": [
+    "condition 1: 135 breaths task=neutral",
+    "condition 2: 121 breaths task=happy",
+    "condition 3: 100 breaths task=sad"
+  ],
+  "nHarvested": 16
+}

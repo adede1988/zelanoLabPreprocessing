@@ -37,6 +37,13 @@ full numbers in `qc5_flipAudit.csv`; raw log `E:\reprocBackup_260824\qc5_flip.lo
   signature all converged. Full per-block dump:
   `E:\reprocBackup_260824\qc5_rsf_dry.log`.
 
+## User-confirmed flips (2026-09-01, guess-review campaign)
+
+| Session × task | Sheet flip | Decision | Evidence |
+|---|---|---|---|
+| `260316_Dupi_NMH_PD_2` × breathingTask | −1 | **INVERTED → +1** (sheet updated, final rebuilt from raw at +1; paramSource stays guess) | User review of `RespirationHeart.jpg`: RSA consistently "backward", trace qualitatively upside down. Pre-flip final backed up at `E:\reprocBackup_260824\guessCampaign\pre\`. |
+| `250623_Dupi_NMH_KS_3` × breathingTask | (inverted) | **INVERTED** (sheet updated, final rebuilt from raw; paramSource stays guess) | User review of `RespirationHeart.jpg`: respiration flipped. Pre-flip final backed up at `E:\reprocBackup_260824\guessCampaign\pre\`. |
+
 ## Downstream
 
 All 62 breathMetrics-based finals re-segmented in place under the locked

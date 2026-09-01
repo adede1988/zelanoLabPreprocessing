@@ -1,0 +1,40 @@
+{
+  "sessID": "260608_OBE_NWU_RX_1",
+  "task": "threshTask",
+  "paramSource": "guess",
+  "status": "ok",
+  "notes": [
+    "FLAG: NO blink removal ran for this session",
+    "spikeCleanVec all-ones: spike clean ran but removed nothing"
+  ],
+  "sheet_type": "OBE",
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": true,
+  "sheet_macroRemove": [],
+  "sheet_rspIDX": 1,
+  "sheet_rspFlip": 1,
+  "sheet_respThresh": 5000,
+  "sheet_cuedBackBuff": 350,
+  "sheet_adjWin": 500,
+  "finalFile": "260608_OBE_NWU_RX_1_PEA_threshold_preproc.mat",
+  "fs": 500,
+  "durMin": 19.1,
+  "blinkRemoval": 0,
+  "badChans": [
+    "T7",
+    "TP9",
+    "TP10",
+    "T8"
+  ],
+  "nMacro": 6,
+  "nMacBP": 5,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 0,
+  "nTrials": 44,
+  "trialTypes": [
+    "air=15",
+    "low=15",
+    "med=14"
+  ],
+  "nHarvested": 51
+}
