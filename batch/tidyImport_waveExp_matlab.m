@@ -188,6 +188,20 @@ for ii = 1:numel(ids)
                     O.shadowFile(r) = of(i1);
                     v = numOf('playBackNormal.started'); O.cndOnset(r) = v(i1);
                     v = numOf('playBackNormal.stopped'); O.cndOffset(r) = v(i1);
+                elseif ~isempty(rawName) || ~isempty(of{i1})
+                    % (2026-08-31, AD_1) block types absent from the oldNames
+                    % map (countRec1, passiveRec1): keep the RAW name as the
+                    % task label rather than erroring - nothing is invented,
+                    % and target alignment still works via shadowFile
+                    rawLbl = rawName; if isempty(rawLbl), rawLbl = of{i1}; end
+                    fprintf('TIDY WARN %s: unmapped block %d "%s" kept under its raw name\n', id, cndi, rawLbl);
+                    O.task(r) = {rawLbl}; O.cndName(r) = {rawLbl};
+                    O.shadowFile(r) = of(i1);
+                    if oldfi <= numel(fbS)
+                        O.cndOnset(r) = fbS(oldfi);
+                        if oldfi <= numel(fbE), O.cndOffset(r) = fbE(oldfi); end
+                        oldfi = oldfi + 1;
+                    end
                 else
                     error('%s: block %d unidentifiable (cndName="%s" outFile="%s")', id, cndi, rawName, of{i1});
                 end
