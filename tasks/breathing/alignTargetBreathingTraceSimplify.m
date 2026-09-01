@@ -48,9 +48,12 @@ function [outDat, targTraces] = alignTargetBreathingTraceSimplify(outDat, targTr
         end
         startFrom = outDat.behDat.order(orderIdx(startFrom)); 
     else
-        startFrom = 3; 
-        targTraces{1} = zeros(1, nSamples(1)); 
-        targTraces{2} = zeros(1, nSamples(2)); 
+        startFrom = 3;
+        % (2026-09-01 guard) sessions can have fewer than 2 blocks (AD_2's
+        % salvaged audio-only recording) - initialize only what exists
+        for zk = 1:min(2, numel(nSamples))
+            targTraces{zk} = zeros(1, nSamples(zk));
+        end
     end
     
     

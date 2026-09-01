@@ -64,6 +64,10 @@ for ii = 1:numel(ids)
         has = @(n) ismember(n, df.Properties.VariableNames);
         numOf = @(n) str2double(string(df.(n)));            % cell/str/num safe
         strOf = @(n, r) cellstr(fillmissing(strtrim(string(df.(n)(r))), 'constant', string('NA')));
+        % (2026-09-01, AD_1) newest psychopy nests slider columns under loop
+        % prefixes ('stateQs.slider_2.response' etc.) - merge exact + all
+        % suffixed variants, rowwise first non-NaN
+        mergeNum = @(nm) mergeNumCols(df, nm);
 
         q = cellstr(fillmissing(strtrim(string(df.question)), 'constant', string('')));
         cndCount = sum(strcmp(q, 'relaxed'));
@@ -95,8 +99,8 @@ for ii = 1:numel(ids)
 
         % ---- pre (order 0), shared by both formats ----
         r = 1:12;
-        sp = nan(height(df), 1);
-        if has('slider.response'), sp = numOf('slider.response'); end
+        sp = mergeNum('slider.response');
+        sprt = mergeNum('slider.rt');
         idx = find(~isnan(sp));
         O.task(r) = {'pre'}; O.cndName(r) = {'pre'};
         O.order(r) = 0; O.lenQ(r) = NaN;
@@ -108,26 +112,24 @@ for ii = 1:numel(ids)
             O.Q_long(r(1:numel(idx))) = q(idx);
             O.Q_short(r(1:numel(idx))) = qShortOf(q(idx));
             O.rsp(r(1:numel(idx))) = sp(idx);
-            v = numOf('slider.rt'); O.rt(r(1:numel(idx))) = v(idx);
+            O.rt(r(1:numel(idx))) = sprt(idx);
         end
 
         if isWave
             % ================= WAVE / EEG format (R-script port) =========
-            s3 = numOf('slider_3.response');
-            s3rt = numOf('slider_3.rt');
+            s3 = mergeNum('slider_3.response');
+            s3rt = mergeNum('slider_3.rt');
             % audio (order 1)
             r = 13:24;
             audioOK = true;
-            if has('slider_4.response')
-                v = numOf('slider_4.response'); idx = find(~isnan(v));
-            else
-                v = numOf('slider_2.response'); idx = find(~isnan(v));
+            v = mergeNum('slider_4.response'); w = mergeNum('slider_4.rt');
+            if all(isnan(v))
+                v = mergeNum('slider_2.response'); w = mergeNum('slider_2.rt');
             end
+            idx = find(~isnan(v));
             idx = idx(1:min(12, numel(idx)));
             if numel(idx) == 12
                 O.rsp(r) = v(idx);
-                if has('slider_4.response'), w = numOf('slider_4.rt');
-                else, w = numOf('slider_2.rt'); end
                 O.rt(r) = w(idx);
             else
                 audioOK = false;
@@ -218,11 +220,10 @@ for ii = 1:numel(ids)
                     end
                 end
                 O.Q_long(r) = q(sel); O.Q_short(r) = qShortOf(q(sel));
-                s2 = nan(height(df), 1);
-                if has('slider_2.response'), s2 = numOf('slider_2.response'); end
+                s2 = mergeNum('slider_2.response');
                 if ~all(isnan(s2(sel)))
                     O.rsp(r) = s2(sel);
-                    v = numOf('slider_2.rt'); O.rt(r) = v(sel);
+                    v = mergeNum('slider_2.rt'); O.rt(r) = v(sel);
                 else
                     O.rsp(r) = s3(sel); O.rt(r) = s3rt(sel);
                 end
@@ -263,8 +264,8 @@ for ii = 1:numel(ids)
                     id, nBlocks, numel(runs) - 1);
             end
             famName = {'audio', 'focus', 'shadow'};
-            s2 = nan(height(df), 1);   if has('slider_2.response'), s2 = numOf('slider_2.response'); end
-            s2rt = nan(height(df), 1); if has('slider_2.rt'), s2rt = numOf('slider_2.rt'); end
+            s2 = mergeNum('slider_2.response');
+            s2rt = mergeNum('slider_2.rt');
             OD = struct2table(emptyRows(0));
             sel = runs{1};
             P = emptyRows(numel(sel));
@@ -272,8 +273,7 @@ for ii = 1:numel(ids)
             P.type = strOf('trialType', sel);
             P.Q_long = q(sel); P.Q_short = qShortOf(q(sel));
             P.rsp = sp(sel);
-            v = nan(height(df), 1); if has('slider.rt'), v = numOf('slider.rt'); end
-            P.rt = v(sel);
+            P.rt = sprt(sel);
             OD = [OD; struct2table(P)];
             for b = 1:min(nBlocks, numel(runs) - 1)
                 sel = runs{b + 1}; i1 = sel(1);
@@ -311,6 +311,18 @@ fprintf('tidyImport_waveExp_matlab: DONE\n');
 
 function v = mapOr(m, k)
     if m.isKey(k), v = m(k); else, v = 'SKIP'; end
+end
+function v = mergeNumCols(df, nm)
+% rowwise first non-NaN across the exact column and all '.'-suffixed
+% variants (newest psychopy nests slider columns under loop prefixes)
+    vn = df.Properties.VariableNames;
+    hits = vn(strcmp(vn, nm) | endsWith(vn, ['.' nm]));
+    v = nan(height(df), 1);
+    for h = 1:numel(hits)
+        x = str2double(string(df.(hits{h})));
+        m = isnan(v) & ~isnan(x);
+        v(m) = x(m);
+    end
 end
 function P = emptyRows(m)
 % one rating set's worth of closed-loop-schema rows, defaults filled
