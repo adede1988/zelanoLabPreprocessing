@@ -488,6 +488,13 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
 
         TTLs = find(isLow & next40High);
         TTLs = TTLs(:);                 % make sure it's a column
+        % loud guard (2026-08-31, AB_3): an empty event list means the
+        % photodiode recorded nothing usable - the old code crashed
+        % obscurely at max([])^3
+        if isempty(TTLs)
+            error('%s: no photodiode TTL events at all - diode dark/flat; needs a measured-window special case', ...
+                sessionIDs{sessi});
+        end
         TTLs = [1; TTLs; linspace(max(TTLs), max(TTLs)^3, 5)'];
         dTTL = diff(TTLs); 
 
@@ -530,9 +537,16 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         blockLens = (endTTLs - startTTLs) ./ outDat.fs;
 
         TTLs = startTTLs(blockLens>180 & blockLens<400);
-        TTLs = sort(TTLs); 
-        endTTLs = endTTLs(blockLens>180 & blockLens<400); 
-        endTTLs = sort(endTTLs); 
+        TTLs = sort(TTLs);
+        endTTLs = endTTLs(blockLens>180 & blockLens<400);
+        endTTLs = sort(endTTLs);
+
+        % loud guard (2026-08-31, AD_2): zero blocks surviving the length
+        % filter used to crash obscurely at the diagnostic xline
+        if isempty(TTLs)
+            error('%s: photodiode found no 180-400 s task blocks - needs a measured-window special case', ...
+                sessionIDs{sessi});
+        end
 
         figure
         plot(photoDiode)
