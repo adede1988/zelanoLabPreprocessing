@@ -50,7 +50,7 @@ end
 
 % ---------- disk audit per pipeline task ----------
 TASKS = { ...
- 'breathingTask',           'breathing', {'raw_breathingTasks', 'raw_waveBreathing', 'raw_audioBook'}, '_breathingPre*.mat',            true;  ...
+ 'breathingTask',           'breathing', {'raw_breathingTasks', 'raw_waveBreathing', 'raw_audioBook'}, '*breathingPre*.mat',            true;  ...
  'cueTask',                 'cue',       {'raw_cueTask'},                                              '*cueTask*.mat',                 false; ...
  'threshTask',              'thresh',    {'raw_PEAintensityPleasantness_threshold', 'raw_threshTask'}, '*threshold*preproc*.mat',       false; ...
  'O15',                     'O15',       {'raw_O15'},                                                  '*O15*preproc*.mat',             false; ...
@@ -105,7 +105,9 @@ for tt = 1:size(TASKS, 1)
             try
                 info = h5info(fpath);
                 gn = {info.Groups.Name};
-                gi = find(~strcmp(gn, '/#refs#'), 1);
+                % skip ALL hidden groups (#refs#, #subsystem#) - the variable
+                % group is the one whose name does not start with '/#'
+                gi = find(~startsWith(gn, '/#'), 1);
                 mem = {};
                 if ~isempty(info.Groups(gi).Datasets), mem = {info.Groups(gi).Datasets.Name}; end
                 if ~isempty(info.Groups(gi).Groups)
