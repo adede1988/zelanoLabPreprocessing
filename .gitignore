@@ -16,6 +16,9 @@ figures/
 # ...except the breath-segmentation QC overlays, which are review deliverables
 !breathingQualityCheck/*.jpg
 !breathingQualityCheck/**/*.jpg
+# ...and the guess-review report figures (guessReview.html deliverable)
+!guessReviewFigs/**/*.jpg
+!guessReviewFigs/**/*.png
 
 # OS cruft
 .DS_Store
