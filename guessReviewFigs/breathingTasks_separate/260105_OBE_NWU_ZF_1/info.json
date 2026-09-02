@@ -12,7 +12,7 @@
   "sheet_macroRemove": [],
   "sheet_rspIDX": 1,
   "sheet_rspFlip": 1,
-  "sheet_beatSpec": "1,0,gt,3.5",
+  "sheet_beatSpec": "1,0,gt,4.5",
   "sheet_hasMacros": true,
   "finalFile": "260105_OBE_NWU_ZF_1_breathingTasks_separatepreproc.mat",
   "fs": 500,
@@ -25,11 +25,11 @@
   "nMacBP": 5,
   "spikeCleanRan": 1,
   "spikeSamplesAltered": 0,
-  "nBeats": 612,
-  "bpm": 46.5,
+  "nBeats": 483,
+  "bpm": 36.7,
   "nBreaths": 193,
   "conditions": [
     "condition 1: 193 breaths task=sleep noseMouth=NA shadowFile=NA"
   ],
-  "nHarvested": 11
+  "nHarvested": 10
 }

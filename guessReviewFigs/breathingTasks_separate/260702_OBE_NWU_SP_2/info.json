@@ -4,11 +4,11 @@
   "paramSource": "guess",
   "status": "ok",
   "notes": [
-    "spike clean altered 42335 samples (9.15% of recording)"
+    "spikeCleanVec all-ones: spike clean ran but removed nothing"
   ],
   "sheet_type": "OBE",
   "sheet_hasEEG": true,
-  "sheet_spikeClean": true,
+  "sheet_spikeClean": false,
   "sheet_macroRemove": [],
   "sheet_rspIDX": 1,
   "sheet_rspFlip": 1,
@@ -39,7 +39,7 @@
   "nMacro": 6,
   "nMacBP": 5,
   "spikeCleanRan": 1,
-  "spikeSamplesAltered": 42335,
+  "spikeSamplesAltered": 0,
   "nBeats": 1041,
   "bpm": 67.5,
   "nBreaths": 259,
@@ -48,5 +48,5 @@
     "condition 2: 105 breaths task=audiobook noseMouth=NA shadowFile=NA",
     "condition 3: 78 breaths task=focusedBreathing noseMouth=NA shadowFile=NA"
   ],
-  "nHarvested": 17
+  "nHarvested": 16
 }

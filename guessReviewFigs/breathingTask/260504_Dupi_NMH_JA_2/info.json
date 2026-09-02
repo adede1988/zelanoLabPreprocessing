@@ -4,32 +4,39 @@
   "paramSource": "guess",
   "status": "ok",
   "notes": [
-    "FLAG: no blinkRemoval field (no EEG preprocessing ran)",
-    "spikeCleanVec all-ones: spike clean ran but removed nothing"
+    "spike clean altered 235157 samples (52.28% of recording)"
   ],
   "sheet_type": "Dupi",
-  "sheet_hasEEG": false,
-  "sheet_spikeClean": false,
-  "sheet_macroRemove": 6,
+  "sheet_hasEEG": true,
+  "sheet_spikeClean": true,
+  "sheet_macroRemove": [],
   "sheet_rspIDX": 3,
-  "sheet_rspFlip": -1,
+  "sheet_rspFlip": 1,
   "sheet_beatSpec": "2,0,gt,3.5",
   "sheet_hasMacros": true,
   "finalFile": "260504_Dupi_NMH_JA_2_breathingPreProc.mat",
   "fs": 500,
   "durMin": 15,
-  "blinkRemoval": -1,
+  "blinkRemoval": 1,
+  "badChans": [
+    "F7",
+    "FT9",
+    "Oz",
+    "O2",
+    "Cz",
+    "F8"
+  ],
   "nMacro": 6,
-  "nMacBP": 4,
+  "nMacBP": 5,
   "spikeCleanRan": 1,
-  "spikeSamplesAltered": 0,
+  "spikeSamplesAltered": 235157,
   "nBeats": 954,
   "bpm": 63.6,
-  "nBreaths": 107,
+  "nBreaths": 112,
   "conditions": [
-    "condition 1: 32 breaths task=audio noseMouth= shadowFile=NA",
-    "condition 2: 39 breaths task=focus noseMouth= shadowFile=NA",
-    "condition 3: 36 breaths task=shadow noseMouth=nose shadowFile=focusedResp"
+    "condition 1: 33 breaths task=audio noseMouth= shadowFile=NA",
+    "condition 2: 36 breaths task=focus noseMouth= shadowFile=NA",
+    "condition 3: 43 breaths task=shadow noseMouth=nose shadowFile=focusedResp"
   ],
-  "nHarvested": 12
+  "nHarvested": 13
 }

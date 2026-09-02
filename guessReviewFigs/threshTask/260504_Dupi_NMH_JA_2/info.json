@@ -5,13 +5,13 @@
   "status": "ok",
   "notes": [
     "FLAG: no blinkRemoval field (no EEG preprocessing ran)",
-    "spike clean altered 173568 samples (43.69% of recording)"
+    "spike clean altered 172013 samples (43.29% of recording)"
   ],
   "sheet_type": "Dupi",
   "sheet_hasEEG": false,
   "sheet_spikeClean": true,
   "sheet_macroRemove": [],
-  "sheet_rspIDX": 3,
+  "sheet_rspIDX": 1,
   "sheet_rspFlip": 1,
   "sheet_respThresh": 800,
   "sheet_cuedBackBuff": 350,
@@ -23,12 +23,12 @@
   "nMacro": 6,
   "nMacBP": 5,
   "spikeCleanRan": 1,
-  "spikeSamplesAltered": 173568,
-  "nTrials": 44,
+  "spikeSamplesAltered": 172013,
+  "nTrials": 42,
   "trialTypes": [
     "air=15",
-    "low=15",
-    "med=14"
+    "low=14",
+    "med=13"
   ],
   "nHarvested": 51
 }

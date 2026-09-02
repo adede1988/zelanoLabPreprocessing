@@ -2,9 +2,9 @@
   "sessID": "250904_OBE_NWU_TI_1",
   "task": "EmotionalMovieTask",
   "paramSource": "guess",
-  "status": "INCOMPLETE final (no moreThan1) - intermediate only",
+  "status": "ok",
   "notes": [
-    "FLAG: no blinkRemoval field (no EEG preprocessing ran)"
+    "spike clean altered 265758 samples (25.61% of recording)"
   ],
   "sheet_type": "OBE",
   "sheet_hasEEG": true,
@@ -15,11 +15,33 @@
   "sheet_beatSpec": "1,0,lt,-2 & 2,1,gt,3 & 3,2,lt,0",
   "sheet_hasMacros": true,
   "finalFile": "250904_OBE_NWU_TI_1_EmotionalMovieTaskPreProc.mat",
-  "fs": 2000,
+  "fs": 500,
   "durMin": 34.6,
-  "blinkRemoval": -1,
+  "blinkRemoval": 1,
+  "badChans": [
+    "F3",
+    "FC5",
+    "T7",
+    "TP9",
+    "O1",
+    "Oz",
+    "O2",
+    "TP10",
+    "T8",
+    "FC6",
+    "F8"
+  ],
   "nMacro": 6,
-  "nMacBP": 0,
-  "spikeCleanRan": 0,
-  "nHarvested": 1
+  "nMacBP": 5,
+  "spikeCleanRan": 1,
+  "spikeSamplesAltered": 265758,
+  "nBeats": 2415,
+  "bpm": 69.8,
+  "nBreaths": 731,
+  "conditions": [
+    "condition 1: 256 breaths task=neutral",
+    "condition 2: 241 breaths task=happy",
+    "condition 3: 234 breaths task=sad"
+  ],
+  "nHarvested": 18
 }

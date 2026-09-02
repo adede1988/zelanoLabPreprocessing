@@ -4,11 +4,10 @@
   "paramSource": "guess",
   "status": "ok",
   "notes": [
-    "FLAG: no blinkRemoval field (no EEG preprocessing ran)",
     "spikeCleanVec all-ones: spike clean ran but removed nothing"
   ],
   "sheet_type": "Dupi",
-  "sheet_hasEEG": false,
+  "sheet_hasEEG": true,
   "sheet_spikeClean": true,
   "sheet_macroRemove": [],
   "sheet_rspIDX": 1,
@@ -19,7 +18,25 @@
   "finalFile": "260316_Dupi_NMH_PD_2_PEA_threshold_preproc.mat",
   "fs": 500,
   "durMin": 13.2,
-  "blinkRemoval": -1,
+  "blinkRemoval": 1,
+  "badChans": [
+    "F7",
+    "FT9",
+    "FC5",
+    "T7",
+    "TP9",
+    "P7",
+    "O1",
+    "Oz",
+    "O2",
+    "P8",
+    "TP10",
+    "CP6",
+    "T8",
+    "FT10",
+    "FC6",
+    "F8"
+  ],
   "nMacro": 6,
   "nMacBP": 5,
   "spikeCleanRan": 1,
@@ -30,5 +47,5 @@
     "low=15",
     "med=15"
   ],
-  "nHarvested": 51
+  "nHarvested": 52
 }

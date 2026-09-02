@@ -37,5 +37,5 @@
     "condition 6: 112 breaths task=focused_noEntrain noseMouth=NA shadowFile=NA",
     "condition 7: 106 breaths task=focused_entrainment noseMouth=NA shadowFile=NA"
   ],
-  "nHarvested": 9
+  "nHarvested": 8
 }

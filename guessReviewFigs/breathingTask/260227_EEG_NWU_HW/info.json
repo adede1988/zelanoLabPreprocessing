@@ -4,8 +4,7 @@
   "paramSource": "guess",
   "status": "ok",
   "notes": [
-    "no macro channels recorded",
-    "condition list failed: Conversion from cell failed. Element 1 must be convertible to a string scalar."
+    "no macro channels recorded"
   ],
   "sheet_type": "EEG",
   "sheet_hasEEG": true,
@@ -17,7 +16,7 @@
   "sheet_hasMacros": false,
   "finalFile": "260227_EEG_NWU_HW_breathingPreProc.mat",
   "fs": 500,
-  "durMin": 28.4,
+  "durMin": 23.9,
   "blinkRemoval": 1,
   "badChans": [
     "F7",
@@ -32,13 +31,21 @@
     "TP10",
     "T8",
     "FT10",
+    "FC6",
     "F8"
   ],
   "nMacro": 0,
   "nMacBP": 0,
   "spikeCleanRan": 0,
-  "nBeats": 1892,
-  "bpm": 66.6,
-  "nBreaths": 312,
-  "nHarvested": 12
+  "nBeats": 1607,
+  "bpm": 67.2,
+  "nBreaths": 201,
+  "conditions": [
+    "condition 1: 60 breaths task=audio noseMouth=nose shadowFile=NA",
+    "condition 2: 26 breaths task=cyclicSigh noseMouth=nose shadowFile=cyclicSigh1_playback",
+    "condition 3: 28 breaths task=cyclicSigh noseMouth=nose shadowFile=cyclicSigh2_playback",
+    "condition 4: 31 breaths task=cyclicSigh noseMouth=nose shadowFile=cyclicSigh3_playback",
+    "condition 5: 56 breaths task=naturalFocus noseMouth=nose shadowFile=natRec1"
+  ],
+  "nHarvested": 11
 }

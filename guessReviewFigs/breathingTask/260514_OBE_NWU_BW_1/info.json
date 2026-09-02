@@ -11,7 +11,7 @@
   "sheet_spikeClean": false,
   "sheet_macroRemove": [],
   "sheet_rspIDX": 3,
-  "sheet_rspFlip": -1,
+  "sheet_rspFlip": 1,
   "sheet_beatSpec": "3,0,lt,-3.5",
   "sheet_hasMacros": true,
   "finalFile": "260514_OBE_NWU_BW_1_breathingPreProc.mat",
@@ -32,12 +32,12 @@
   "spikeSamplesAltered": 0,
   "nBeats": 1415,
   "bpm": 64.3,
-  "nBreaths": 202,
+  "nBreaths": 204,
   "conditions": [
     "condition 1: 68 breaths task=audio noseMouth=nose shadowFile=NA",
     "condition 2: 39 breaths task=naturalFocus noseMouth=nose shadowFile=natRec1",
-    "condition 3: 36 breaths task=slowResp noseMouth=nose shadowFile=slowBreath1_playback",
-    "condition 4: 59 breaths task=natPlayback noseMouth=nose shadowFile=natRec1_playback"
+    "condition 3: 35 breaths task=slowResp noseMouth=nose shadowFile=slowBreath1_playback",
+    "condition 4: 62 breaths task=natPlayback noseMouth=nose shadowFile=natRec1_playback"
   ],
-  "nHarvested": 14
+  "nHarvested": 13
 }

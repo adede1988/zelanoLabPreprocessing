@@ -4,11 +4,10 @@
   "paramSource": "guess",
   "status": "ok",
   "notes": [
-    "FLAG: no blinkRemoval field (no EEG preprocessing ran)",
-    "spike clean altered 262937 samples (32.85% of recording)"
+    "spike clean altered 262917 samples (32.85% of recording)"
   ],
   "sheet_type": "OBE",
-  "sheet_hasEEG": false,
+  "sheet_hasEEG": true,
   "sheet_spikeClean": true,
   "sheet_macroRemove": [],
   "sheet_rspIDX": 1,
@@ -19,11 +18,15 @@
   "finalFile": "260608_OBE_NWU_RX_1_O15preproc.mat",
   "fs": 500,
   "durMin": 26.7,
-  "blinkRemoval": -1,
+  "blinkRemoval": 1,
+  "badChans": [
+    "T7",
+    "TP10"
+  ],
   "nMacro": 6,
   "nMacBP": 5,
   "spikeCleanRan": 1,
-  "spikeSamplesAltered": 262937,
+  "spikeSamplesAltered": 262917,
   "nTrials": 172,
-  "nHarvested": 21
+  "nHarvested": 22
 }
