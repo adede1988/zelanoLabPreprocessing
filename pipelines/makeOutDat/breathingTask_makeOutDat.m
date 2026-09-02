@@ -392,16 +392,15 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
             blockStartSec = [30 690];          % audio, slowFocus
             nr = behDat(find(behDat.order == max(behDat.order), 1, 'last'), :);
             nr.order = 2;
-            for cc = {'task', 'cndName'}
-                if ismember(cc{1}, behDat.Properties.VariableNames)
-                    if iscell(nr.(cc{1})), nr.(cc{1}) = {'slowFocus'};
-                    else, nr.(cc{1}) = "slowFocus"; end
-                end
-            end
-            for cc = {'Q_short', 'Q_long'}
-                if ismember(cc{1}, behDat.Properties.VariableNames)
-                    if iscell(nr.(cc{1})), nr.(cc{1}) = {'SKIP'};
-                    else, nr.(cc{1}) = "SKIP"; end
+            % NB parfor forbids indexing a for-loop variable that iterates a
+            % cell array - iterate by index instead (2026-09-01 lesson: the
+            % cc{1} form killed the whole parfor at parse time)
+            adCols = {'task', 'cndName', 'Q_short', 'Q_long'};
+            adVals = {'slowFocus', 'slowFocus', 'SKIP', 'SKIP'};
+            for cj = 1:numel(adCols)
+                if ismember(adCols{cj}, behDat.Properties.VariableNames)
+                    if iscell(nr.(adCols{cj})), nr.(adCols{cj}) = adVals(cj);
+                    else, nr.(adCols{cj}) = string(adVals{cj}); end
                 end
             end
             if ismember('rsp', behDat.Properties.VariableNames), nr.rsp = NaN; end
