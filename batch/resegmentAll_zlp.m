@@ -51,7 +51,15 @@ for tt = 1:size(TASKS, 1)
     cfg = applyParams(tkey, 'main');
     for si = 1:numel(cfg.sessionIDs)
         id = cfg.sessionIDs{si};
-        if ~isempty(onlyList) && ~any(strcmp(onlyList, id)), continue; end
+        % ZLP_RESEG_ONLY entries may be bare ids (all tasks) or 'task|id'
+        % (2026-09-01: rev13 reruns target single task-sessions - a bare id
+        % would also resegment the same subject's other, already-approved
+        % task finals)
+        if ~isempty(onlyList) && ...
+                ~any(strcmp(onlyList, id)) && ...
+                ~any(strcmp(onlyList, [tkey '|' id]))
+            continue;
+        end
         hits = dir(fullfile(cfg.root{si}, id, 'preProc', [id glb]));
         if isempty(hits), continue; end
         fpath = fullfile(hits(1).folder, hits(1).name);

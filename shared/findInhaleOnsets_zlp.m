@@ -247,6 +247,20 @@ function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, trough
             cand = find(eSeg);   % nearest eligible in EITHER direction
             if isempty(cand), o = NaN; else, [~, ci] = min(abs(cand - o)); o = cand(ci); end
         end
+        % rev13 HARD RULE (2026-09-01 user review, alt6 JH 807/1813s trough
+        % detections): an onset can NEVER sit in the first 20% of the
+        % trough->peak interval - placements there are trough landings, not
+        % inhale onsets. Applied last so no walk/sweep/snap can undo it; if
+        % the floor sample is ineligible, take the first eligible sample at
+        % or after the floor (forward only - snapping back would defeat the
+        % rule), else the floor itself stands.
+        if isfinite(o)
+            floorIdx = 1 + ceil(0.20 * (numel(w) - 1));
+            if o < floorIdx
+                cand = find(eSeg(floorIdx:end), 1, 'first');
+                if isempty(cand), o = floorIdx; else, o = floorIdx + cand - 1; end
+            end
+        end
         if isfinite(o), onsets(k) = tr + o - 1; end
     end
     onsets = onsets(isfinite(onsets));
