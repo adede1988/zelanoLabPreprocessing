@@ -576,6 +576,17 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         endTTLs = endTTLs(blockLens>180 & blockLens<400);
         endTTLs = sort(endTTLs);
 
+        % (2026-09-01, HW review) 260227_EEG_NWU_HW: the photodiode also
+        % flickered through the ~270-s PRE baseline, which the length filter
+        % kept as a spurious first "block" (6 boundaries vs 5 behavior
+        % blocks, so the cyclicSigh span silently failed to derive and the
+        % paced double-inhales were over-segmented). Drop it: the 5 real
+        % chunks map to audio, cyclicSigh x3, naturalFocus.
+        if strcmpi(sessionIDs{sessi}, '260227_EEG_NWU_HW') && numel(TTLs) == 6
+            TTLs(1) = [];
+            endTTLs(1) = [];
+        end
+
         % loud guard (2026-08-31, AD_2): zero blocks surviving the length
         % filter used to crash obscurely at the diagnostic xline
         if isempty(TTLs)

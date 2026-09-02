@@ -29,19 +29,29 @@ sessionIDs = cfg.sessionIDs;
 % Tasks_260824.md D4 batch override (see breathingTaskPreProc_main)
 allowGuessRunEnv = strcmp(getenv('ZLP_ALLOW_GUESS_RUN'), '1');
 
+% targeted-run filter (2026-09-01): comma-separated ids in ZLP_MAIN_ONLY
+% restrict the sweep (blank = all sessions) - mirrors breathingTaskPreProc_main
+mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
+mainOnlyList = {};
+if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
+
 success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
-    disp(['working on ', sessionIDs{s}])
     S = struct;
     S.id   = sessionIDs{s};
+    if ~isempty(mainOnlyList) && ~any(strcmp(mainOnlyList, S.id)), continue; end
+    disp(['working on ', sessionIDs{s}])
     S.root = cfg.root{s};
     S.fig  = fullfile(figPath, S.id);
 
     % --- Params (before any load so not-run guess sessions cost nothing) ---
     P = applyParams('emotionalMovieTask', S.id);
     isGuess = ~strcmpi(strtrim(P.paramSource), 'curated');
-    P.allowGuessRun = allowGuessRunEnv && strcmp(P.type, 'EEG');   % D4
+    % _ALL extension (2026-09-01): TI_1/CP_1 are OBE-type guess sessions the
+    % reportResponse directs to run - same override semantics as breathing
+    P.allowGuessRun = allowGuessRunEnv && (strcmp(P.type, 'EEG') || ...
+        strcmp(getenv('ZLP_ALLOW_GUESS_RUN_ALL'), '1'));   % D4
     P.figDir = S.fig;
     if isGuess && allowGuessRunEnv && ~P.allowGuessRun
         disp(['SKIP (guess, not run per D4): ' S.id])
