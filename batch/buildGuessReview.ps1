@@ -85,6 +85,25 @@ Either create it directly on the lab machine at <code>E:\GitHub\zelanoLabPreproc
 <b>Claude checks for this file every 15 minutes</b> and will read and execute the instructions it contains.
 Useful things to put in it: per-session verdicts (e.g. &quot;promote X to curated&quot;, &quot;re-run Y with rspFlip=-1&quot;, &quot;rspIDX should be 2 for Z&quot;), beatSpec corrections, sessions to re-run or drop, and any follow-up work.</div>')
 
+# ---- answers to the previous reportResponse round (repo-root guessReviewAnswers.json) ----
+$ansPath = Join-Path $RepoRoot 'guessReviewAnswers.json'
+if (Test-Path $ansPath) {
+  $ans = $null
+  try { $ans = Get-Content $ansPath -Raw | ConvertFrom-Json } catch { $ans = $null }
+  if ($ans) {
+    if ($ans.PSObject.Properties['answers']) {
+      $H.Add('<h2>Answers to your reportResponse questions</h2><ul>')
+      foreach ($a in (AsList $ans.answers)) { $H.Add('<li>' + (HtmlEnc $a) + '</li>') }
+      $H.Add('</ul>')
+    }
+    if ($ans.PSObject.Properties['promoted']) {
+      $H.Add('<h2>Promoted to curated this round (approved - figures dropped from this report)</h2><ul>')
+      foreach ($p in (AsList $ans.promoted)) { $H.Add('<li>' + (HtmlEnc $p) + '</li>') }
+      $H.Add('</ul>')
+    }
+  }
+}
+
 # ---- collect ----
 $all = @()
 foreach ($task in $taskOrder) {

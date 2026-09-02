@@ -1,0 +1,30 @@
+{
+  "answers": [
+    "TB_3 ECG overdetection (165-170 s / ~3000 s): high-amplitude noise bursts in ~1% of 10-s windows were swamping the global z-score. Those windows are now blanked before z-scoring (same treatment as CA); the sheet spec 1,0,gt,3.5 then reads 99% in-range IBIs, cv 0.09, and the 165-170 s window drops from 21 detections to a plausible count. TB_3 also had EEG in its raw (9/9 reference 10-20 labels) - rerun with hasEEG=true.",
+    "PC_2 noisy-ECG overdetection: same noise-burst mechanism (10-19% of windows). With blanking + beatSpec 1,0,gt,4 it reads 93% in-range (was 79% - the old permanent flag), cv 0.17, ~58 bpm. Rerun with rspIDX=1, rspFlip=1, hasEEG=true.",
+    "JL_2 mild overdetection: beatSpec refined to 1,0,gt,3 (99% in-range, lowest burst score in the sweep). Rerun with hasEEG=true, rspFlip=1, macroRemove=[].",
+    "HW cyclic-sigh over-segmentation: root cause found - the photodiode flickered through the ~270-s PRE baseline, creating a spurious 6th block boundary (6 TTLs vs 5 behavior blocks), so the cyclicSigh merge span silently failed to derive. Fixed: the spurious pre-block is dropped for HW, the span now covers the full run of three consecutive cyclicSigh blocks, and TTL/block mismatches now warn loudly instead of failing silently. HW's behavioral CSV itself was fine (cndName audio/cyclicSigh x3/naturalFocus).",
+    "AD_2 missing block: recovered. Its slowRec1_main.csv respiration recording matches the raw session respiration at 690-990 s (r=+0.93, runner-up 0.25) - the focused-breathing block. AD_2's final now contains audio (30-330 s) + slowFocus (690-990 s), with a synthetic no-ratings behavior row for the second block, and rspFlip=+1. The photodiode is confirmed dead (zero pulse trains in 16.7 min).",
+    "CP_1 movie beat detection: the spec was not the core problem - noise bursts (7-8% of windows) compressed the z-scored ECG so far that NO threshold worked (best plain result: 3 bpm). With window blanking + beatSpec 1,0,gt,3 it reads ~69 bpm, 89% in-range, cv 0.16. CP_1 was also rebuilt into the new engine format (its old final predated bmFeatures).",
+    "TI_1 movie: finished - its validated new-format intermediate (180 clips, 59/61/60 by valence) has been run through the full main and saved.",
+    "AS_4 movie EEG double-check: the raw recording contains NO EEG - only macro1-6, Lmastoid, rsp1/rsp2, and the event channel. Nothing to rerun.",
+    "RY_1 sep ECG: unrecoverable. All three re-referenced channel pairs (ECG1-2, 1-3, 2-3) were swept across every threshold/polarity; the best candidate reads 65% in-range IBIs at cv 0.49 - no credible cardiac rhythm exists in this recording. HRV stays NaN.",
+    "ZF_1 sep ECG: the noise windows are now blanked and beatSpec set to 1,0,gt,4.5 - 99% in-range, cv 0.09, and the beat count is stable across thresholds 2.5-5 (a genuine uniform R-peak family). FLAG: the resulting rate is ~37 bpm, which is bradycardic - please eyeball the new ECG windows to confirm you believe the rhythm.",
+    "CA alt6 blink removal: it did not run because no blink IC could be confidently identified (only 4 bad channels - F7/Pz/P7/F8 - so it was not the too-few-channels degradation; the frontal blink-indicator channels were unusable for IC matching). Reported only, per your instruction.",
+    "RX_1 thresh blink removal: 4 bad channels (T7/TP9/TP10/T8), Laplacian computed, but no confident blink IC was identified - the milder version of the same failure. Reported only.",
+    "SP_2 thresh blink removal: your noisy-EEG assumption is confirmed emphatically - 22 of 32 EEG channels were flagged bad, which puts it under the 10-good-channel floor where blink removal and the Laplacian are skipped by design. Reported only.",
+    "IS movie missing breaths (394/410/985 s): real small-amplitude breaths with detection-trace heights 0.35-0.46 - they are rejected by the locked engine's 0.5 peak-height floor (their prominence and descent are fine). Left unchanged pending your call: lowering the floor would recover them everywhere but also re-admit the false peaks the floor was added to kill (PP 133 review).",
+    "HK movie (408/1004/1614 s) and MS movie (430/1074/1085 s) missing breaths: NOT detection failures. Detection finds all of them (471/451 whole-recording peaks; zero pruned). Movie finals store only in-clip breaths, and every cited time sits at a clip boundary (0.1-1.9 s from an edge; 4 of 6 fully between clips) - they are excluded by design.",
+    "JA_2 O15: the raw recording exists (raw_O15 present, EEG channels included), but NO behavioral responses CSV exists anywhere - the standard Behavioral_data\\O15\\ path, a recursive session-tree search, all of OBE_task_backup, and Google Drive cZelano were all searched. Blocked until the O15_responses file is located.",
+    "O15 RX_1 + SP_2, thresh PD_2: EEG confirmed present in the raws (9/9 reference labels) - all rerun with hasEEG=true.",
+    "alt6 JH + HK trough detections: your 20% rule is implemented (engine rev13: an onset can never sit in the first 20% of the trough-to-peak interval; applied as a final hard clamp with a forward-only eligibility snap). Both sessions resegmented in place under it; every other rerun this round also picked up rev13."
+  ],
+  "promoted": [
+    "breathingTask: 250623_Dupi_NMH_KS_3 (after user-confirmed flip rebuild), 260326_OBE_NWU_AD_1, 260608_OBE_NWU_RX_1",
+    "EmotionalMovieTask: 260806_EEG_NWU_JH, 260806_EEG_NWU_MM, 260807_EEG_NWU_GP, 260810_EEG_NWU_AL",
+    "alternating6Blocks: 260806_EEG_NWU_MM, 260807_EEG_NWU_GP, 260810_EEG_NWU_AL, 260810_EEG_NWU_IS, 260811_EEG_NWU_MS",
+    "breathingTasks_separate: 250929_Dupi_NMH_GH_1, 251027_Dupi_NMH_DL_1, 260622_OBE_NWU_RC_1 (all condition rows)",
+    "cueTask: 260316_Dupi_NMH_PD_2, 260504_Dupi_NMH_JA_2, 260702_OBE_NWU_SP_2, and 260622_OBE_NWU_RC_1 + 260720_OBE_NWU_KA_2 (rspThresh 4000 / backBuff 500 applied, rerun as curated per your instruction)",
+    "threshTask: 260625_OBE_NWU_HM_2, 260720_OBE_NWU_KA_2"
+  ]
+}

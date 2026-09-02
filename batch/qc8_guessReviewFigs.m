@@ -277,10 +277,21 @@ for tt = 1:size(TASKS, 1)
             try
                 base = fullfile(L.figPath, id);
                 copied = {};
+                % (2026-09-01 user feedback) breathing-family sessions harvest
+                % ONLY the core QC set - the movie sessions' piles of legacy
+                % per-subject result figures are excluded from reports
+                if isBreathFam
+                    corePats = {'*paramCheck*', 'ECG_beatDetect*', 'interbeatHist*', ...
+                        'RespirationHeart*', 'breathLengths*', 'HeartByBreathLengths*', ...
+                        'removedBlink*', 'blinkAmbiguous*', 'macrosRaw*', ...
+                        'macroSpikeRemoval*', 'shadowResp*', '*logAlign*', '*movieClipTTLs*'};
+                else
+                    corePats = {};   % sniff tasks keep the full per-trial set
+                end
                 for a = 1:numel(figAliases)
                     d = fullfile(base, figAliases{a});
                     if isfolder(d)
-                        copied = harvestDir(d, outDir, copied);
+                        copied = harvestDir(d, outDir, copied, corePats);
                     end
                 end
                 if isBreathFam
@@ -402,9 +413,22 @@ function info = ad2EventFigure(od, labs, fs, nS, outDir, id, info)
     saveas(fig, fullfile(outDir, [id '_qc8_ad2events.png'])); close(fig);
 end
 
-function copied = harvestDir(srcDir, outDir, copied)
+function copied = harvestDir(srcDir, outDir, copied, corePats)
+% copy figures from srcDir; a non-empty corePats cellstr restricts the copy
+% to files matching one of the patterns (breathing-family core QC set)
+    if nargin < 4, corePats = {}; end
     hits = [dir(fullfile(srcDir, '*.jpg')); dir(fullfile(srcDir, '*.png'))];
     for h = 1:numel(hits)
+        if ~isempty(corePats)
+            keep = false;
+            for p = 1:numel(corePats)
+                pat = regexptranslate('wildcard', corePats{p});
+                if ~isempty(regexpi(hits(h).name, ['^' pat '$'], 'once'))
+                    keep = true; break;
+                end
+            end
+            if ~keep, continue; end
+        end
         copyfile(fullfile(hits(h).folder, hits(h).name), fullfile(outDir, hits(h).name));
         copied{end+1} = hits(h).name; %#ok<AGROW>
     end
