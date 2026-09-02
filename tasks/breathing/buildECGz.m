@@ -19,14 +19,19 @@ function [ECGz, beatSep] = buildECGz(outDat)
         'SampleRate', outDat.fs);
     ECG = filtfilt(d, ECG')';
 
-    % 260805_EEG_NWU_CA: intermittent high-amplitude noise bursts (~5% of
-    % 10-s windows at 10-100x signal amplitude) swamp the global z-score and
-    % compress real R-peaks below any usable threshold (they sit at ~62 bpm
-    % on ch3- once the bursts are removed - see batch/task8_probeCA2 /
-    % task89_probeBlankSim). Blank the noisy windows (per-channel robust
-    % window-std > 3x median) before z-scoring. Explicit per-session special
-    % case per repo convention.
-    if isfield(outDat, 'sessID') && strcmp(outDat.sessID, '260805_EEG_NWU_CA')
+    % Sessions with intermittent high-amplitude noise bursts (10-100x signal
+    % amplitude in a few 10-s windows) that swamp the global z-score and
+    % compress real R-peaks below any usable threshold: blank the noisy
+    % windows (per-channel robust window-std > 3x median) before z-scoring.
+    % CA identified 2026-08 (batch/task8_probeCA2 / task89_probeBlankSim);
+    % TB_3 / PC_2 / CP_1 / ZF_1 added 2026-09-01 per the reportResponse
+    % beatSpec probes (probe_resp2: burst overdetection in the noise windows,
+    % clean rhythm once blanked). Explicit per-session list per repo
+    % convention.
+    NOISYECG = {'260805_EEG_NWU_CA', '250811_Dupi_NMH_TB_3', ...
+                '251110_Dupi_NMH_PC_2', '251009_OBE_NWU_CP_1', ...
+                '260105_OBE_NWU_ZF_1'};
+    if isfield(outDat, 'sessID') && any(strcmpi(NOISYECG, outDat.sessID))
         wLen = 10 * outDat.fs;
         nW = floor(size(ECG, 2) / wLen);
         for ch = 1:size(ECG, 1)

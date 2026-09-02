@@ -18,17 +18,33 @@ function outDat = process_respiration_breathing(outDat, P)
         if length(orderIdx) == length(outDat.TTL)
             for ii = 1:length(orderIdx)
                 if ismember('cyclicSigh', outDat.behDat.cndName(orderIdx(ii)))
+                    % (2026-09-01, HW review) span covers the FULL RUN of
+                    % consecutive cyclicSigh blocks, not just the first -
+                    % the wave design has cyclicSigh x3 back to back and
+                    % blocks 2-3 were escaping the keep-first-5s merge
+                    jj = ii;
+                    while jj < length(orderIdx) && ...
+                            ismember('cyclicSigh', outDat.behDat.cndName(orderIdx(jj+1)))
+                        jj = jj + 1;
+                    end
                     startIdx = outDat.TTL(outDat.behDat.order(orderIdx(ii)));
                     if startIdx == 0, startIdx = 1; end
-                    if ii == length(orderIdx)
+                    if jj == length(orderIdx)
                         endIdx = length(rspDat);
                     else
-                        endIdx = outDat.TTL(outDat.behDat.order(orderIdx(ii+1)));
+                        endIdx = outDat.TTL(outDat.behDat.order(orderIdx(jj+1)));
                     end
                     cySpan = [startIdx endIdx];
                     break
                 end
             end
+        else
+            % loud, not silent (2026-09-01): a TTL/block-count mismatch used
+            % to skip the cyclicSigh merge without a trace (HW: 5 behavior
+            % blocks vs 6 TTL boundaries -> over-segmented sighs)
+            warning('process_respiration_breathing:ttlMismatch', ...
+                '%s: %d behavior blocks vs %d TTL boundaries - cyclicSigh span NOT derived', ...
+                outDat.sessID, length(orderIdx), length(outDat.TTL));
         end
     end
 

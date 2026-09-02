@@ -380,10 +380,32 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
             blockStartSec = [39 516 1281];     % audio focus shadow
         elseif strcmpi(sessionIDs{sessi}, '260326_OBE_NWU_AD_2')
             % (2026-08-31) partial session: 999-s recording, behavior
-            % aborted after the audio ratings - ONE salvageable block,
-            % located via its audioResp recording (ch3 r=+.81, runner-up
-            % .21). Photodiode found no valid blocks.
-            blockStartSec = 30;                % audio only
+            % aborted after the audio ratings; audio block located via its
+            % audioResp recording (ch3 r=+.81, runner-up .21). Photodiode
+            % found no valid blocks (dead - zero pulse trains).
+            % (2026-09-01 reportResponse) SECOND block recovered: the
+            % slowRec1_main.csv respiration recording matches the raw
+            % session respiration at 690-990 s (ch3 r=+.93, runner-up .25)
+            % -> the focused-breathing (slowFocus) block. No ratings exist
+            % for it (behavior aborted first), so a synthetic order-2 row
+            % (Q_short = SKIP) labels the block and ratings stay blank.
+            blockStartSec = [30 690];          % audio, slowFocus
+            nr = behDat(find(behDat.order == max(behDat.order), 1, 'last'), :);
+            nr.order = 2;
+            for cc = {'task', 'cndName'}
+                if ismember(cc{1}, behDat.Properties.VariableNames)
+                    if iscell(nr.(cc{1})), nr.(cc{1}) = {'slowFocus'};
+                    else, nr.(cc{1}) = "slowFocus"; end
+                end
+            end
+            for cc = {'Q_short', 'Q_long'}
+                if ismember(cc{1}, behDat.Properties.VariableNames)
+                    if iscell(nr.(cc{1})), nr.(cc{1}) = {'SKIP'};
+                    else, nr.(cc{1}) = "SKIP"; end
+                end
+            end
+            if ismember('rsp', behDat.Properties.VariableNames), nr.rsp = NaN; end
+            behDat = [behDat; nr];
         else
             blockStartSec = [112 555 1214];    % audio focus shadow
         end
