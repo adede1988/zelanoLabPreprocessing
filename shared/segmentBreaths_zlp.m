@@ -153,6 +153,17 @@ function [bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelow
     bmObj = bmObj(ok, :);
     bmObj(:, 14) = 1:size(bmObj, 1);
 
+    % ---- raw-scale volume integrals (2026-09-02 user request) ----
+    % Identical integral to breathmetrics' findRespiratoryVolumes -
+    % sum(abs(trace(onset:offset)))/fs*1000 - but over the RAW-scale trace
+    % (respRaw: raw units, 60-s moving-mean baseline removed), anchored to
+    % the SAME stored landmark indices. The windowed-normalized
+    % inhaleVolumes/exhaleVolumes divide by a 30-s moving std, which shrinks
+    % physically large breaths inside deep-breathing blocks - not comparable
+    % across conditions. These raw-unit twins are; timing is untouched.
+    [volInRaw, volExRaw] = rawVolumeIntegrals(respRaw, fs, ...
+        bmo.inhaleOnsets, bmo.inhaleOffsets, bmo.exhaleOnsets, bmo.exhaleOffsets);
+
     % ---------------- plain-struct feature export ----------------
     bmFeatures = struct();
     bmFeatures.engine  = 'zlp-locked + breathmetrics features';
@@ -184,6 +195,12 @@ function [bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelow
     for f = 1:numel(perBreath)
         bmFeatures.(perBreath{f}) = double(bmo.(perBreath{f})(:))';
     end
+    bmFeatures.inhaleVolumesRaw = volInRaw;
+    bmFeatures.exhaleVolumesRaw = volExRaw;
+    bmFeatures.conditioning.rawVolumeSpec = ['inhale/exhaleVolumesRaw = ' ...
+        'sum(abs(respRaw(onset:offset)))/fs*1000 on the RAW-unit trace ' ...
+        '(60-s moving-mean baseline removed), same landmarks as the ' ...
+        'windowed-normalized inhaleVolumes/exhaleVolumes'];
     bmFeatures.shapeFeatures = bmo.shapeFeatures;
 
     sec = struct();
@@ -204,4 +221,24 @@ end
 function out = ternGuard(cond, a, b)
 % inline conditional (MATLAB has no ternary operator)
     if cond, out = a; else, out = b; end
+end
+
+function [vIn, vEx] = rawVolumeIntegrals(trace, fs, inOn, inOff, exOn, exOff)
+% breathmetrics' findRespiratoryVolumes integral on an arbitrary trace:
+% NaN where the offset is undefined, indices clamped to the trace bounds
+    N = numel(trace);
+    vIn = volInteg(trace, fs, inOn, inOff, N);
+    vEx = volInteg(trace, fs, exOn, exOff, N);
+end
+
+function v = volInteg(trace, fs, ons, offs, N)
+    n = numel(ons);
+    v = nan(1, n);
+    for k = 1:n
+        if k <= numel(offs) && isfinite(ons(k)) && isfinite(offs(k))
+            a = max(1, round(ons(k)));
+            b = min(N, round(offs(k)));
+            if b >= a, v(k) = sum(abs(trace(a:b))) / fs * 1000; end
+        end
+    end
 end

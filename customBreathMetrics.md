@@ -190,3 +190,28 @@ durations and time-to-peak are seconds.
   recording edge are NaN (not 0) as of 2026-08-29.
 - `segmentBreaths_breathMetrics.m` (v3b) and `findAlternatingExtrema.m` are
   kept only for historical comparison — do not build new callers on them.
+
+---
+
+## 6. Raw-scale volume twins (2026-09-02)
+
+The breathmetrics feature flow runs on the **windowed-normalized** detection
+trace, so its `inhaleVolumes` / `exhaleVolumes` (and flow extrema / shape /
+tidal-volume secondaries) are in normalization units whose scale drifts with
+the 30-s moving std - physically large breaths inside deep-breathing blocks
+read *smaller*. They are kept for cross-epoch comparability, but for
+interpretable amplitude analysis use the raw twins:
+
+- `bmFeatures.inhaleVolumesRaw` / `bmFeatures.exhaleVolumesRaw` and behDat
+  `bm_inhaleVolumesRaw` / `bm_exhaleVolumesRaw`: breathmetrics' own integral
+  (`sum(abs(trace(onset:offset)))/fs*1000`) computed over the RAW-unit trace
+  (60-s moving-mean baseline removed - the same convention as the `bmObj`
+  amplitude columns) between the SAME stored landmark indices. Timing
+  metrics are untouched. Computed by `segmentBreaths_zlp` on every run; all
+  pre-existing finals were backfilled in place by `batch/qc9_rawVolumes.m`
+  (sep finals integrate on per-section baselines; provenance in
+  `bmFeatures.conditioning.rawVolumeSpec`).
+- Units remain arbitrary sensor units (belt/pressure voltage, not liters):
+  within-session and cross-condition comparisons are meaningful; for
+  cross-session comparisons consider a per-session normalization at analysis
+  time.
