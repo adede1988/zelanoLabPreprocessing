@@ -58,7 +58,7 @@ The final `.mat` holds one struct (`outDat`, or `chanDat` for older breathing fi
 
 | Folder | Contents |
 |---|---|
-| `config/` | `labPaths.m` (all machine‑specific paths), `applyParams.m` / `writeParams.m` / `writePreProcX.m` (read/write the tracking sheet), `eegLocs_standard_coords.csv` |
+| `config/` | `labPaths.m` (all machine‑specific paths), `applyParams.m` / `writeParams.m` / `writePreProcX.m` / `clearPreProcX.m` (read/write the tracking sheet), `eegLocs_standard_coords.csv` |
 | `pipelines/` | the deliverable entry points: `preprocessAll.m` + the four `*PreProc_main.m` |
 | `pipelines/makeOutDat/` | the raw→intermediate ingestion scripts (breathing / cue / thresh) |
 | `shared/` | the task‑shared signal core + assembly + EEG/spike/onset helpers |
@@ -85,14 +85,17 @@ per‑breath CSV, which this repo directs to a local `processedBehavior/` folder
 
 1. **Point `config/labPaths.m` at your machine.** It auto‑detects by Windows `USERNAME`; to add a
    machine, add a `case` to the switch (or drop an untracked `labPaths_local.m` returning the four
-   base fields: `codePre`, `eeglab`, `labCommon`, `gdrive`). Unknown machines error with a
+   base fields: `codePre`, `eeglab`, `labCommon`, `gdrive`, plus optionally `fieldtrip` and an
+   `adminXlsx` override to relocate the tracking sheet). Unknown machines error with a
    copy‑pasteable template. All repo‑internal code paths (repo root, `eegLocs` csv, vendored
    `slowBreathing`) are derived automatically from this file's location.
 
 2. **Provide `dataTracking.xlsx`** (header row 2, data from row 3). `applyParams` reads it as the
    single source of truth for the session list and every per‑session parameter (respiration
    channel/polarity, `hasEEG`, spike‑clean settings, sniff windows, ECG beat spec, …). Put it at
-   `labPaths().adminXlsx` or a repo‑local copy.
+   `labPaths().adminXlsx` (the lab master under `Admin\Data\`). A copy at the repo root
+   (`<repo>\dataTracking.xlsx`, git‑ignored) is only a fallback and always raises a
+   `<caller>:localFallback` warning.
 
 3. **Run.**
    ```matlab

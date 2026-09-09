@@ -20,8 +20,8 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
 %
 %   The task is taken from P.task (e.g. 'cueTask'); override with 'Task'.
 %   Default xlsxPath mirrors applyParams: the lab Admin master if it already
-%   carries the param columns, else the repo-local dataTracking.xlsx next to
-%   this file.
+%   carries the param columns, else (with a writeParams:localFallback warning
+%   on every call) the copy at the repo root, <repo>\dataTracking.xlsx.
 %
 %   Name-value options
 %     'Verbose'          (true)     print a one-line summary of each change
@@ -277,8 +277,11 @@ end
 
 function p = resolveDefaultXlsx()
 % Mirror applyParams: prefer the lab Admin master only if it carries the
-% parameter columns; otherwise use the repo-local param-enriched copy next
-% to this file. Cached for the session.
+% parameter columns; otherwise fall back LOUDLY (warning
+% writeParams:localFallback) to the repo-local param-enriched copy at the
+% REPO ROOT (<repo>\dataTracking.xlsx) - a write to a stale local copy must
+% never go unnoticed. Only a master resolution is cached for the session; a
+% fallback is re-resolved (and re-warned) on every call.
     persistent RESOLVED
     if ~isempty(RESOLVED), p = RESOLVED; return; end
     L = labPaths();
@@ -286,12 +289,15 @@ function p = resolveDefaultXlsx()
     localP = fullfile(L.repo, 'dataTracking.xlsx');
     if hasParamCols(adminP)
         p = adminP;
+        RESOLVED = p;
     elseif exist(localP, 'file') == 2
+        warning('writeParams:localFallback', ...
+            ['Lab master sheet not found (or missing param cols) at %s; ' ...
+             'using repo-local copy %s for writes - it is NOT the lab master.'], adminP, localP);
         p = localP;
     else
         p = adminP;   % last resort -> errors informatively on read
     end
-    RESOLVED = p;
 end
 
 function tf = hasParamCols(p)

@@ -13,14 +13,18 @@ function out = applyParams(task, sel, xlsxPath)
 %     P   = applyParams(task, sessID                  [, xlsxPath]) % Mode B
 %
 %   task in {'breathingTask','cueTask','threshTask','O15'}
-%   default xlsxPath = R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx
+%   default xlsxPath = labPaths().adminXlsx, the lab master
+%     (R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx). If that
+%     file is unreachable or lacks the datPre parameter column, falls back - with
+%     an applyParams:localFallback warning on every call - to the copy at the
+%     repo root, <repo>\dataTracking.xlsx.
 %
 %   Mode A cfg fields:
 %     .sessionIDs (n x 1 cell)  .root (n x 1 cell)  .datPre (1 x k cell, fixed order)
 %     .datPrei (1 x n)  .isNewStd (1 x n logical)  .newIDs (cell)
 %     .rspIDX (1 x n)  .rspFlip (1 x n)  .paramSource (1 x n cell)
 %
-%   See CLAUDE.md / taskList.md for the full contract.
+%   See CLAUDE.md section 3 for the full contract.
 
     if nargin < 3 || isempty(xlsxPath)
         xlsxPath = resolveDefaultXlsx();
@@ -291,8 +295,12 @@ end
 
 function p = resolveDefaultXlsx()
 % Prefer the lab Admin master IF it already carries the parameter columns;
-% otherwise fall back to the repo-local param-enriched dataTracking.xlsx that
-% lives next to applyParams.m. Resolution is cached for the session.
+% otherwise fall back LOUDLY (warning applyParams:localFallback) to the
+% repo-local param-enriched copy at the REPO ROOT (<repo>\dataTracking.xlsx,
+% i.e. fullfile(labPaths().repo, ...)), so a stale local copy can never be
+% used unnoticed. Only a master resolution is cached for the session: a
+% fallback is re-resolved (and re-warned) on every call, so the master is
+% picked up again as soon as it is reachable.
     persistent RESOLVED
     if ~isempty(RESOLVED), p = RESOLVED; return; end
     L = labPaths();
@@ -300,12 +308,15 @@ function p = resolveDefaultXlsx()
     localP = fullfile(L.repo, 'dataTracking.xlsx');
     if hasParamCols(adminP)
         p = adminP;
+        RESOLVED = p;
     elseif exist(localP, 'file') == 2
+        warning('applyParams:localFallback', ...
+            ['Lab master sheet not found (or missing param cols) at %s; ' ...
+             'using repo-local copy %s - may be stale.'], adminP, localP);
         p = localP;
     else
         p = adminP;   % last resort -> readSheetCached errors informatively
     end
-    RESOLVED = p;
 end
 
 function tf = hasParamCols(p)

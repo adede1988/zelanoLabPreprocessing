@@ -74,9 +74,13 @@ RAW  (Neuralynx/Atlas export + behavioral .mat/.csv)
 
 ## 3. `dataTracking.xlsx` — the source of truth
 
-`R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx` (`labPaths().adminXlsx`, or a repo‑local
-copy; canonical location since 2026‑08‑25 — the old `Admin\dataTracking.xlsx` is no longer read),
-`Sheet1`, **header row = 2, data from row 3**. Read it only through **`config/applyParams.m`**:
+The sheet is `labPaths().adminXlsx` = `R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx`
+(`Sheet1`, **header row = 2, data from row 3**). If the master is unreachable — or, for `applyParams` /
+`writeParams` / `preprocessAll`, reachable but missing the `datPre` parameter columns — those three plus
+`writePreProcX` / `clearPreProcX` fall back to a copy at the repo root (`<repo>\dataTracking.xlsx`,
+git‑ignored) and emit a `<caller>:localFallback` warning on every call (e.g. `applyParams:localFallback`),
+so a stale copy is never used silently. `writeSheetSep` and the `batch/` scripts only ever use the master
+and error if it is unreachable. Read it only through **`config/applyParams.m`**:
 
 ```matlab
 cfg = applyParams(task, 'makeOutDat'|'main')   % Mode A: session list (+ roots) for a loop
@@ -338,7 +342,7 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
 
 | Folder | Contents |
 |---|---|
-| `config/` | `labPaths.m`, `applyParams.m` / `writeParams.m` / `writePreProcX.m`, `eegLocs_standard_coords.csv` |
+| `config/` | `labPaths.m`, `applyParams.m` / `writeParams.m` / `writePreProcX.m` / `clearPreProcX.m`, `eegLocs_standard_coords.csv` |
 | `pipelines/` | `preprocessAll.m` + the `*PreProc_main.m` entry points |
 | `pipelines/makeOutDat/` | raw → intermediate ingestion (`breathing` / `cue` / `thresh` …) |
 | `shared/` | the shared signal core (`assembleOutDat`, `downsample_data`, `preprocess_eeg`, `preprocess_macros`, `preprocess_respiration_wholetrace`, `detect_sniffs_from_TTLs`, `refine_onsets_with_phase`, `behDatFromSniffs`, `paramCheck`, EEG/spike/onset helpers) |

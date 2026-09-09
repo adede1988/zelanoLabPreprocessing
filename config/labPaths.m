@@ -4,9 +4,9 @@ function L = labPaths()
 %   L = labPaths() auto-detects the current machine (by Windows USERNAME, with
 %   COMPUTERNAME available as a tiebreaker) and returns a struct holding every
 %   path the preprocessing pipeline needs. The 7 deliverable scripts
-%   (*_makeOutDat.m, *_main.m) and the loaders (applyParams / writeParams /
-%   writePreProcX) all read their paths from here, so NOTHING else hard-codes a
-%   machine path.
+%   (*_makeOutDat.m, *_main.m) and the sheet loaders/writers (applyParams /
+%   writeParams / writePreProcX / clearPreProcX / preprocessAll) all read their
+%   paths from here, so NOTHING else hard-codes a machine path.
 %
 %   To run on a NEW machine you do exactly one thing: add a `case` to the switch
 %   below (or drop in a labPaths_local.m, see "Local override"). Unknown machines
@@ -32,8 +32,9 @@ function L = labPaths()
 %
 %   ---- Local override (optional, for a machine you don't want to commit) ----
 %     If a file labPaths_local.m exists on the path it is used instead of the
-%     switch. It must return ONLY the four base fields above; labPaths fills in
-%     the derived ones. labPaths_local.m is git-ignored.
+%     switch. It must return the four base fields above (optionally .fieldtrip,
+%     and .adminXlsx to relocate the tracking sheet); labPaths fills in the
+%     derived ones. labPaths_local.m is git-ignored.
 
     % ---- optional untracked local override ----
     if exist('labPaths_local', 'file') == 2
@@ -104,9 +105,14 @@ function L = deriveLabPaths(L)
     % (e.g. [root sessID '\preProc\...']) so they MUST keep a trailing filesep.
     L.figPath   = [lc 'Adam\Dupi_processing\'];
     if ~isfield(L, 'adminXlsx')   % labPaths_local may point the tracker elsewhere
-        % Canonical since 2026-08-25 (end of the Tasks_260824 work order): the
-        % Admin\Data\ copy, refreshed from the Admin\ master at close-out. The
-        % file still at Admin\dataTracking.xlsx is no longer read by the code.
+        % Canonical since 2026-08-25 (end of the Tasks_260824 work order). The
+        % old Admin\dataTracking.xlsx master no longer exists on R: (verified
+        % 2026-09-09). If this path is unreachable (or, for applyParams /
+        % writeParams / preprocessAll, lacks the datPre parameter column) those
+        % resolvers plus writePreProcX / clearPreProcX fall back to the copy at
+        % the repo root, <repo>\dataTracking.xlsx, with a '<caller>:localFallback'
+        % warning on every call - never silently. writeSheetSep and the batch/
+        % scripts use this path directly and error if it is unreachable.
         L.adminXlsx = fullfile(lc, 'Admin', 'Data', 'dataTracking.xlsx');
     end
     L.rootDupi  = [lc 'Dupi\'];

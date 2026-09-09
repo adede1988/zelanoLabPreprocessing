@@ -106,13 +106,20 @@ function showReport(rep)
 end
 
 function xlsx = resolveSheet()
-% Mirror applyParams: Admin master if it carries the param columns, else the
-% repo-local copy next to labPaths.
+% Mirror applyParams: Admin master if it carries the param columns, else
+% (LOUDLY - warning preprocessAll:localFallback) the repo-local copy at the
+% repo root (<repo>\dataTracking.xlsx), so a stale local copy can never drive
+% a batch unnoticed.
     L = labPaths();
     xlsx = L.adminXlsx;
     if exist(xlsx, 'file') ~= 2 || ~headerHas(xlsx, 'datPre')
         local = fullfile(L.repo, 'dataTracking.xlsx');
-        if exist(local, 'file') == 2, xlsx = local; end
+        if exist(local, 'file') == 2
+            warning('preprocessAll:localFallback', ...
+                ['Lab master sheet not found (or missing param cols) at %s; ' ...
+                 'using repo-local copy %s - may be stale.'], xlsx, local);
+            xlsx = local;
+        end
     end
 end
 

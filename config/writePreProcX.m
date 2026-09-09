@@ -80,11 +80,20 @@ end
 % ============================ helpers ============================
 
 function xlsxPath = resolveDefaultXlsx()
+% Lab Admin master by default. If it is unreachable, fall back LOUDLY
+% (warning writePreProcX:localFallback, on every call) to the repo-local copy at
+% the repo root (<repo>\dataTracking.xlsx) - a write to a copy that is not
+% the lab master must never go unnoticed. If neither exists, keep the master
+% path so the caller's noFile error names it.
     L = labPaths();
-    if exist(L.adminXlsx, 'file') == 2
-        xlsxPath = L.adminXlsx;
-    else
-        xlsxPath = fullfile(L.repo, 'dataTracking.xlsx');
+    xlsxPath = L.adminXlsx;
+    if exist(xlsxPath, 'file') == 2, return; end
+    localP = fullfile(L.repo, 'dataTracking.xlsx');
+    if exist(localP, 'file') == 2
+        warning('writePreProcX:localFallback', ...
+            ['Lab master sheet not found at %s; using repo-local copy %s ' ...
+             'for the write - it is NOT the lab master.'], xlsxPath, localP);
+        xlsxPath = localP;
     end
 end
 
