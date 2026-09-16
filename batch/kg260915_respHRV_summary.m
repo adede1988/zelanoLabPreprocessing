@@ -16,8 +16,9 @@
 %   RSA (ms)      per-breath RR_max_min from flagBadBreaths = max RR - min RR
 %                 inside the breath (inhale onset -> next onset), ms
 %   length (s)    breath period (bmObj col 7)
-%   depth         breath amplitude (bmObj col 8, raw respiration units) and,
-%                 where present, bm_inhaleVolumesRaw (raw-unit inhale volume)
+%   depth         PREDICTOR = bm_inhaleVolumesRaw (breathmetrics inhale volume on the
+%                 raw trace, raw units); breath amplitude (bmObj col 8) is kept in the
+%                 tables as a descriptor only. Falls back to amplitude if no volume.
 %   good          flagBadBreaths goodBreath == 1
 %   clean         good & nSubPeaks <= 1 & localPeriodCV < 0.20 (not ragged)
 
@@ -56,6 +57,15 @@ B.hrBPM = 60 ./ B.meanRR;
 B.rsaNorm = B.rsa_ms ./ (1000 * B.meanRR);       % RSA as a fraction of the mean RR
 hasVol = ismember('bm_inhaleVolumesRaw', B.Properties.VariableNames);
 if hasVol, B.depthVol = B.bm_inhaleVolumesRaw; end
+% DEPTH PREDICTOR = raw-unit inhale volume (breathmetrics integral of the inhale on
+% the raw trace); amplitude stays in the tables as a descriptor only
+if hasVol
+    B.depth = B.depthVol; DEPTHLAB = 'inhale volume (raw units)'; DEPTHSHORT = 'volume';
+else
+    B.depth = B.amp;      DEPTHLAB = 'breath amplitude (raw units)'; DEPTHSHORT = 'amplitude';
+end
+B.depth(~isfinite(B.depth) | B.depth <= 0) = NaN;
+stats.depthPredictor = DEPTHLAB;
 
 stats.nBreaths = height(B); stats.nGood = sum(B.good); stats.nClean = sum(B.clean);
 stats.nPaced = sum(paced); stats.nPre = sum(pre); stats.nFinal10 = sum(final10);
@@ -75,48 +85,49 @@ K.startMin = K.startSample / fs / 60; K.endMin = K.endSample / fs / 60;
 writetable(K, fullfile(outDir, [id '_blocks_summary.csv']));
 
 % ---------------- RSA vs length x depth (paced breaths) ----------------
-sel = paced & B.good & isfinite(B.rsa_ms) & B.length > 0 & B.amp > 0;
+sel = paced & B.good & isfinite(B.rsa_ms) & B.length > 0 & isfinite(B.depth);
 selC = sel & B.clean;
 T = B(sel, :);
 [rhoL, pL] = corr(log(T.length), T.rsa_ms, 'Type', 'Spearman', 'rows', 'complete');
-[rhoA, pA] = corr(log(T.amp), T.rsa_ms, 'Type', 'Spearman', 'rows', 'complete');
-stats.spearman = struct('rsa_vs_logLength', [rhoL pL], 'rsa_vs_logAmp', [rhoA pA]);
+okA = T.amp > 0;
+[rhoA, pA] = corr(log(T.amp(okA)), T.rsa_ms(okA), 'Type', 'Spearman', 'rows', 'complete');
+stats.spearman = struct('rsa_vs_logLength', [rhoL pL], 'rsa_vs_logDepth', [rhoA pA]);
 if hasVol
     [rhoV, pV] = corr(log(max(T.depthVol, eps)), T.rsa_ms, 'Type', 'Spearman', 'rows', 'complete');
     stats.spearman.rsa_vs_logVol = [rhoV pV];
 end
-muL = mean(log(T.length)); muA = mean(log(T.amp));
-mdlTbl = table(log(T.length) - muL, log(T.amp) - muA, T.rsa_ms, 'VariableNames', {'logLen', 'logAmp', 'rsa'});
-m1 = fitlm(mdlTbl, 'rsa ~ logLen + logAmp', 'RobustOpts', 'on');
-m2 = fitlm(mdlTbl, 'rsa ~ logLen * logAmp', 'RobustOpts', 'on');
+muL = mean(log(T.length)); muA = mean(log(T.depth));
+mdlTbl = table(log(T.length) - muL, log(T.depth) - muA, T.rsa_ms, 'VariableNames', {'logLen', 'logDepth', 'rsa'});
+m1 = fitlm(mdlTbl, 'rsa ~ logLen + logDepth', 'RobustOpts', 'on');
+m2 = fitlm(mdlTbl, 'rsa ~ logLen * logDepth', 'RobustOpts', 'on');
 mL = fitlm(mdlTbl, 'rsa ~ logLen', 'RobustOpts', 'on');
-mA = fitlm(mdlTbl, 'rsa ~ logAmp', 'RobustOpts', 'on');
+mA = fitlm(mdlTbl, 'rsa ~ logDepth', 'RobustOpts', 'on');
 stats.model_additive = modelSummary(m1);
 stats.model_interaction = modelSummary(m2);
 stats.model_lengthOnly = modelSummary(mL);
-stats.model_ampOnly = modelSummary(mA);
+stats.model_depthOnly = modelSummary(mA);
 TC = B(selC, :);
 if height(TC) > 30
-    tc = table(log(TC.length) - mean(log(TC.length)), log(TC.amp) - mean(log(TC.amp)), TC.rsa_ms, 'VariableNames', {'logLen', 'logAmp', 'rsa'});
-    stats.model_additive_clean = modelSummary(fitlm(tc, 'rsa ~ logLen + logAmp', 'RobustOpts', 'on'));
+    tc = table(log(TC.length) - mean(log(TC.length)), log(TC.depth) - mean(log(TC.depth)), TC.rsa_ms, 'VariableNames', {'logLen', 'logDepth', 'rsa'});
+    stats.model_additive_clean = modelSummary(fitlm(tc, 'rsa ~ logLen + logDepth', 'RobustOpts', 'on'));
 end
-TA = B(paced & isfinite(B.rsa_ms) & B.length > 0 & B.amp > 0, :);
-ta = table(log(TA.length) - mean(log(TA.length)), log(TA.amp) - mean(log(TA.amp)), TA.rsa_ms, 'VariableNames', {'logLen', 'logAmp', 'rsa'});
-stats.model_additive_allPaced = modelSummary(fitlm(ta, 'rsa ~ logLen + logAmp', 'RobustOpts', 'on'));
+TA = B(paced & isfinite(B.rsa_ms) & B.length > 0 & isfinite(B.depth), :);
+ta = table(log(TA.length) - mean(log(TA.length)), log(TA.depth) - mean(log(TA.depth)), TA.rsa_ms, 'VariableNames', {'logLen', 'logDepth', 'rsa'});
+stats.model_additive_allPaced = modelSummary(fitlm(ta, 'rsa ~ logLen + logDepth', 'RobustOpts', 'on'));
 
 % binned summaries
 lenEdges = [0 4 5 6 7.5 9 11 Inf];
 lenLab = {'<4', '4-5', '5-6', '6-7.5', '7.5-9', '9-11', '>11'};
-ampQ = quantile(T.amp, [1/3 2/3]);
-ampBin = 1 + (T.amp > ampQ(1)) + (T.amp > ampQ(2));
+ampQ = quantile(T.depth, [1/3 2/3]);
+ampBin = 1 + (T.depth > ampQ(1)) + (T.depth > ampQ(2));
 ampLab = {'shallow', 'medium', 'deep'};
 lenBin = discretize(T.length, lenEdges);
 binTbl = table();
 for i = 1:numel(lenLab)
     for j = 1:3
         m = lenBin == i & ampBin == j;
-        binTbl = [binTbl; table(string(lenLab{i}), string(ampLab{j}), sum(m), median(T.rsa_ms(m)), iqr(T.rsa_ms(m)), median(T.length(m)), median(T.amp(m)), median(T.hrBPM(m), 'omitnan'), ...
-            'VariableNames', {'lengthBin', 'depthBin', 'n', 'medRSA_ms', 'iqrRSA_ms', 'medLength_s', 'medAmp', 'medHR'})]; %#ok<AGROW>
+        binTbl = [binTbl; table(string(lenLab{i}), string(ampLab{j}), sum(m), median(T.rsa_ms(m)), iqr(T.rsa_ms(m)), median(T.length(m)), median(T.depth(m)), median(T.amp(m)), median(T.hrBPM(m), 'omitnan'), ...
+            'VariableNames', {'lengthBin', 'depthBin', 'n', 'medRSA_ms', 'iqrRSA_ms', 'medLength_s', 'medDepth', 'medAmp', 'medHR'})]; %#ok<AGROW>
     end
 end
 writetable(binTbl, fullfile(outDir, [id '_rsa_by_length_depth.csv']));
@@ -144,20 +155,20 @@ for v = 1:numel(vars)
 end
 writetable(cmp, fullfile(outDir, [id '_final10_vs_rest.csv']));
 % matched-length comparison: final10 vs paced breaths in the same length bins
-fB = B(final10 & B.good & isfinite(B.rsa_ms) & B.length > 0 & B.amp > 0, :);
+fB = B(final10 & B.good & isfinite(B.rsa_ms) & B.length > 0 & isfinite(B.depth), :);
 pB = B(paced & B.good & isfinite(B.rsa_ms), :);
 fLen = discretize(fB.length, lenEdges); pLen = discretize(pB.length, lenEdges);
 matched = table();
 for i = 1:numel(lenLab)
     a = fB.rsa_ms(fLen == i); c = pB.rsa_ms(pLen == i);
     if numel(a) >= 5 && numel(c) >= 5
-        matched = [matched; table(string(lenLab{i}), numel(a), numel(c), median(a), median(c), ranksum(a, c), cliffsDelta(a, c), median(fB.amp(fLen == i)), median(pB.amp(pLen == i)), ...
-            'VariableNames', {'lengthBin', 'nFinal10', 'nPaced', 'medRSAfinal_ms', 'medRSApaced_ms', 'ranksumP', 'cliffsDelta', 'medAmpFinal', 'medAmpPaced'})]; %#ok<AGROW>
+        matched = [matched; table(string(lenLab{i}), numel(a), numel(c), median(a), median(c), ranksum(a, c), cliffsDelta(a, c), median(fB.depth(fLen == i)), median(pB.depth(pLen == i)), ...
+            'VariableNames', {'lengthBin', 'nFinal10', 'nPaced', 'medRSAfinal_ms', 'medRSApaced_ms', 'ranksumP', 'cliffsDelta', 'medDepthFinal', 'medDepthPaced'})]; %#ok<AGROW>
     end
 end
 writetable(matched, fullfile(outDir, [id '_final10_vs_paced_matchedLength.csv']));
 % additive-model prediction for the final-10 breaths
-pf = predict(m1, table(log(fB.length) - muL, log(fB.amp) - muA, 'VariableNames', {'logLen', 'logAmp'}));
+pf = predict(m1, table(log(fB.length) - muL, log(fB.depth) - muA, 'VariableNames', {'logLen', 'logDepth'}));
 stats.final10_additiveModel = struct('n', numel(pf), 'meanObserved_ms', mean(fB.rsa_ms), 'meanPredicted_ms', mean(pf), ...
     'meanError_ms', mean(fB.rsa_ms - pf), 'semError_ms', std(fB.rsa_ms - pf) / sqrt(numel(pf)), 'medianError_ms', median(fB.rsa_ms - pf), ...
     'signrankP', signrank(fB.rsa_ms - pf), 'ttestP', ttestP(fB.rsa_ms - pf));
@@ -166,10 +177,10 @@ stats.hr_pre = median(B.hrBPM(pre), 'omitnan'); stats.hr_paced = median(B.hrBPM(
 
 % ---------------- 2-D surface: local-linear (LOESS-style) RSA estimate on paced breaths ----------------
 % predictors standardised in log space (paced set); Gaussian kernel, bandwidth h SD units
-sdL = std(log(T.length)); sdA = std(log(T.amp));
-u = (log(T.length) - muL) / sdL; v = (log(T.amp) - muA) / sdA;
+sdL = std(log(T.length)); sdA = std(log(T.depth));
+u = (log(T.length) - muL) / sdL; v = (log(T.depth) - muA) / sdA;
 h = 0.35;
-gL = linspace(log(2.5), log(11), 46); gA = linspace(log(40), log(360), 46);
+gL = linspace(log(2.5), log(11), 46); gA = linspace(log(prctile(T.depth, 0.5)), log(prctile(T.depth, 99.5)), 46);
 [GL, GA] = meshgrid(gL, gA);
 GU = (GL - muL) / sdL; GV = (GA - muA) / sdA;
 Zhat = nan(size(GL)); Wsum = zeros(size(GL));
@@ -183,7 +194,7 @@ for i = 1:numel(GL)
     Zhat(i) = beta(1);
 end
 % predict the final-10 breaths from the same local-linear fit (on the paced data)
-uF = (log(fB.length) - muL) / sdL; vF = (log(fB.amp) - muA) / sdA;
+uF = (log(fB.length) - muL) / sdL; vF = (log(fB.depth) - muA) / sdA;
 predF = nan(height(fB), 1); supF = zeros(height(fB), 1);
 for k = 1:height(fB)
     d2 = ((u - uF(k)).^2 + (v - vF(k)).^2) / h^2;
@@ -209,11 +220,11 @@ for i = 1:numel(GL)
     Zerr(i) = sum(w .* errF(okF)) / ws;
 end
 fB.predSurface_ms = predF; fB.errSurface_ms = errF; fB.predAdditive_ms = pf; fB.errAdditive_ms = fB.rsa_ms - pf;
-writetable(fB(:, {'onsetSec', 'length', 'amp', 'rsa_ms', 'predSurface_ms', 'errSurface_ms', 'predAdditive_ms', 'errAdditive_ms', 'nSubPeaks', 'localPeriodCV'}), ...
+writetable(fB(:, {'onsetSec', 'length', 'depth', 'amp', 'rsa_ms', 'predSurface_ms', 'errSurface_ms', 'predAdditive_ms', 'errAdditive_ms', 'nSubPeaks', 'localPeriodCV'}), ...
     fullfile(outDir, [id '_final10_predictions.csv']));
 % the final-10 block mean (good breaths)
-fMean = struct('length', mean(fB.length), 'amp', mean(fB.amp), 'rsa', mean(fB.rsa_ms), ...
-               'lengthSD', std(fB.length), 'ampSD', std(fB.amp), 'rsaSD', std(fB.rsa_ms), 'n', height(fB));
+fMean = struct('length', mean(fB.length), 'depth', mean(fB.depth), 'amp', mean(fB.amp), 'rsa', mean(fB.rsa_ms), ...
+               'lengthSD', std(fB.length), 'depthSD', std(fB.depth), 'ampSD', std(fB.amp), 'rsaSD', std(fB.rsa_ms), 'n', height(fB));
 stats.final10_mean = fMean;
 
 % ---------------- inhale-locked RR (polarity + RSA shape check) ----------------
@@ -239,7 +250,7 @@ cPre = cols(2, :); cPaced = cols(5, :);
 periodCol = {[0.80 0.90 1.0], [0.90 0.90 0.90], [1.0 0.90 0.80]};
 % F1 time course with the three periods
 fig = figure('Visible', 'off', 'Position', [40 40 1800 1100], 'Color', 'w');
-panels = {'rateBPM', 'breath rate (/min)'; 'amp', 'breath amplitude (raw units)'; 'rsa_ms', 'RSA = within-breath RR max-min (ms)'; 'hrBPM', 'heart rate (bpm)'};
+panels = {'rateBPM', 'breath rate (/min)'; 'depth', DEPTHLAB; 'rsa_ms', 'RSA = within-breath RR max-min (ms)'; 'hrBPM', 'heart rate (bpm)'};
 ax = gobjects(4, 1);
 bounds = [0 PRE_SEC; PRE_SEC durS - FINAL_SEC; durS - FINAL_SEC durS] / 60;
 for p = 1:4
@@ -272,38 +283,38 @@ end
 hs(4) = scatter(fB.length, fB.rsa_ms, 22, cFinal, 'filled', 'MarkerFaceAlpha', 0.7, 'MarkerEdgeColor', 'w');
 errorbar(fMean.length, fMean.rsa, fMean.rsaSD, fMean.rsaSD, fMean.lengthSD, fMean.lengthSD, 'd', 'Color', cFinal, 'LineWidth', 1.5, 'CapSize', 6);
 hs(5) = plot(fMean.length, fMean.rsa, 'd', 'MarkerSize', 13, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.2);
-xlabel('breath length (s)'); ylabel('RSA (ms)'); title('RSA vs breath length: paced breaths by depth tertile, final 10 min overlaid'); grid on
+xlabel('breath length (s)'); ylabel('RSA (ms)'); title('RSA vs length (paced, colour = volume tertile; final 10 min overlaid)'); grid on
 legend(hs, [ampLab, {'final 10 min (breaths)', sprintf('final 10 min mean \\pm SD (n=%d)', fMean.n)}], 'Location', 'northwest');
 subplot(1, 3, 2); hold on
 hs = gobjects(1, 5);
 lenBin3 = discretize(T.length, [0 5.5 8 Inf]); lenLab3 = {'short <5.5 s', 'medium 5.5-8 s', 'long >8 s'};
 for i = 1:3
-    m = lenBin3 == i; hs(i) = scatter(T.amp(m), T.rsa_ms(m), 12, cols(3 + i, :), 'filled', 'MarkerFaceAlpha', 0.35);
+    m = lenBin3 == i; hs(i) = scatter(T.depth(m), T.rsa_ms(m), 12, cols(3 + i, :), 'filled', 'MarkerFaceAlpha', 0.35);
 end
-aE = quantile(T.amp, 0:0.2:1);
+aE = quantile(T.depth, 0:0.2:1);
 for i = 1:5
-    m = T.amp >= aE(i) & T.amp <= aE(i + 1);
-    errorbar(median(T.amp(m)), median(T.rsa_ms(m)), iqr(T.rsa_ms(m)) / 2, 'ko', 'MarkerFaceColor', 'k', 'LineWidth', 1.2);
+    m = T.depth >= aE(i) & T.depth <= aE(i + 1);
+    errorbar(median(T.depth(m)), median(T.rsa_ms(m)), iqr(T.rsa_ms(m)) / 2, 'ko', 'MarkerFaceColor', 'k', 'LineWidth', 1.2);
 end
-hs(4) = scatter(fB.amp, fB.rsa_ms, 22, cFinal, 'filled', 'MarkerFaceAlpha', 0.7, 'MarkerEdgeColor', 'w');
-errorbar(fMean.amp, fMean.rsa, fMean.rsaSD, fMean.rsaSD, fMean.ampSD, fMean.ampSD, 'd', 'Color', cFinal, 'LineWidth', 1.5, 'CapSize', 6);
-hs(5) = plot(fMean.amp, fMean.rsa, 'd', 'MarkerSize', 13, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.2);
-xlim([0 max(prctile(T.amp, 99.5), max(fB.amp)) * 1.05]);
-xlabel('breath amplitude (raw units)'); ylabel('RSA (ms)'); title('RSA vs depth: paced breaths by length tercile, final 10 min overlaid'); grid on
+hs(4) = scatter(fB.depth, fB.rsa_ms, 22, cFinal, 'filled', 'MarkerFaceAlpha', 0.7, 'MarkerEdgeColor', 'w');
+errorbar(fMean.depth, fMean.rsa, fMean.rsaSD, fMean.rsaSD, fMean.depthSD, fMean.depthSD, 'd', 'Color', cFinal, 'LineWidth', 1.5, 'CapSize', 6);
+hs(5) = plot(fMean.depth, fMean.rsa, 'd', 'MarkerSize', 13, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.2);
+xlim([0 max(prctile(T.depth, 99.5), max(fB.depth)) * 1.05]);
+xlabel(DEPTHLAB); ylabel('RSA (ms)'); title(['RSA vs ' DEPTHSHORT ' (paced, colour = length tercile; final 10 min overlaid)']); grid on
 legend(hs, [lenLab3, {'final 10 min (breaths)', 'final 10 min mean \pm SD'}], 'Location', 'northeast');
 subplot(2, 3, 3); hold on
 g = linspace(min(mdlTbl.logLen), max(mdlTbl.logLen), 50)';
-yhatL = predict(m1, table(g, zeros(size(g)), 'VariableNames', {'logLen', 'logAmp'}));
-ga = linspace(min(mdlTbl.logAmp), max(mdlTbl.logAmp), 50)';
-yhatA = predict(m1, table(zeros(size(ga)), ga, 'VariableNames', {'logLen', 'logAmp'}));
+yhatL = predict(m1, table(g, zeros(size(g)), 'VariableNames', {'logLen', 'logDepth'}));
+ga = linspace(min(mdlTbl.logDepth), max(mdlTbl.logDepth), 50)';
+yhatA = predict(m1, table(zeros(size(ga)), ga, 'VariableNames', {'logLen', 'logDepth'}));
 yl2 = [min([yhatL; yhatA]) - 10, max([yhatL; yhatA]) + 10];
 plot(exp(g + muL), yhatL, '-', 'Color', cols(1, :), 'LineWidth', 2); ylim(yl2);
 xlabel('breath length (s) [at median depth]'); ylabel('model RSA (ms)'); grid on
-title(sprintf('robust additive model RSA ~ log(len) + log(amp), R^2 = %.2f: length effect', m1.Rsquared.Ordinary));
+title(sprintf('additive model, R^2 = %.2f: length effect', m1.Rsquared.Ordinary));
 subplot(2, 3, 6); hold on
 plot(exp(ga + muA), yhatA, '-', 'Color', cols(2, :), 'LineWidth', 2); ylim(yl2);
-xlabel('breath amplitude [at median length]'); ylabel('model RSA (ms)'); grid on
-title('depth effect (same y scale)');
+xlabel([DEPTHSHORT ' [at median length]']); ylabel('model RSA (ms)'); grid on
+title([DEPTHSHORT ' effect (same y scale)']);
 saveas(fig, fullfile(outDir, 'F2_rsa_vs_length_depth.png')); close(fig);
 
 % F3 heat map (single-hue ramp)
@@ -318,18 +329,20 @@ xlabel('breath length (s)'); ylabel('depth tertile (paced breaths)'); title('med
 saveas(fig, fullfile(outDir, 'F3_rsa_heatmap.png')); close(fig);
 
 % F8 estimated-RSA surface (local-linear fit on paced breaths) with the final-10 breaths on top
-tickL = [2.5 3 4 5 6 8 10]; tickA = [40 60 80 120 160 240 320];
+tickL = [2.5 3 4 5 6 8 10];
+tickA = unique(round(exp(linspace(gA(1), gA(end), 7)), 2, 'significant'));
+if max(tickA) > 5000, tickALab = arrayfun(@(v) sprintf('%.0fk', v / 1e3), tickA, 'UniformOutput', false); else, tickALab = arrayfun(@(v) sprintf('%g', v), tickA, 'UniformOutput', false); end
 fig = figure('Visible', 'off', 'Position', [40 40 1000 780], 'Color', 'w');
 imagesc(gL, gA, Zhat, 'AlphaData', ~isnan(Zhat)); set(gca, 'YDir', 'normal'); hold on
 colormap(gca, blueRamp); cb = colorbar; cb.Label.String = 'estimated RSA (ms), local-linear fit on paced breaths';
 clim([50 160]);
 [C, hc] = contour(gL, gA, Zhat, 60:20:160, 'LineColor', 'w', 'LineWidth', 1); clabel(C, hc, 'Color', 'w', 'FontSize', 9);
-scatter(log(T.length), log(T.amp), 4, [0.55 0.55 0.55], 'filled', 'MarkerFaceAlpha', 0.35);
-scatter(log(fB.length), log(fB.amp), 26, cFinal, 'filled', 'MarkerEdgeColor', 'w', 'LineWidth', 0.6);
-plot(log(fMean.length), log(fMean.amp), 'd', 'MarkerSize', 15, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.3);
-set(gca, 'XTick', log(tickL), 'XTickLabel', tickL, 'YTick', log(tickA), 'YTickLabel', tickA);
-xlabel('breath length (s), log axis'); ylabel('breath amplitude (raw units), log axis');
-title(sprintf('%s - estimated RSA over breath length x depth (paced breaths, n=%d; bandwidth %.2f SD; blank = too few paced breaths)\ngrey dots = paced breaths, violet = final 10 min (n=%d), diamond = final-10 mean', id, height(T), h, height(fB)), 'Interpreter', 'none');
+scatter(log(T.length), log(T.depth), 4, [0.55 0.55 0.55], 'filled', 'MarkerFaceAlpha', 0.35);
+scatter(log(fB.length), log(fB.depth), 26, cFinal, 'filled', 'MarkerEdgeColor', 'w', 'LineWidth', 0.6);
+plot(log(fMean.length), log(fMean.depth), 'd', 'MarkerSize', 15, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.3);
+set(gca, 'XTick', log(tickL), 'XTickLabel', tickL, 'YTick', log(tickA), 'YTickLabel', tickALab);
+xlabel('breath length (s), log axis'); ylabel([DEPTHLAB ', log axis']);
+title(sprintf('%s - estimated RSA over breath length x %s (paced breaths, n=%d; bandwidth %.2f SD; blank = too few paced breaths)\ngrey dots = paced breaths, violet = final 10 min (n=%d), diamond = final-10 mean', id, DEPTHSHORT, height(T), h, height(fB)), 'Interpreter', 'none');
 saveas(fig, fullfile(outDir, 'F8_rsa_surface.png')); close(fig);
 
 % F9 mean prediction error of the final-10 breaths over the same surface
@@ -340,11 +353,11 @@ imagesc(gL, gA, Zerr, 'AlphaData', ~isnan(Zerr)); set(gca, 'YDir', 'normal'); ho
 colormap(gca, divRamp); cb = colorbar; cb.Label.String = 'mean prediction error, observed - predicted RSA (ms)';
 clim([-lim lim]);
 contour(gL, gA, Zhat, 60:20:160, 'LineColor', [0.5 0.5 0.5], 'LineWidth', 0.8);
-scatter(log(fB.length(okF)), log(fB.amp(okF)), 30, errF(okF), 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 0.5);
-scatter(log(fB.length(~okF)), log(fB.amp(~okF)), 30, 'x', 'MarkerEdgeColor', 'k');
-plot(log(fMean.length), log(fMean.amp), 'd', 'MarkerSize', 15, 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
-set(gca, 'XTick', log(tickL), 'XTickLabel', tickL, 'YTick', log(tickA), 'YTickLabel', tickA);
-xlabel('breath length (s), log axis'); ylabel('breath amplitude (raw units), log axis');
+scatter(log(fB.length(okF)), log(fB.depth(okF)), 30, errF(okF), 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 0.5);
+scatter(log(fB.length(~okF)), log(fB.depth(~okF)), 30, 'x', 'MarkerEdgeColor', 'k');
+plot(log(fMean.length), log(fMean.depth), 'd', 'MarkerSize', 15, 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+set(gca, 'XTick', log(tickL), 'XTickLabel', tickL, 'YTick', log(tickA), 'YTickLabel', tickALab);
+xlabel('breath length (s), log axis'); ylabel([DEPTHLAB ', log axis']);
 sm = stats.final10_surfaceModel;
 title(sprintf('%s - final 10 min: observed minus predicted RSA (model fitted on paced breathing)\nkernel-weighted mean error surface; dots = individual final-10 breaths coloured by their error (x = outside paced support)\nmean error %+.1f \\pm %.1f ms (SEM), median %+.1f ms, n=%d/%d, sign-rank p=%.3f, RMSE %.0f ms; grey contours = estimated RSA', ...
     strrep(id, '_', '\_'), sm.meanError_ms, sm.semError_ms, sm.medianError_ms, sm.nInsideSupport, sm.nFinal10, sm.signrankP, sm.rmse_ms), 'Interpreter', 'tex');
@@ -352,8 +365,8 @@ saveas(fig, fullfile(outDir, 'F9_final10_prediction_error.png')); close(fig);
 
 % F5 final 10 min vs rest
 fig = figure('Visible', 'off', 'Position', [40 40 1800 800], 'Color', 'w');
-vlist = {'length', 'amp', 'rsa_ms', 'hrBPM', 'localPeriodCV', 'nSubPeaks'};
-vname = {'breath length (s)', 'amplitude', 'RSA (ms)', 'heart rate (bpm)', 'local period CV', 'sub-peaks per breath'};
+vlist = {'length', 'depth', 'rsa_ms', 'hrBPM', 'localPeriodCV', 'nSubPeaks'};
+vname = {'breath length (s)', DEPTHLAB, 'RSA (ms)', 'heart rate (bpm)', 'local period CV', 'sub-peaks per breath'};
 gm = {final10, pre, paced}; gcols = {cFinal, cPre, cPaced};
 for v = 1:numel(vlist)
     subplot(2, 3, v); hold on
