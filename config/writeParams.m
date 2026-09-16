@@ -515,6 +515,8 @@ function k = canonTask(t)
             k = 'movie';
         case {'alternating6blocks'}
             k = 'alt6';
+        case {'pacedbreathing'}
+            k = 'paced';
         otherwise
             k = '';
     end
@@ -530,6 +532,7 @@ function k = taskKey(task)
         case 'o15',                k = 'O15';
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
+        case 'pacedbreathing',     k = 'paced';
         otherwise,                 k = '';
     end
 end

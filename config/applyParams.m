@@ -12,7 +12,8 @@ function out = applyParams(task, sel, xlsxPath)
 %     cfg = applyParams(task, 'makeOutDat' | 'main' [, xlsxPath])   % Mode A
 %     P   = applyParams(task, sessID                  [, xlsxPath]) % Mode B
 %
-%   task in {'breathingTask','cueTask','threshTask','O15'}
+%   task in {'breathingTask','cueTask','threshTask','O15','EmotionalMovieTask',
+%            'alternating6Blocks','breathingTasks_separate','pacedBreathing'}
 %   default xlsxPath = labPaths().adminXlsx, the lab master
 %     (R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx). If that
 %     file is unreachable or lacks the datPre parameter column, falls back - with
@@ -257,6 +258,24 @@ function out = applyParams(task, sel, xlsxPath)
             P.beatSpec  = beatSpec;
             P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
 
+        case 'paced'
+            % pacedBreathing (added 2026-09-15): breathing-type processing of a
+            % single continuous EEG_breathing recording with NO event marks and
+            % no behavioral file (~7 min audiobook/survey, ~90 min paced breathing
+            % at a sweep of paces x depths, ~10 min focused breathing). Blocks are
+            % INFERRED from the segmented breaths (inferBlocks_pacedBreathing)
+            % with P.pacedOpts; there is no makeOutDat (raw loaded directly).
+            P.hasMacros = bool_or(rows{ri, cHasM}, false);   % EEG_breathing: no macros
+            beatSpec    = asChar(rows{ri, cBeat});
+            if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
+            P.beatSpec  = beatSpec;
+            P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
+            % block-inference options: empty = the documented defaults inside
+            % inferBlocks_pacedBreathing (minBlockSec 60, gapSec 15, penaltyBIC 4,
+            % merge tolerances ...). Override per session here if a review of
+            % the blocks_inferred figure calls for it (explicit switch on ID).
+            P.pacedOpts = struct();
+
         case 'sep'
             % breathingTasks_separate (Tasks_260824.md Task 9 / D12): the
             % session's condition recordings, processed per file then
@@ -443,6 +462,8 @@ function k = canonTask(t)
             k = 'movie';
         case {'alternating6blocks'}
             k = 'alt6';
+        case {'pacedbreathing'}
+            k = 'paced';   % pacedBreathing (added 2026-09-15)
         case {'audiobook', 'distractedbreathing', 'focusedbreathing', ...
               'sleep', 'sleepwithodor', 'restingbaseline'}
             k = 'sep';    % breathingTasks_separate condition rows (D12a)
@@ -462,6 +483,7 @@ function k = taskKey(task)
         case 'o15',                k = 'O15';
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
+        case 'pacedbreathing',     k = 'paced';
         case {'breathingtasks_separate', 'breathingtasksseparate'}, k = 'sep';
         otherwise,                 k = '';
     end
@@ -476,6 +498,7 @@ function s = taskCallerKey(task)
         case 'O15',       s = 'O15';
         case 'movie',     s = 'EmotionalMovieTask';
         case 'alt6',      s = 'alternating6Blocks';
+        case 'paced',     s = 'pacedBreathing';
         case 'sep',       s = 'breathingTasks_separate';
         otherwise,        s = asChar(task);
     end

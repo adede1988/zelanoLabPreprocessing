@@ -137,6 +137,7 @@ function k = taskKey(task)   % P.task -> key
         case 'o15',                k = 'O15';
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
+        case 'pacedbreathing',     k = 'paced';
         otherwise,                 k = '';
     end
 end
@@ -160,6 +161,8 @@ function k = canonTask(t)    % sheet Task cell -> key
             k = 'movie';
         case 'alternating6blocks'
             k = 'alt6';
+        case 'pacedbreathing'
+            k = 'paced';
         otherwise
             k = '';
     end
