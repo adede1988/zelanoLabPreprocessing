@@ -112,6 +112,10 @@ per‑breath CSV, which this repo directs to a local `processedBehavior/` folder
 
 ## Adding a new task
 
+The newest example is `pacedBreathing` (2026-09-15): a marker-free EEG_breathing recording whose block
+structure is inferred from the breaths themselves (`tasks/pacedBreathing/inferBlocks_pacedBreathing.m`) — see
+`CLAUDE.md` section 1 and 6.5 for what it stores.
+
 See **[`TUTORIAL_adding_a_task.md`](TUTORIAL_adding_a_task.md)** for a step‑by‑step guide to
 standing up a fifth task by writing only the task‑specific pieces and reusing the shared core.
 

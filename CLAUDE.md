@@ -27,6 +27,7 @@ Companion documents:
 | `cueTask` | `odor cue task` | odor cue / sniff / response TTLs; hit/miss/cr/fa behavior |
 | `threshTask` | `threshold` | PEA threshold; 45 single‑sniff trials |
 | `O15` | `O15` | loads raw directly (no `makeOutDat`); photodiode TTLs via `detect_ttls_O15`. `O15_noTTLs_skip` / `O15_corrupted` are deliberately unmatched. |
+| `pacedBreathing` | `pacedBreathing` | **marker-free** single EEG_breathing recording (added 2026-09-15 with `260915_EEG_NWU_KG`): ~7 min audiobook/survey, ~90 min paced breathing at a sweep of paces x depths with brief breaks, ~10 min focused breathing. Loads raw directly (no `makeOutDat`, no behavioral file); **blocks are inferred from the segmented breaths** (`inferBlocks_pacedBreathing`, positional labels `pre`/`paced`/`final`, stored in `outDat.blocks` + `blockInference`, `TTL` = block starts); per-breath table adds `rateBPM`, `localPeriodCV`, `localAmpCV`, `nSubPeaks` (raggedness). ECG/HRV via the breathing path. |
 
 Being added (see the current task file): `EmotionalMovieTask`, `alternating6Blocks`, and
 `breathingTasks_separate` (one session = several sheet rows/recordings whose `Task` is a condition name:
@@ -280,6 +281,10 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
 - **cue** — table `[nTrial × 3]`: `trialStart, response, sniff`.
 - **breathing** — **vector** of block‑boundary samples (or a 5‑min fallback `0:600000:end`). New breath‑based
   tasks keep this vector and may add a descriptive table (`blocks` / `sections` / clip table) alongside it.
+- **pacedBreathing** — vector of INFERRED block starts (no markers exist); the `blocks` table (`label, order,
+  startSample, endSample, durationSec, nBreaths, medRateBPM, medPeriodSec, medAmp, periodCV, ampCV, regularity,
+  gapSplit`) and `blockInference` (parameters, raw changepoints, merge history, per‑breath block index) sit
+  alongside. Review `blocks_inferred.jpg` in the session figure folder before trusting the labels.
 
 ### 6.6 Breathing‑only structures
 
@@ -346,7 +351,7 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
 | `pipelines/` | `preprocessAll.m` + the `*PreProc_main.m` entry points |
 | `pipelines/makeOutDat/` | raw → intermediate ingestion (`breathing` / `cue` / `thresh` …) |
 | `shared/` | the shared signal core (`assembleOutDat`, `downsample_data`, `preprocess_eeg`, `preprocess_macros`, `preprocess_respiration_wholetrace`, `detect_sniffs_from_TTLs`, `refine_onsets_with_phase`, `behDatFromSniffs`, `paramCheck`, EEG/spike/onset helpers) |
-| `tasks/<task>/` | each task's `assembleRaw_<task>.m`, `build_behavior_table_<task>.m`, task helpers (breathing: `process_respiration_breathing`, `alignTargetBreathingTraceSimplify`, `processECG`/`buildECGz`/`paramCheckECG`, `detectBeats`, `flagBadBreaths`; O15: `detect_ttls_O15`) |
+| `tasks/<task>/` | each task's `assembleRaw_<task>.m`, `build_behavior_table_<task>.m`, task helpers (breathing: `process_respiration_breathing`, `alignTargetBreathingTraceSimplify`, `processECG`/`buildECGz`/`paramCheckECG`, `detectBeats`, `flagBadBreaths`; O15: `detect_ttls_O15`; pacedBreathing: `inferBlocks_pacedBreathing`, `plotBlocks_pacedBreathing`) |
 | `external/` | vendored dependencies (`slowBreathing/` — five functions; `breathMetrics/` once added) |
 
 Adding a participant is a sheet edit plus its load‑data script; adding a task follows the tutorial —
