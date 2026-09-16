@@ -19,6 +19,8 @@ figures/
 # ...and the guess-review report figures (guessReview.html deliverable)
 !guessReviewFigs/**/*.jpg
 !guessReviewFigs/**/*.png
+# ...and the per-session analysis reports under reports/ (self-contained HTML + its figures)
+!reports/**/*.png
 
 # OS cruft
 .DS_Store
