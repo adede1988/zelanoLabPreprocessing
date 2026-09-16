@@ -119,10 +119,11 @@ function [blocks, TTL, info] = inferBlocks_pacedBreathing(bmObj, fs, nSamp, opts
     nB = numel(bounds) - 1;
     bStart = bounds(1:nB);
     startSec = t(bStart)'; startSec(1) = 0;
-    endSec   = [startSec(2:nB), durS];
-    startSample = max(1, round(startSec * fs) + 1); startSample(1) = 1;
-    endSample   = min(nSamp, round(endSec * fs));
-    endSample(nB) = nSamp;
+    % block b starts AT its first breath's onset sample (round(t*fs) is the
+    % sample index behDat.finalOnset carries), so a sample-span test
+    % (onset >= startSample & onset <= endSample) agrees with blkOfBreath
+    startSample = max(1, round(startSec * fs)); startSample(1) = 1;
+    endSample   = [startSample(2:nB) - 1, nSamp];
     blkOfBreath = zeros(n, 1);
     for b = 1:nB
         if b < nB, blkOfBreath(bStart(b):bStart(b + 1) - 1) = b; else, blkOfBreath(bStart(b):n) = b; end
