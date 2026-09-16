@@ -14,25 +14,43 @@ function [blocks, TTL, info] = inferBlocks_pacedBreathing(bmObj, fs, nSamp, opts
 %        5-breath running median (plateau level), plus a REGULARITY series =
 %        7-breath running mean of |log(period) - 7-breath running median|
 %        (natural breathing is irregular, paced breathing is not);
-%     2. changepoints on each smoothed series separately with findchangepts
-%        ('mean'), MinDistance = opts.minBlockBreaths, MinThreshold = a
-%        BIC-like penalty opts.penaltyBIC * sigma^2 * log(n), sigma^2 = the
-%        robust spread of the series around a wide running median; the
-%        three changepoint sets are pooled (over-segmentation);
+%     2. DELIBERATE OVER-SEGMENTATION: findchangepts ('mean') on each
+%        smoothed series separately, MinDistance = opts.minBlockBreaths,
+%        MinThreshold = opts.penaltyBIC * sigma^2 * log(n) with sigma^2 the
+%        robust spread of the smoothed series around a wide running median.
+%        That penalty is far below a proper BIC for these autocorrelated
+%        series (it keeps the ~1 breath/min plateau steps of a pace sweep,
+%        which a BIC on 15-25 breaths would miss), so it yields many spurious
+%        splits inside homogeneous stretches; the three sets are pooled and
+%        the MERGE stage (step 4) is the real decision maker;
 %     3. forced splits at breaks (inter-onset gap > opts.gapSec), protected
 %        from the similarity merge;
 %     4. iterated MERGE + REFINE until stable:
 %        merge - segments shorter than opts.minBlockSec (or fewer than
 %          opts.minBlockBreaths breaths) are absorbed into the more similar
-%          neighbour; an adjacent pair is merged (most similar first) when
+%          neighbour, never across a forced gap split while the other side
+%          is free; an adjacent pair is merged (most similar first) when
 %          (a) its raw-median log-period, log-amplitude and regularity all
 %              differ by less than opts.mergePeriodLog / mergeAmpLog /
 %              mergeRegularity, or
 %          (b) both segments are irregular (regularity > opts.naturalReg,
 %              i.e. natural breathing, which has no plateaus to separate)
-%              and their amplitude differs by less than 2*mergeAmpLog, or
+%              and their amplitude differs by less than 2*mergeAmpLog
+%              (opts.natPooled = true tests the pooled median regularity
+%              instead - it merges more but also swallows a paced plateau
+%              next to a natural stretch, so it is off by default), or
 %          (c) the level differences are statistically indistinguishable
-%              (< opts.seMult standard errors from the within-segment MADs);
+%              (< opts.seMult standard errors from the within-segment MADs).
+%              TRADE-OFF (2026-09-15 review + synthetic sweeps): the splits
+%              sit where the contrast is maximal, so at seMult 2.5 a
+%              homogeneous but variable block (period CV 0.10-0.15, e.g.
+%              focused or ragged breathing) is left in 2-3 fragments in
+%              20-40% of cases; at seMult 4 those fragments merge but the
+%              ~1 breath/min plateau steps of a pace sweep (15-25 breaths
+%              each) are merged too (30 -> 26 blocks, purity .90 -> .83 on
+%              protocol-matched simulations). 2.5 is the default because
+%              this protocol is a pace sweep; raise it per session for
+%              recordings made of long homogeneous blocks;
 %        refine - each boundary moves to the breath within +/-
 %          opts.refineBreaths that minimises the two-segment squared error
 %          of the UNSMOOTHED per-breath series that actually change there;
@@ -56,7 +74,7 @@ function [blocks, TTL, info] = inferBlocks_pacedBreathing(bmObj, fs, nSamp, opts
     if nargin < 4 || isempty(opts), opts = struct(); end
     dflt = struct('minBlockSec', 60, 'minBlockBreaths', 6, 'gapSec', 15, 'penaltyBIC', 4, ...
                   'mergePeriodLog', 0.06, 'mergeAmpLog', 0.15, 'mergeRegularity', 0.10, ...
-                  'naturalReg', 0.13, 'seMult', 2.5, 'refineBreaths', 5, 'maxIter', 8);
+                  'naturalReg', 0.13, 'seMult', 2.5, 'natPooled', false, 'refineBreaths', 5, 'maxIter', 8);
     fn = fieldnames(dflt);
     for k = 1:numel(fn)
         if ~isfield(opts, fn{k}) || isempty(opts.(fn{k})), opts.(fn{k}) = dflt.(fn{k}); end
@@ -200,10 +218,17 @@ function [bounds, isGap, history, nMerged] = mergePass(bounds, isGap, t, durS, l
         short = find(durSec < opts.minBlockSec | nBr < opts.minBlockBreaths);
         if ~isempty(short)
             [~, j] = min(durSec(short)); s0 = short(j);
+            % neighbour choice: a forced (gap) split is never deleted while the
+            % other side of the short segment is a free boundary
+            gapL = isGap(s0); gapR = isGap(s0 + 1);
             if s0 == 1
                 b = 1;
             elseif s0 == nS
                 b = nS - 1;
+            elseif gapR && ~gapL
+                b = s0 - 1;                  % keep the gap after it: merge left
+            elseif gapL && ~gapR
+                b = s0;                      % keep the gap before it: merge right
             else
                 if dist(s0 - 1) <= dist(s0), b = s0 - 1; else, b = s0; end
             end
@@ -215,7 +240,13 @@ function [bounds, isGap, history, nMerged] = mergePass(bounds, isGap, t, durS, l
 
         % (ii) merge the most similar adjacent pair that qualifies (gap boundaries protected)
         tolRule = dP < opts.mergePeriodLog & dA < opts.mergeAmpLog & dR < opts.mergeRegularity;
-        natRule = med(1:end-1, 3) > opts.naturalReg & med(2:end, 3) > opts.naturalReg & dA < 2 * opts.mergeAmpLog;
+        if opts.natPooled
+            pooledReg = zeros(nS - 1, 1);
+            for s = 1:nS - 1, pooledReg(s) = median(rgB(bounds(s):bounds(s+2) - 1)); end
+            natRule = pooledReg > opts.naturalReg & dA < 2 * opts.mergeAmpLog;
+        else
+            natRule = med(1:end-1, 3) > opts.naturalReg & med(2:end, 3) > opts.naturalReg & dA < 2 * opts.mergeAmpLog;
+        end
         seRule  = dP < opts.seMult * seP & dA < opts.seMult * seA & dR < opts.mergeRegularity;
         cand = find((tolRule | natRule | seRule) & ~isGap(2:end-1)');
         if isempty(cand), break; end

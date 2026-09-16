@@ -31,12 +31,16 @@ sessionIDs = cfg.sessionIDs;
 
 % Tasks_260824.md D4 batch override (see breathingTaskPreProc_main)
 allowGuessRunEnv = strcmp(getenv('ZLP_ALLOW_GUESS_RUN'), '1');
-onlyIDs = strtrim(strsplit(getenv('ZLP_MAIN_ONLY'), ','));   % optional session filter
+mainOnlyEnv = strtrim(getenv('ZLP_MAIN_ONLY'));            % optional session filter
+onlyIDs = {};
+if ~isempty(mainOnlyEnv)
+    onlyIDs = strtrim(strsplit(mainOnlyEnv, ',')); onlyIDs = onlyIDs(~cellfun(@isempty, onlyIDs));
+end
 
 success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
-    if ~isempty(onlyIDs{1}) && ~any(strcmpi(onlyIDs, sessionIDs{s}))
+    if ~isempty(onlyIDs) && ~any(strcmpi(onlyIDs, sessionIDs{s}))
         continue
     end
     disp(['working on ', sessionIDs{s}])
