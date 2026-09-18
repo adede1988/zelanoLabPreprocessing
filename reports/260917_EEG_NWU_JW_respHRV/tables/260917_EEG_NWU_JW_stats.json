@@ -1,0 +1,1074 @@
+{
+  "sessID": "260917_EEG_NWU_JW",
+  "durationMin": 85.277866666666654,
+  "seamMin": 6.0203000000000007,
+  "seamPadSec": 10,
+  "nNearSeamExcluded": 5,
+  "preSec": 361,
+  "finalSec": 600,
+  "segments": [
+    {
+      "suffix": "",
+      "nSamples": 180608,
+      "startSample": 1,
+      "firstTimeStampUs": 1.789640116157138E+15,
+      "timeStampPerSample": 499.96072556515958,
+      "gapBeforeSec": 0,
+      "startSec": 0,
+      "wallClockOffsetSec": 0
+    },
+    {
+      "suffix": "_0001",
+      "nSamples": 2.377728E+6,
+      "startSample": 180609,
+      "firstTimeStampUs": 1.789640532954557E+15,
+      "timeStampPerSample": 499.96892864653432,
+      "gapBeforeSec": 55.609792,
+      "startSec": 361.216,
+      "wallClockOffsetSec": 55.609792
+    }
+  ],
+  "periods": {
+    "preEndMin": 6.0166666666666666,
+    "pacedStartMin": 6.0166666666666666,
+    "pacedEndMin": 75.277866666666654,
+    "final10StartMin": 75.277866666666654
+  },
+  "depthPredictor": "inhale volume (raw units)",
+  "nBreaths": 970,
+  "nGood": 914,
+  "nClean": 450,
+  "nPaced": 785,
+  "nPre": 80,
+  "nFinal10": 105,
+  "ecgSkipped": 0,
+  "hrOverall": 66.8155364137881,
+  "fracGoodPaced": 0.95031847133757963,
+  "fracCleanPaced": 0.50955414012738853,
+  "fracMultiPeak": {
+    "paced": 0.31210191082802546,
+    "pre": 0.4125,
+    "final10": 0.59047619047619049
+  },
+  "spearman": {
+    "rsa_vs_logLength": [
+      0.5588585766408789,
+      1.6768274430887463E-62
+    ],
+    "rsa_vs_logDepth": [
+      0.0062413058668393043,
+      0.86486497056604517
+    ],
+    "rsa_vs_logVol": [
+      0.34674246658846614,
+      1.6869465172681713E-22
+    ]
+  },
+  "model_additive": {
+    "formula": "rsa ~ 1 + logLen + logDepth",
+    "coefNames": [
+      "(Intercept)",
+      "logLen",
+      "logDepth"
+    ],
+    "coef": [
+      66.689842565086039,
+      68.871108294495244,
+      22.927885043867128
+    ],
+    "se": [
+      1.2785900415253171,
+      3.8146202364925825,
+      4.1296564680473207
+    ],
+    "p": [
+      1.4410642257914836E-250,
+      1.0844840313213451E-60,
+      3.9328618511825507E-8
+    ],
+    "R2": 0.40309955433908173,
+    "R2adj": 0.40149282366435513,
+    "n": 746,
+    "rmse": 34.922130529774861
+  },
+  "model_interaction": {
+    "formula": "rsa ~ 1 + logLen*logDepth",
+    "coefNames": [
+      "(Intercept)",
+      "logLen",
+      "logDepth",
+      "logLen:logDepth"
+    ],
+    "coef": [
+      64.684537763629535,
+      73.252502337282834,
+      41.596720623284796,
+      89.040515000639559
+    ],
+    "se": [
+      1.2377905842530879,
+      3.6020787246014927,
+      4.0121896807883948,
+      7.7014757666079934
+    ],
+    "p": [
+      6.9407032053314574E-251,
+      2.0535655952310737E-73,
+      1.3010166239325993E-23,
+      1.5257007459695858E-28
+    ],
+    "R2": 0.5143840646365041,
+    "R2adj": 0.51242065788975144,
+    "n": 746,
+    "rmse": 32.965685864271649
+  },
+  "model_lengthOnly": {
+    "formula": "rsa ~ 1 + logLen",
+    "coefNames": [
+      "(Intercept)",
+      "logLen"
+    ],
+    "coef": [
+      66.648730254668848,
+      74.670387670879236
+    ],
+    "se": [
+      1.2867523284653954,
+      3.6493355558769602
+    ],
+    "p": [
+      5.80627366798537E-249,
+      3.6513268119918465E-74
+    ],
+    "R2": 0.38033138795802079,
+    "R2adj": 0.37949850003860941,
+    "n": 746,
+    "rmse": 35.145067077601283
+  },
+  "model_depthOnly": {
+    "formula": "rsa ~ 1 + logDepth",
+    "coefNames": [
+      "(Intercept)",
+      "logDepth"
+    ],
+    "coef": [
+      63.668698945905739,
+      42.407814650026793
+    ],
+    "se": [
+      1.4078099528239327,
+      4.32240527209975
+    ],
+    "p": [
+      1.0769563262906285E-215,
+      1.8860753960294189E-21
+    ],
+    "R2": 0.17361723311445,
+    "R2adj": 0.17250650358906605,
+    "n": 746,
+    "rmse": 38.451514040405648
+  },
+  "model_additive_clean": {
+    "formula": "rsa ~ 1 + logLen + logDepth",
+    "coefNames": [
+      "(Intercept)",
+      "logLen",
+      "logDepth"
+    ],
+    "coef": [
+      60.30694967476542,
+      94.747746995940858,
+      18.469934674229627
+    ],
+    "se": [
+      1.3268945647999031,
+      5.45709512318532,
+      5.5563805318944368
+    ],
+    "p": [
+      2.0223547205391127E-159,
+      1.2089580127760126E-50,
+      0.00096949143211349988
+    ],
+    "R2": 0.48541879473760474,
+    "R2adj": 0.4828264460964844,
+    "n": 400,
+    "rmse": 26.537891295998055
+  },
+  "model_additive_allPaced": {
+    "formula": "rsa ~ 1 + logLen + logDepth",
+    "coefNames": [
+      "(Intercept)",
+      "logLen",
+      "logDepth"
+    ],
+    "coef": [
+      70.377448539569414,
+      75.502185860972617,
+      25.883006637125572
+    ],
+    "se": [
+      1.3175516657444022,
+      3.7811328229075625,
+      4.2228233545296616
+    ],
+    "p": [
+      3.8464977270076351E-263,
+      5.2881562941979312E-72,
+      1.3987358671740779E-9
+    ],
+    "R2": 0.43181787858762166,
+    "R2adj": 0.43036472738196341,
+    "n": 785,
+    "rmse": 36.914966851483037
+  },
+  "depthTertileCuts": [
+    104865.94365128537,
+    130278.73867703378
+  ],
+  "final10_additiveModel": {
+    "n": 94,
+    "meanObserved_ms": 92.024100973894761,
+    "meanPredicted_ms": 68.594754992007182,
+    "meanError_ms": 23.42934598188759,
+    "semError_ms": 5.5450610569622381,
+    "medianError_ms": 9.9157104176915283,
+    "signrankP": 0.00048302075840201075,
+    "ttestP": 5.5658937118823474E-5
+  },
+  "final10_vs_pre": [
+    {
+      "measure": "length",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 5.589999999999236,
+      "medOther": 4.8020000000000067,
+      "q1Final10": 4.9160000000001673,
+      "q3Final10": 6.2960000000002765,
+      "q1Other": 3.7660000000000196,
+      "q3Other": 5.4199999999999591,
+      "ranksumP": 1.7901479586215641E-8,
+      "cliffsDelta": 0.50690051753881538
+    },
+    {
+      "measure": "rateBPM",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 10.733563886276126,
+      "medOther": 12.496042399455245,
+      "q1Final10": 9.5298602287162275,
+      "q3Final10": 12.205044751830341,
+      "q1Other": 11.070110701107094,
+      "q3Other": 15.932023366967522,
+      "ranksumP": 1.7901479586215641E-8,
+      "cliffsDelta": -0.50690051753881538
+    },
+    {
+      "measure": "amp",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 105.05521340457581,
+      "medOther": 135.45774807481723,
+      "q1Final10": 84.936888859317634,
+      "q3Final10": 136.36904904246225,
+      "q1Other": 120.2427754629386,
+      "q3Other": 171.24152599496438,
+      "ranksumP": 4.0027258747553148E-7,
+      "cliffsDelta": -0.45629672225416906
+    },
+    {
+      "measure": "rsa_ms",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 81.832352940588379,
+      "medOther": 51.77027027025494,
+      "q1Final10": 51.999999999679858,
+      "q3Final10": 113.999999999578,
+      "q1Other": 35.159836065613128,
+      "q3Other": 70.17758985200895,
+      "ranksumP": 1.1762629745083668E-5,
+      "cliffsDelta": 0.39447958596894767
+    },
+    {
+      "measure": "rsaNorm",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 0.089347114804187944,
+      "medOther": 0.058357625117276088,
+      "q1Final10": 0.055577693341030604,
+      "q3Final10": 0.13220280512653615,
+      "q1Other": 0.037486634471809069,
+      "q3Other": 0.080224630648179182,
+      "ranksumP": 2.2538470719695163E-5,
+      "cliffsDelta": 0.38154111558366877
+    },
+    {
+      "measure": "hrBPM",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 66.100424093892428,
+      "medOther": 66.017407617433264,
+      "q1Final10": 64.11672127459147,
+      "q3Final10": 67.9603695987296,
+      "q1Other": 64.840162509592673,
+      "q3Other": 68.015476773070446,
+      "ranksumP": 0.43658289791300381,
+      "cliffsDelta": -0.070155261644623351
+    },
+    {
+      "measure": "localPeriodCV",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 0.13381115503857577,
+      "medOther": 0.20808485118064207,
+      "q1Final10": 0.10666566695177965,
+      "q3Final10": 0.22830687667979477,
+      "q1Other": 0.093489657863418035,
+      "q3Other": 0.3086431510239116,
+      "ranksumP": 0.19512628272678206,
+      "cliffsDelta": -0.11673375503162738
+    },
+    {
+      "measure": "nSubPeaks",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 2,
+      "medOther": 1,
+      "q1Final10": 1,
+      "q3Final10": 2,
+      "q1Other": 1,
+      "q3Other": 2,
+      "ranksumP": 0.029619818887047598,
+      "cliffsDelta": 0.17783208740655548
+    },
+    {
+      "measure": "depthVol",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 93188.645253061812,
+      "medOther": 104648.1115484183,
+      "q1Final10": 73415.818935849456,
+      "q3Final10": 106088.81808386922,
+      "q1Other": 93825.042649715848,
+      "q3Other": 121962.73062089772,
+      "ranksumP": 7.1946083434293944E-5,
+      "cliffsDelta": -0.35738930419781484
+    }
+  ],
+  "hr_pre": 66.017407617433264,
+  "hr_paced": 67.108136990701681,
+  "hr_final10": 66.250964863935053,
+  "final10_surfaceModel": {
+    "bandwidthSD": 0.35,
+    "nFinal10": 94,
+    "nInsideSupport": 71,
+    "meanObserved_ms": 96.547284965398191,
+    "meanPredicted_ms": 68.074259948811289,
+    "meanError_ms": 28.473025016586906,
+    "semError_ms": 6.7304221880278527,
+    "medianError_ms": 13.637765385657815,
+    "sdError_ms": 56.711545393032026,
+    "signrankP": 0.00020956030689054482,
+    "ttestP": 6.9451263543556346E-5,
+    "rmse_ms": 63.1000313124488
+  },
+  "final10_mean": {
+    "length": 5.6180425531914846,
+    "depth": 94510.289208684058,
+    "amp": 112.00818876678554,
+    "rsa": 92.024100973894761,
+    "lengthSD": 1.1219205491476634,
+    "depthSD": 35220.427639831556,
+    "ampSD": 41.749112815981455,
+    "rsaSD": 57.450105634942446,
+    "n": 94
+  },
+  "inhaleLocked": {
+    "paced": {
+      "n": 746,
+      "minRRchange_ms": -25.911758177523897,
+      "timeOfMin_s": 2.14,
+      "maxRRchange_ms": -0.73365169875315561
+    },
+    "pre": {
+      "n": 74,
+      "minRRchange_ms": -25.995174726295826,
+      "timeOfMin_s": 1.76,
+      "maxRRchange_ms": -3.2262319095491132
+    },
+    "final10": {
+      "n": 94,
+      "minRRchange_ms": -45.658613754151453,
+      "timeOfMin_s": 2.04,
+      "maxRRchange_ms": -3.0760702651445957
+    }
+  },
+  "binned": [
+    {
+      "lengthBin": "<4",
+      "depthBin": "shallow",
+      "n": 89,
+      "medRSA_ms": 37.842217484316706,
+      "iqrRSA_ms": 28.080667051576796,
+      "medLength_s": 3.5299999999997453,
+      "medDepth": 84267.638090492663,
+      "medAmp": 131.93896984079362,
+      "medHR": 66.473676414509285
+    },
+    {
+      "lengthBin": "<4",
+      "depthBin": "medium",
+      "n": 56,
+      "medRSA_ms": 41.1537360090769,
+      "iqrRSA_ms": 30.421689119402686,
+      "medLength_s": 3.6909999999999457,
+      "medDepth": 116891.96513305348,
+      "medAmp": 179.48010356387545,
+      "medHR": 66.15141565293186
+    },
+    {
+      "lengthBin": "<4",
+      "depthBin": "deep",
+      "n": 49,
+      "medRSA_ms": 52.306695464034107,
+      "iqrRSA_ms": 43.8736951984183,
+      "medLength_s": 3.6899999999998272,
+      "medDepth": 156033.17220996978,
+      "medAmp": 230.94966122517374,
+      "medHR": 69.701686486202277
+    },
+    {
+      "lengthBin": "4-5",
+      "depthBin": "shallow",
+      "n": 88,
+      "medRSA_ms": 46.000000000134378,
+      "iqrRSA_ms": 30.2585365858018,
+      "medLength_s": 4.4350000000000023,
+      "medDepth": 92418.760204831953,
+      "medAmp": 129.71231513844464,
+      "medHR": 66.029166078597029
+    },
+    {
+      "lengthBin": "4-5",
+      "depthBin": "medium",
+      "n": 75,
+      "medRSA_ms": 49.072527472168389,
+      "iqrRSA_ms": 30.43921340134667,
+      "medLength_s": 4.5019999999999527,
+      "medDepth": 117162.21334938641,
+      "medAmp": 153.00358244391347,
+      "medHR": 66.736052782872449
+    },
+    {
+      "lengthBin": "4-5",
+      "depthBin": "deep",
+      "n": 69,
+      "medRSA_ms": 58.0000000002201,
+      "iqrRSA_ms": 28.608978108268403,
+      "medLength_s": 4.3899999999999864,
+      "medDepth": 151457.85907445068,
+      "medAmp": 194.44590499230068,
+      "medHR": 68.844634522122561
+    },
+    {
+      "lengthBin": "5-6",
+      "depthBin": "shallow",
+      "n": 40,
+      "medRSA_ms": 47.430843926601412,
+      "iqrRSA_ms": 29.765681950375317,
+      "medLength_s": 5.3700000000001182,
+      "medDepth": 91924.647568889923,
+      "medAmp": 116.24770481065016,
+      "medHR": 69.265800445095962
+    },
+    {
+      "lengthBin": "5-6",
+      "depthBin": "medium",
+      "n": 51,
+      "medRSA_ms": 59.99999999994543,
+      "iqrRSA_ms": 38.776278517968173,
+      "medLength_s": 5.38799999999992,
+      "medDepth": 118527.89178760492,
+      "medAmp": 135.74269374101738,
+      "medHR": 69.529559101277144
+    },
+    {
+      "lengthBin": "5-6",
+      "depthBin": "deep",
+      "n": 51,
+      "medRSA_ms": 66.000000000030923,
+      "iqrRSA_ms": 34.789055749531116,
+      "medLength_s": 5.3779999999999291,
+      "medDepth": 147452.80828023585,
+      "medAmp": 156.8689760512907,
+      "medHR": 70.6076088898039
+    },
+    {
+      "lengthBin": "6-7.5",
+      "depthBin": "shallow",
+      "n": 20,
+      "medRSA_ms": 61.143097173310736,
+      "iqrRSA_ms": 46.130940016223704,
+      "medLength_s": 6.3500000000001364,
+      "medDepth": 91973.081385878,
+      "medAmp": 105.54681157190714,
+      "medHR": 66.212085699174139
+    },
+    {
+      "lengthBin": "6-7.5",
+      "depthBin": "medium",
+      "n": 31,
+      "medRSA_ms": 89.790393013024044,
+      "iqrRSA_ms": 61.585062240149064,
+      "medLength_s": 6.7139999999999418,
+      "medDepth": 117847.05359704158,
+      "medAmp": 129.66241551804998,
+      "medHR": 68.31208822927357
+    },
+    {
+      "lengthBin": "6-7.5",
+      "depthBin": "deep",
+      "n": 29,
+      "medRSA_ms": 113.88640973680397,
+      "iqrRSA_ms": 73.166696073128151,
+      "medLength_s": 6.6399999999998727,
+      "medDepth": 149114.38233073067,
+      "medAmp": 142.29848585517672,
+      "medHR": 67.108136990701681
+    },
+    {
+      "lengthBin": "7.5-9",
+      "depthBin": "shallow",
+      "n": 8,
+      "medRSA_ms": 123.99999999979627,
+      "iqrRSA_ms": 42.038966032594331,
+      "medLength_s": 8.3450000000000273,
+      "medDepth": 98105.12264076923,
+      "medAmp": 95.0594946518519,
+      "medHR": 64.806239523100416
+    },
+    {
+      "lengthBin": "7.5-9",
+      "depthBin": "medium",
+      "n": 25,
+      "medRSA_ms": 134.00000000001455,
+      "iqrRSA_ms": 69.1196388259062,
+      "medLength_s": 8.3640000000000327,
+      "medDepth": 115872.77778802873,
+      "medAmp": 127.92289564797061,
+      "medHR": 66.2756749157063
+    },
+    {
+      "lengthBin": "7.5-9",
+      "depthBin": "deep",
+      "n": 17,
+      "medRSA_ms": 149.99999999986358,
+      "iqrRSA_ms": 103.98054474688334,
+      "medLength_s": 8.4820000000001983,
+      "medDepth": 150325.6864005602,
+      "medAmp": 163.12209078039203,
+      "medHR": 65.241362879344422
+    },
+    {
+      "lengthBin": "9-11",
+      "depthBin": "shallow",
+      "n": 3,
+      "medRSA_ms": 163.99999999975989,
+      "iqrRSA_ms": 102.33750000020746,
+      "medLength_s": 9.8780000000001564,
+      "medDepth": 98631.60230838698,
+      "medAmp": 88.983446648855136,
+      "medHR": 64.477768003510818
+    },
+    {
+      "lengthBin": "9-11",
+      "depthBin": "medium",
+      "n": 10,
+      "medRSA_ms": 214.03086000351544,
+      "iqrRSA_ms": 123.99999999979627,
+      "medLength_s": 9.4729999999998427,
+      "medDepth": 121311.11185794389,
+      "medAmp": 103.00970093954209,
+      "medHR": 65.860407602748211
+    },
+    {
+      "lengthBin": "9-11",
+      "depthBin": "deep",
+      "n": 33,
+      "medRSA_ms": 155.99999999972169,
+      "iqrRSA_ms": 67.354820970364941,
+      "medLength_s": 9.8600000000005821,
+      "medDepth": 147483.6638095144,
+      "medAmp": 140.04382149255409,
+      "medHR": 66.089577267823685
+    },
+    {
+      "lengthBin": ">11",
+      "depthBin": "shallow",
+      "n": 1,
+      "medRSA_ms": 185.99999999969441,
+      "iqrRSA_ms": 0,
+      "medLength_s": 11.735999999999876,
+      "medDepth": 100700.13293368627,
+      "medAmp": 89.191325458657516,
+      "medHR": 61.318782558991295
+    },
+    {
+      "lengthBin": ">11",
+      "depthBin": "medium",
+      "n": 0,
+      "medRSA_ms": null,
+      "iqrRSA_ms": null,
+      "medLength_s": null,
+      "medDepth": null,
+      "medAmp": null,
+      "medHR": null
+    },
+    {
+      "lengthBin": ">11",
+      "depthBin": "deep",
+      "n": 1,
+      "medRSA_ms": 271.99999999993452,
+      "iqrRSA_ms": 0,
+      "medLength_s": 11.698000000000093,
+      "medDepth": 245204.35939117987,
+      "medAmp": 192.02083204377757,
+      "medHR": 70.057866245065156
+    }
+  ],
+  "final10_vs_rest": [
+    {
+      "measure": "length",
+      "comparedTo": "restAll",
+      "nFinal10": 94,
+      "nOther": 820,
+      "medFinal10": 5.589999999999236,
+      "medOther": 4.7189999999999372,
+      "q1Final10": 4.9160000000001673,
+      "q3Final10": 6.2960000000002765,
+      "q1Other": 3.9739999999999895,
+      "q3Other": 5.7219999999995821,
+      "ranksumP": 2.2385618389873204E-7,
+      "cliffsDelta": 0.32575246497145821
+    },
+    {
+      "measure": "length",
+      "comparedTo": "pacedAll",
+      "nFinal10": 94,
+      "nOther": 746,
+      "medFinal10": 5.589999999999236,
+      "medOther": 4.7150000000003729,
+      "q1Final10": 4.9160000000001673,
+      "q3Final10": 6.2960000000002765,
+      "q1Other": 3.9779999999999518,
+      "q3Other": 5.8419999999998709,
+      "ranksumP": 1.1292179007061159E-6,
+      "cliffsDelta": 0.30778335519936112
+    },
+    {
+      "measure": "length",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 5.589999999999236,
+      "medOther": 4.8020000000000067,
+      "q1Final10": 4.9160000000001673,
+      "q3Final10": 6.2960000000002765,
+      "q1Other": 3.7660000000000196,
+      "q3Other": 5.4199999999999591,
+      "ranksumP": 1.7901479586215641E-8,
+      "cliffsDelta": 0.50690051753881538
+    },
+    {
+      "measure": "rateBPM",
+      "comparedTo": "restAll",
+      "nFinal10": 94,
+      "nOther": 820,
+      "medFinal10": 10.733563886276126,
+      "medOther": 12.714558740058079,
+      "q1Final10": 9.5298602287162275,
+      "q3Final10": 12.205044751830341,
+      "q1Other": 10.485845391506533,
+      "q3Other": 15.098137896326159,
+      "ranksumP": 2.2385618389873204E-7,
+      "cliffsDelta": -0.32575246497145821
+    },
+    {
+      "measure": "rateBPM",
+      "comparedTo": "pacedAll",
+      "nFinal10": 94,
+      "nOther": 746,
+      "medFinal10": 10.733563886276126,
+      "medOther": 12.725345217158427,
+      "q1Final10": 9.5298602287162275,
+      "q3Final10": 12.205044751830341,
+      "q1Other": 10.27045532351957,
+      "q3Other": 15.08295625942703,
+      "ranksumP": 1.1292179007061159E-6,
+      "cliffsDelta": -0.30778335519936112
+    },
+    {
+      "measure": "rateBPM",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 10.733563886276126,
+      "medOther": 12.496042399455245,
+      "q1Final10": 9.5298602287162275,
+      "q3Final10": 12.205044751830341,
+      "q1Other": 11.070110701107094,
+      "q3Other": 15.932023366967522,
+      "ranksumP": 1.7901479586215641E-8,
+      "cliffsDelta": -0.50690051753881538
+    },
+    {
+      "measure": "amp",
+      "comparedTo": "restAll",
+      "nFinal10": 94,
+      "nOther": 820,
+      "medFinal10": 105.05521340457581,
+      "medOther": 144.51547557634342,
+      "q1Final10": 84.936888859317634,
+      "q3Final10": 136.36904904246225,
+      "q1Other": 119.27313943019215,
+      "q3Other": 182.75892716665194,
+      "ranksumP": 2.5217971832118097E-16,
+      "cliffsDelta": -0.51546445251686557
+    },
+    {
+      "measure": "amp",
+      "comparedTo": "pacedAll",
+      "nFinal10": 94,
+      "nOther": 746,
+      "medFinal10": 105.05521340457581,
+      "medOther": 145.07066067337439,
+      "q1Final10": 84.936888859317634,
+      "q3Final10": 136.36904904246225,
+      "q1Other": 119.24470713564732,
+      "q3Other": 184.3079593187733,
+      "ranksumP": 1.6491972866872571E-16,
+      "cliffsDelta": -0.52133363755632878
+    },
+    {
+      "measure": "amp",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 105.05521340457581,
+      "medOther": 135.45774807481723,
+      "q1Final10": 84.936888859317634,
+      "q3Final10": 136.36904904246225,
+      "q1Other": 120.2427754629386,
+      "q3Other": 171.24152599496438,
+      "ranksumP": 4.0027258747553148E-7,
+      "cliffsDelta": -0.45629672225416906
+    },
+    {
+      "measure": "rsa_ms",
+      "comparedTo": "restAll",
+      "nFinal10": 94,
+      "nOther": 820,
+      "medFinal10": 81.832352940588379,
+      "medOther": 57.999999999992724,
+      "q1Final10": 51.999999999679858,
+      "q3Final10": 113.999999999578,
+      "q1Other": 39.063257486993024,
+      "q3Other": 90.32054756581131,
+      "ranksumP": 6.0880930565754573E-5,
+      "cliffsDelta": 0.25221847431240269
+    },
+    {
+      "measure": "rsa_ms",
+      "comparedTo": "pacedAll",
+      "nFinal10": 94,
+      "nOther": 746,
+      "medFinal10": 81.832352940588379,
+      "medOther": 58.427083333209119,
+      "q1Final10": 51.999999999679858,
+      "q3Final10": 113.999999999578,
+      "q1Other": 39.272649389616944,
+      "q3Other": 91.999999999870852,
+      "ranksumP": 0.00016610168779877146,
+      "cliffsDelta": 0.23810678227140494
+    },
+    {
+      "measure": "rsa_ms",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 81.832352940588379,
+      "medOther": 51.77027027025494,
+      "q1Final10": 51.999999999679858,
+      "q3Final10": 113.999999999578,
+      "q1Other": 35.159836065613128,
+      "q3Other": 70.17758985200895,
+      "ranksumP": 1.1762629745083668E-5,
+      "cliffsDelta": 0.39447958596894767
+    },
+    {
+      "measure": "rsaNorm",
+      "comparedTo": "restAll",
+      "nFinal10": 94,
+      "nOther": 820,
+      "medFinal10": 0.089347114804187944,
+      "medOther": 0.064925854910144548,
+      "q1Final10": 0.055577693341030604,
+      "q3Final10": 0.13220280512653615,
+      "q1Other": 0.043817405976208146,
+      "q3Other": 0.10281193355186287,
+      "ranksumP": 0.0002464033806919611,
+      "cliffsDelta": 0.23061754021795536
+    },
+    {
+      "measure": "rsaNorm",
+      "comparedTo": "pacedAll",
+      "nFinal10": 94,
+      "nOther": 746,
+      "medFinal10": 0.089347114804187944,
+      "medOther": 0.0655273152481502,
+      "q1Final10": 0.055577693341030604,
+      "q3Final10": 0.13220280512653615,
+      "q1Other": 0.044108375276228691,
+      "q3Other": 0.10486545371335655,
+      "ranksumP": 0.00064859294124336984,
+      "cliffsDelta": 0.21564656893502937
+    },
+    {
+      "measure": "rsaNorm",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 0.089347114804187944,
+      "medOther": 0.058357625117276088,
+      "q1Final10": 0.055577693341030604,
+      "q3Final10": 0.13220280512653615,
+      "q1Other": 0.037486634471809069,
+      "q3Other": 0.080224630648179182,
+      "ranksumP": 2.2538470719695163E-5,
+      "cliffsDelta": 0.38154111558366877
+    },
+    {
+      "measure": "hrBPM",
+      "comparedTo": "restAll",
+      "nFinal10": 94,
+      "nOther": 820,
+      "medFinal10": 66.100424093892428,
+      "medOther": 67.05636725628915,
+      "q1Final10": 64.11672127459147,
+      "q3Final10": 67.9603695987296,
+      "q1Other": 64.879593428056822,
+      "q3Other": 69.696947170979115,
+      "ranksumP": 0.0003369204730094646,
+      "cliffsDelta": -0.225531914893617
+    },
+    {
+      "measure": "hrBPM",
+      "comparedTo": "pacedAll",
+      "nFinal10": 94,
+      "nOther": 746,
+      "medFinal10": 66.100424093892428,
+      "medOther": 67.184287202727717,
+      "q1Final10": 64.11672127459147,
+      "q3Final10": 67.9603695987296,
+      "q1Other": 64.88640708838949,
+      "q3Other": 69.798861277231836,
+      "ranksumP": 0.0001386588473692401,
+      "cliffsDelta": -0.24094461240088985
+    },
+    {
+      "measure": "hrBPM",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 66.100424093892428,
+      "medOther": 66.017407617433264,
+      "q1Final10": 64.11672127459147,
+      "q3Final10": 67.9603695987296,
+      "q1Other": 64.840162509592673,
+      "q3Other": 68.015476773070446,
+      "ranksumP": 0.43658289791300381,
+      "cliffsDelta": -0.070155261644623351
+    },
+    {
+      "measure": "localPeriodCV",
+      "comparedTo": "restAll",
+      "nFinal10": 94,
+      "nOther": 820,
+      "medFinal10": 0.13381115503857577,
+      "medOther": 0.11021479698529166,
+      "q1Final10": 0.10666566695177965,
+      "q3Final10": 0.22830687667979477,
+      "q1Other": 0.056320252285452066,
+      "q3Other": 0.25338584595240632,
+      "ranksumP": 0.0063724200891267695,
+      "cliffsDelta": 0.17161390762843798
+    },
+    {
+      "measure": "localPeriodCV",
+      "comparedTo": "pacedAll",
+      "nFinal10": 94,
+      "nOther": 746,
+      "medFinal10": 0.13381115503857577,
+      "medOther": 0.10640237382433294,
+      "q1Final10": 0.10666566695177965,
+      "q3Final10": 0.22830687667979477,
+      "q1Other": 0.05530354937588159,
+      "q3Other": 0.24917380754612126,
+      "ranksumP": 0.0015433961643465681,
+      "cliffsDelta": 0.20021675888426216
+    },
+    {
+      "measure": "localPeriodCV",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 0.13381115503857577,
+      "medOther": 0.20808485118064207,
+      "q1Final10": 0.10666566695177965,
+      "q3Final10": 0.22830687667979477,
+      "q1Other": 0.093489657863418035,
+      "q3Other": 0.3086431510239116,
+      "ranksumP": 0.19512628272678206,
+      "cliffsDelta": -0.11673375503162738
+    },
+    {
+      "measure": "nSubPeaks",
+      "comparedTo": "restAll",
+      "nFinal10": 94,
+      "nOther": 820,
+      "medFinal10": 2,
+      "medOther": 1,
+      "q1Final10": 1,
+      "q3Final10": 2,
+      "q1Other": 1,
+      "q3Other": 2,
+      "ranksumP": 1.5208508124658985E-7,
+      "cliffsDelta": 0.27254800207576546
+    },
+    {
+      "measure": "nSubPeaks",
+      "comparedTo": "pacedAll",
+      "nFinal10": 94,
+      "nOther": 746,
+      "medFinal10": 2,
+      "medOther": 1,
+      "q1Final10": 1,
+      "q3Final10": 2,
+      "q1Other": 1,
+      "q3Other": 2,
+      "ranksumP": 5.4222393837786905E-8,
+      "cliffsDelta": 0.28194341452284527
+    },
+    {
+      "measure": "nSubPeaks",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 2,
+      "medOther": 1,
+      "q1Final10": 1,
+      "q3Final10": 2,
+      "q1Other": 1,
+      "q3Other": 2,
+      "ranksumP": 0.029619818887047598,
+      "cliffsDelta": 0.17783208740655548
+    },
+    {
+      "measure": "depthVol",
+      "comparedTo": "restAll",
+      "nFinal10": 94,
+      "nOther": 820,
+      "medFinal10": 93188.645253061812,
+      "medOther": 116437.09841704054,
+      "q1Final10": 73415.818935849456,
+      "q3Final10": 106088.81808386922,
+      "q1Other": 97283.540317253122,
+      "q3Other": 138516.73912635783,
+      "ranksumP": 7.2809603668581033E-14,
+      "cliffsDelta": -0.47070576024909183
+    },
+    {
+      "measure": "depthVol",
+      "comparedTo": "pacedAll",
+      "nFinal10": 94,
+      "nOther": 746,
+      "medFinal10": 93188.645253061812,
+      "medOther": 117523.95780329216,
+      "q1Final10": 73415.818935849456,
+      "q3Final10": 106088.81808386922,
+      "q1Other": 97732.662993846126,
+      "q3Other": 139426.71386089624,
+      "ranksumP": 2.4934076107538253E-14,
+      "cliffsDelta": -0.48194626661342765
+    },
+    {
+      "measure": "depthVol",
+      "comparedTo": "preNatural",
+      "nFinal10": 94,
+      "nOther": 74,
+      "medFinal10": 93188.645253061812,
+      "medOther": 104648.1115484183,
+      "q1Final10": 73415.818935849456,
+      "q3Final10": 106088.81808386922,
+      "q1Other": 93825.042649715848,
+      "q3Other": 121962.73062089772,
+      "ranksumP": 7.1946083434293944E-5,
+      "cliffsDelta": -0.35738930419781484
+    }
+  ],
+  "final10_vs_paced_matchedLength": [
+    {
+      "lengthBin": "<4",
+      "nFinal10": 5,
+      "nPaced": 194,
+      "medRSAfinal_ms": 68.279010045134484,
+      "medRSApaced_ms": 41.822784809768251,
+      "ranksumP": 0.26915193165392343,
+      "cliffsDelta": 0.2907216494845361,
+      "medDepthFinal": 83414.564556892539,
+      "medDepthPaced": 108821.34066044312
+    },
+    {
+      "lengthBin": "4-5",
+      "nFinal10": 21,
+      "nPaced": 232,
+      "medRSAfinal_ms": 52.0000000001215,
+      "medRSApaced_ms": 51.013211081501254,
+      "ranksumP": 0.53648571439777082,
+      "cliffsDelta": 0.081691297208538585,
+      "medDepthFinal": 64830.055269498844,
+      "medDepthPaced": 114358.47534649503
+    },
+    {
+      "lengthBin": "5-6",
+      "nFinal10": 33,
+      "nPaced": 142,
+      "medRSAfinal_ms": 99.214920071705848,
+      "medRSApaced_ms": 59.99999999994543,
+      "ranksumP": 5.9503388715579076E-5,
+      "cliffsDelta": 0.4494238156209987,
+      "medDepthFinal": 96043.975940666875,
+      "medDepthPaced": 120336.15501050485
+    },
+    {
+      "lengthBin": "6-7.5",
+      "nFinal10": 32,
+      "nPaced": 80,
+      "medRSAfinal_ms": 85.586956521965789,
+      "medRSApaced_ms": 88.895196506153681,
+      "ranksumP": 0.60412578784321835,
+      "cliffsDelta": -0.06328125,
+      "medDepthFinal": 102709.79104694707,
+      "medDepthPaced": 120832.30134599071
+    }
+  ]
+}
