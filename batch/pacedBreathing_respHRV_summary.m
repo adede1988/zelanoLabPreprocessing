@@ -43,9 +43,17 @@ B.onsetSec = onsetSec;
 B.rsa_ms  = 1000 * B.RR_max_min;
 B.good    = B.goodBreath == 1;
 if ismember('nearSeam', B.Properties.VariableNames), B.good = B.good & ~B.nearSeam; end
-seamSec = [];
+% recording seams (multi-file acquisitions stitched end to end): besides the pipeline's
+% nearSeam flag (+-5 s) drop every breath whose window comes within SEAM_PAD_SEC of a
+% seam - the 0.03-Hz high-pass leaves a baseline transient on the stitched step that
+% decays over roughly 5-8 s (independent review, 2026-09-17)
+seamSec = []; SEAM_PAD_SEC = 10;
 if isfield(S, 'segments') && istable(S.segments) && height(S.segments) > 1, seamSec = S.segments.startSample(2:end) / fs; end
-stats.seamMin = seamSec(:)' / 60; stats.preSec = PRE_SEC; stats.finalSec = FINAL_SEC;
+B.nearSeamWide = false(height(B), 1);
+for k = 1:numel(seamSec)
+    B.nearSeamWide = B.nearSeamWide | (onsetSec - SEAM_PAD_SEC <= seamSec(k) & onsetSec + B.length + SEAM_PAD_SEC >= seamSec(k));
+end
+B.good = B.good & ~B.nearSeamWide;
 B.clean   = B.good & B.nSubPeaks <= 1 & B.localPeriodCV < 0.20;
 pre     = onsetSec < PRE_SEC;
 final10 = onsetSec >= durS - FINAL_SEC;
@@ -54,6 +62,8 @@ B.final10 = final10;
 B.period = repmat("paced", height(B), 1); B.period(pre) = "pre"; B.period(final10) = "final10";
 stats = struct();
 stats.sessID = id; stats.durationMin = durS / 60;
+stats.seamMin = seamSec(:)' / 60; stats.seamPadSec = SEAM_PAD_SEC; stats.nNearSeamExcluded = sum(B.nearSeamWide);
+stats.preSec = PRE_SEC; stats.finalSec = FINAL_SEC;
 stats.periods = struct('preEndMin', PRE_SEC / 60, 'pacedStartMin', PRE_SEC / 60, 'pacedEndMin', (durS - FINAL_SEC) / 60, 'final10StartMin', (durS - FINAL_SEC) / 60);
 % mean RR / HR over each breath from the 50-Hz RRint
 RR = S.RRint(:)';
