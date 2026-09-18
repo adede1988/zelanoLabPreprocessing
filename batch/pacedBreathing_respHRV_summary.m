@@ -29,11 +29,13 @@
 packPath = getenv('ZLP_PACK');   assert(~isempty(packPath), 'set ZLP_PACK');
 outDir   = getenv('ZLP_SUMOUT'); if isempty(outDir), outDir = fullfile(fileparts(packPath), 'summary'); end
 if ~isfolder(outDir), mkdir(outDir); end
-PRE_SEC = str2double(getenv('ZLP_PRE_SEC'));     if ~isfinite(PRE_SEC),   PRE_SEC = 8 * 60;    end
-FINAL_SEC = str2double(getenv('ZLP_FINAL_SEC')); if ~isfinite(FINAL_SEC), FINAL_SEC = 10 * 60; end
+PRE_SEC = envSeconds('ZLP_PRE_SEC', 8 * 60); FINAL_SEC = envSeconds('ZLP_FINAL_SEC', 10 * 60);
 S = load(packPath);
 B = S.behDat; K = S.blocks; fs = S.fs; fsP = S.fsPack;
 durS = S.nSamples / fs;
+assert(PRE_SEC + FINAL_SEC < durS, 'ZLP_PRE_SEC (%g s) + ZLP_FINAL_SEC (%g s) must be shorter than the recording (%.0f s)', PRE_SEC, FINAL_SEC, durS);
+fprintf('periods: pre 0-%.1f min, paced %.1f-%.1f min, final %.1f-%.1f min
+', PRE_SEC / 60, PRE_SEC / 60, (durS - FINAL_SEC) / 60, (durS - FINAL_SEC) / 60, durS / 60);
 id = S.sessID;
 fprintf('%s: %d breaths, %.1f min\n', id, height(B), durS / 60);
 
@@ -463,4 +465,12 @@ function s = num2strOrDash(v)
 end
 function p = ttestP(x)
     x = x(isfinite(x)); [~, p] = ttest(x);
+end
+
+function v = envSeconds(name, dflt)
+% numeric env override in seconds: empty -> default; anything else must parse to a positive number
+    s = strtrim(getenv(name));
+    if isempty(s), v = dflt; return; end
+    v = str2double(s);
+    assert(isfinite(v) && v > 0, 'env %s must be a positive number of seconds, got "%s"', name, s);
 end
