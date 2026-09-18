@@ -320,7 +320,7 @@ hs(4) = scatter(fB.length, fB.rsa_ms, 22, cFinal, 'filled', 'MarkerFaceAlpha', 0
 errorbar(fMean.length, fMean.rsa, fMean.rsaSD, fMean.rsaSD, fMean.lengthSD, fMean.lengthSD, 'd', 'Color', cFinal, 'LineWidth', 1.5, 'CapSize', 6);
 hs(5) = plot(fMean.length, fMean.rsa, 'd', 'MarkerSize', 13, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.2);
 xlabel('breath length (s)'); ylabel('RSA (ms)'); title(['RSA vs length (paced, colour = volume tertile; ' finLab ' overlaid)']); grid on
-legend(hs, [ampLab, {'final 10 min (breaths)', sprintf('final 10 min mean \\pm SD (n=%d)', fMean.n)}], 'Location', 'northwest');
+legend(hs, [ampLab, {[finLab ' (breaths)'], sprintf('%s mean \\pm SD (n=%d)', finLab, fMean.n)}], 'Location', 'northwest');
 subplot(1, 3, 2); hold on
 hs = gobjects(1, 5);
 lenBin3 = discretize(T.length, [0 5.5 8 Inf]); lenLab3 = {'short <5.5 s', 'medium 5.5-8 s', 'long >8 s'};
@@ -337,7 +337,7 @@ errorbar(fMean.depth, fMean.rsa, fMean.rsaSD, fMean.rsaSD, fMean.depthSD, fMean.
 hs(5) = plot(fMean.depth, fMean.rsa, 'd', 'MarkerSize', 13, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.2);
 xlim([0 max(prctile(T.depth, 99.5), max(fB.depth)) * 1.05]);
 xlabel(DEPTHLAB); ylabel('RSA (ms)'); title(['RSA vs ' DEPTHSHORT ' (paced, colour = length tercile; ' finLab ' overlaid)']); grid on
-legend(hs, [lenLab3, {'final 10 min (breaths)', 'final 10 min mean \pm SD'}], 'Location', 'northeast');
+legend(hs, [lenLab3, {[finLab ' (breaths)'], [finLab ' mean \pm SD']}], 'Location', 'northeast');
 subplot(2, 3, 3); hold on
 g = linspace(min(mdlTbl.logLen), max(mdlTbl.logLen), 50)';
 yhatL = predict(m1, table(g, zeros(size(g)), 'VariableNames', {'logLen', 'logDepth'}));
@@ -395,8 +395,8 @@ plot(log(fMean.length), log(fMean.depth), 'd', 'MarkerSize', 15, 'MarkerFaceColo
 set(gca, 'XTick', log(tickL), 'XTickLabel', tickL, 'YTick', log(tickA), 'YTickLabel', tickALab);
 xlabel('breath length (s), log axis'); ylabel([DEPTHLAB ', log axis']);
 sm = stats.final10_surfaceModel;
-title(sprintf('%s - final 10 min: observed minus predicted RSA (model fitted on paced breathing)\nkernel-weighted mean error surface; dots = individual final-10 breaths coloured by their error (x = outside paced support)\nmean error %+.1f \\pm %.1f ms (SEM), median %+.1f ms, n=%d/%d, sign-rank p=%.3f, RMSE %.0f ms; grey contours = estimated RSA', ...
-    strrep(id, '_', '\_'), sm.meanError_ms, sm.semError_ms, sm.medianError_ms, sm.nInsideSupport, sm.nFinal10, sm.signrankP, sm.rmse_ms), 'Interpreter', 'tex');
+title(sprintf('%s - %s: observed minus predicted RSA (model fitted on paced breathing)\nkernel-weighted mean error surface; dots = individual %s breaths coloured by their error (x = outside paced support)\nmean error %+.1f \\pm %.1f ms (SEM), median %+.1f ms, n=%d/%d, sign-rank p=%.3f, RMSE %.0f ms; grey contours = estimated RSA', ...
+    strrep(id, '_', '\_'), finLab, finLab, sm.meanError_ms, sm.semError_ms, sm.medianError_ms, sm.nInsideSupport, sm.nFinal10, sm.signrankP, sm.rmse_ms), 'Interpreter', 'tex');
 saveas(fig, fullfile(outDir, 'F9_final10_prediction_error.png')); close(fig);
 
 % F5 final 10 min vs rest
