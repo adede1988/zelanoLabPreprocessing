@@ -1,9 +1,10 @@
-% kg260915_summaryPack - export a compact analysis pack from a pacedBreathing
+% pacedBreathing_summaryPack - export a compact analysis pack from a pacedBreathing
 % final so the respHRV summary can be built off-server (the final itself is
 % ~1.5 GB of EEG). READ-ONLY with respect to the final.
 %
 %   env ZLP_PACK_ID  session id (default 260915_EEG_NWU_KG)
 %   env ZLP_PACK_OUT output folder (default E:\kg260915\pack)
+%   (session-agnostic; first used as kg260915_summaryPack for 260915_EEG_NWU_KG)
 %
 % Pack contents (<id>_pacedBreathing_pack.mat, v7.3):
 %   fsPack      50 Hz
@@ -54,6 +55,7 @@ if isfield(od, 'heartBeats'), pack.heartBeats = od.heartBeats; end
 pack.bmObj = od.bmObj;
 pack.blocks = od.blocks;
 pack.blockInference = od.blockInference;
+if isfield(od, 'segments'), pack.segments = od.segments; end   % recording seams (multi-file acquisitions)
 pack.behDat = od.behDat;
 pack.labels = od.labels;
 for f = {'ecgSkipped', 'badChans', 'blinkRemoval', 'rspIDX', 'rspFlip', 'task', 'type', 'CSClist', 'loadFile'}
@@ -69,5 +71,5 @@ pack.durMin = size(od.data, 2) / fs / 60;
 save(fullfile(out, [id '_pacedBreathing_pack.mat']), '-struct', 'pack', '-v7.3');
 writetable(od.behDat, fullfile(out, [id '_pacedBreathing_behDat.csv']));
 writetable(od.blocks, fullfile(out, [id '_pacedBreathing_blocks.csv']));
-fprintf('kg260915_summaryPack: %s -> %s (%d breaths, %d blocks, %.1f min, hasRR=%d)\n', ...
+fprintf('pacedBreathing_summaryPack: %s -> %s (%d breaths, %d blocks, %.1f min, hasRR=%d)\n', ...
     id, out, size(od.bmObj, 1), height(od.blocks), pack.durMin, hasRR);

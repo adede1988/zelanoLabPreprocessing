@@ -30,8 +30,10 @@ Definitions
     Depth predictor = breathMetrics inhale volume (bm_inhaleVolumesRaw, raw trace units); amplitude is reported only as a descriptor.
 
 Regenerate
-    zelanoLabPreprocessing (commit 277bbb8): batch/kg260915_summaryPack.m (pack from the final preproc .mat),
-    then batch/kg260915_respHRV_summary.m with env ZLP_PACK=<pack.mat> and ZLP_SUMOUT=<output folder>.
+    zelanoLabPreprocessing: batch/pacedBreathing_summaryPack.m (pack from the final preproc .mat; named
+    kg260915_summaryPack.m when this report was built at commit 277bbb8), then
+    batch/pacedBreathing_respHRV_summary.m (was kg260915_respHRV_summary.m) with env ZLP_PACK=<pack.mat>,
+    ZLP_SUMOUT=<output folder>, ZLP_PRE_SEC=480, ZLP_FINAL_SEC=600.
     Preprocessed final: <session>\preProc\260915_EEG_NWU_KG_pacedBreathingpreproc.mat  (pipelines/pacedBreathingPreProc_main.m)
 
 Copies

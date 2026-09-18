@@ -20,6 +20,8 @@ function outDat = build_behavior_table_pacedBreathing(outDat)
 %                    amplitude, 100-ms smoothed trace) between this inhale
 %                    onset and the next - 1 = a clean single-peaked breath,
 %                    more = ragged / multi-effort breath
+%     nearSeam       true when the breath comes within 5 s of a recording seam
+%                    (outDat.segments, multi-file acquisitions) - exclude in analyses
 
     bmObj = outDat.bmObj;
     B = outDat.blocks;
@@ -76,6 +78,22 @@ function outDat = build_behavior_table_pacedBreathing(outDat)
         [~, pk] = findpeaks(seg, 'MinPeakProminence', 0.15 * amp(b), ...
                             'MinPeakDistance', max(1, round(0.15 * outDat.fs)));
         behDat.nSubPeaks(b) = numel(pk);
+    end
+
+    % ---- breaths at a recording seam ----
+    % multi-file acquisitions are stitched end to end (no gap samples), so a
+    % breath whose window [onset, onset + length] comes within 5 s of a seam
+    % spans a discontinuity in respiration, ECG and RRint: flagged here so
+    % analyses can exclude it (goodBreath itself is the shared flagBadBreaths
+    % result and is left alone)
+    behDat.nearSeam = false(n, 1);
+    if isfield(outDat, 'segments') && istable(outDat.segments) && height(outDat.segments) > 1
+        seamPad = round(5 * outDat.fs);
+        seams = outDat.segments.startSample(2:end);
+        bEnd = idx + round(behDat.length * outDat.fs);
+        for k = 1:numel(seams)
+            behDat.nearSeam = behDat.nearSeam | (idx - seamPad <= seams(k) & bEnd + seamPad >= seams(k));
+        end
     end
 
     outDat.behDat = behDat;

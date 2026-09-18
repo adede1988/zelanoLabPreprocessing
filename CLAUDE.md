@@ -353,7 +353,7 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
 | `shared/` | the shared signal core (`assembleOutDat`, `downsample_data`, `preprocess_eeg`, `preprocess_macros`, `preprocess_respiration_wholetrace`, `detect_sniffs_from_TTLs`, `refine_onsets_with_phase`, `behDatFromSniffs`, `paramCheck`, EEG/spike/onset helpers) |
 | `tasks/<task>/` | each task's `assembleRaw_<task>.m`, `build_behavior_table_<task>.m`, task helpers (breathing: `process_respiration_breathing`, `alignTargetBreathingTraceSimplify`, `processECG`/`buildECGz`/`paramCheckECG`, `detectBeats`, `flagBadBreaths`; O15: `detect_ttls_O15`; pacedBreathing: `inferBlocks_pacedBreathing`, `plotBlocks_pacedBreathing`) |
 | `external/` | vendored dependencies (`slowBreathing/` — five functions; `breathMetrics/` once added) |
-| `reports/` | per-session analysis reports as self-contained HTML + figures/tables (e.g. `260915_EEG_NWU_KG_respHRV/` from `batch/kg260915_respHRV_summary.m`) |
+| `reports/` | per-session analysis reports as self-contained HTML + figures/tables (e.g. `260915_EEG_NWU_KG_respHRV/` from `batch/pacedBreathing_summaryPack.m` + `batch/pacedBreathing_respHRV_summary.m`; period lengths via `ZLP_PRE_SEC` / `ZLP_FINAL_SEC`) |
 
 Adding a participant is a sheet edit plus its load‑data script; adding a task follows the tutorial —
 `applyParams` + `preprocessAll` registration, `assembleRaw_*`, optional `*_makeOutDat`,

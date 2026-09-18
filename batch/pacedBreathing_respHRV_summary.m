@@ -1,16 +1,20 @@
-% kg260915_respHRV_summary - respiratory HRV (within-breath RSA) as a function
+% pacedBreathing_respHRV_summary - respiratory HRV (within-breath RSA) as a function
 % of breath length and depth for a pacedBreathing session, plus a final-10-min
 % (focused breathing) vs rest comparison. Runs on the compact pack written by
-% batch/kg260915_summaryPack.m (no EEG needed).
+% batch/pacedBreathing_summaryPack.m (no EEG needed).
 %
 %   env ZLP_PACK    path to <id>_pacedBreathing_pack.mat
 %   env ZLP_SUMOUT  output folder (figures PNG + stats JSON + CSV tables)
+%   env ZLP_PRE_SEC   length of the opening natural-breathing period, s (default 480)
+%   env ZLP_FINAL_SEC length of the closing focused-breathing period, s (default 600)
 %
-% Periods (time-defined, per the experimenter's description of this session -
+% Periods (time-defined, per the experimenter's description of each session -
 % the pipeline's inferred blocks are NOT used for grouping):
-%   pre      first 8 min  = audiobook listening + instructions (natural breathing)
-%   paced    8 min .. (end - 10 min) = paced breathing at a sweep of paces x depths
-%   final10  last 10 min = focused breathing
+%   pre      first PRE_SEC   = audiobook listening + instructions (natural breathing)
+%   paced    PRE_SEC .. (end - FINAL_SEC) = paced breathing at a sweep of paces x depths
+%   final10  last FINAL_SEC  = focused breathing
+% Breaths flagged nearSeam (recording stop/restart seams, multi-file acquisitions)
+% are excluded from the good set; seams are drawn on the time course.
 %
 % Definitions
 %   RSA (ms)      per-breath RR_max_min from flagBadBreaths = max RR - min RR
@@ -25,7 +29,8 @@
 packPath = getenv('ZLP_PACK');   assert(~isempty(packPath), 'set ZLP_PACK');
 outDir   = getenv('ZLP_SUMOUT'); if isempty(outDir), outDir = fullfile(fileparts(packPath), 'summary'); end
 if ~isfolder(outDir), mkdir(outDir); end
-PRE_SEC = 8 * 60; FINAL_SEC = 10 * 60;
+PRE_SEC = str2double(getenv('ZLP_PRE_SEC'));     if ~isfinite(PRE_SEC),   PRE_SEC = 8 * 60;    end
+FINAL_SEC = str2double(getenv('ZLP_FINAL_SEC')); if ~isfinite(FINAL_SEC), FINAL_SEC = 10 * 60; end
 S = load(packPath);
 B = S.behDat; K = S.blocks; fs = S.fs; fsP = S.fsPack;
 durS = S.nSamples / fs;
@@ -37,6 +42,10 @@ onsetSec = B.finalOnset / fs;
 B.onsetSec = onsetSec;
 B.rsa_ms  = 1000 * B.RR_max_min;
 B.good    = B.goodBreath == 1;
+if ismember('nearSeam', B.Properties.VariableNames), B.good = B.good & ~B.nearSeam; end
+seamSec = [];
+if isfield(S, 'segments') && istable(S.segments) && height(S.segments) > 1, seamSec = S.segments.startSample(2:end) / fs; end
+stats.seamMin = seamSec(:)' / 60; stats.preSec = PRE_SEC; stats.finalSec = FINAL_SEC;
 B.clean   = B.good & B.nSubPeaks <= 1 & B.localPeriodCV < 0.20;
 pre     = onsetSec < PRE_SEC;
 final10 = onsetSec >= durS - FINAL_SEC;
@@ -261,9 +270,10 @@ for p = 1:4
     end
     scatter(onsetSec(~B.good) / 60, y(~B.good), 6, [0.75 0.75 0.75], 'filled');
     scatter(onsetSec(B.good) / 60, y(B.good), 8, cols(1, :), 'filled');
+    for k = 1:numel(seamSec), xline(seamSec(k) / 60, 'r--', 'LineWidth', 1); end
     ylim(yl); ylabel(panels{p, 2}); grid on
     if p == 1
-        title(sprintf('%s - per-breath time course (blue band = first 8 min audiobook/instructions, grey = paced breathing, orange = final 10 min focused breathing; grey dots = failed breath QC)', id), 'Interpreter', 'none');
+        title(sprintf('%s - per-breath time course (blue band = first %g min audiobook/instructions, grey = paced breathing, orange = final %g min focused breathing; grey dots = failed breath QC; red dashed = recording seam)', id, PRE_SEC / 60, FINAL_SEC / 60), 'Interpreter', 'none');
     end
 end
 xlabel('time (min)'); linkaxes(ax, 'x'); xlim([0 durS / 60]);
@@ -375,10 +385,10 @@ for v = 1:numel(vlist)
         if isempty(x), continue; end
         boxchart(g2 * ones(size(x)), x, 'BoxFaceColor', gcols{g2}, 'MarkerStyle', '.');
     end
-    set(gca, 'XTick', 1:3, 'XTickLabel', {'final 10 min', 'first 8 min', 'paced'}); ylabel(vname{v}); grid on
+    set(gca, 'XTick', 1:3, 'XTickLabel', {sprintf('final %g min', FINAL_SEC / 60), sprintf('first %g min', PRE_SEC / 60), 'paced'}); ylabel(vname{v}); grid on
     if strcmp(vlist{v}, 'nSubPeaks'), ylim([0 6]); end
 end
-sgtitle(sprintf('%s - last 10 min (focused) vs first 8 min (audiobook/instructions) vs paced breathing (good breaths)', id), 'Interpreter', 'none');
+sgtitle(sprintf('%s - last %g min (focused) vs first %g min (audiobook/instructions) vs paced breathing (good breaths)', id, FINAL_SEC / 60, PRE_SEC / 60), 'Interpreter', 'none');
 saveas(fig, fullfile(outDir, 'F5_final10_vs_rest.png')); close(fig);
 
 % F6 inhale-locked RR
@@ -399,7 +409,7 @@ stats.final10_vs_paced_matchedLength = matched;
 fid = fopen(fullfile(outDir, [id '_stats.json']), 'w'); fwrite(fid, jsonencode(stats, 'PrettyPrint', true)); fclose(fid);
 writetable(B, fullfile(outDir, [id '_perBreath_analysis.csv']));
 save(fullfile(outDir, [id '_summary.mat']), 'stats', 'B', 'K', 'LK', 'tw', 'gL', 'gA', 'Zhat', 'Zerr', 'Wsum', 'WsumF');
-fprintf('kg260915_respHRV_summary: DONE -> %s\n', outDir);
+fprintf('pacedBreathing_respHRV_summary: DONE -> %s\n', outDir);
 fprintf('  periods: pre %d breaths (<%d s), paced %d, final10 %d\n', sum(pre), PRE_SEC, sum(paced), sum(final10));
 fprintf('  additive model: len coef %.1f ms per log-unit (p=%.3g), amp coef %.1f (p=%.3g), R2=%.2f, n=%d\n', ...
     stats.model_additive.coef(2), stats.model_additive.p(2), stats.model_additive.coef(3), stats.model_additive.p(3), stats.model_additive.R2, stats.model_additive.n);

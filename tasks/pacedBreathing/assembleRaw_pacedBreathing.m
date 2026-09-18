@@ -39,6 +39,10 @@ function raw = assembleRaw_pacedBreathing(S)
     raw.beh     = table();            % no behavioral file for this task
     raw.CSClist = dat.ncslabels;
     raw.OGdataDir = fullfile(S.root, S.id);
+    % recording segments (multi-file acquisitions stitched end to end by the
+    % LoadData script; one row per segment with startSample at fs_raw, plus the
+    % wall-clock gap before each) - optional, used to flag breaths at the seams
+    if isfield(dat, 'segments'), raw.segments = dat.segments; end
 
     % which LoadData script produced the raw file (provenance, as in O15)
     d = dir(fullfile(S.root, S.id, '*LoadData*.m'));

@@ -78,6 +78,7 @@ for s = 1:numel(sessionIDs)
     outDat.OGdataDir     = raw.OGdataDir;
     outDat.loadFile      = raw.loadFile;
     outDat.preProcScript = 'pacedBreathingPreProc_main.m';
+    if isfield(raw, 'segments'), outDat.segmentsRaw = raw.segments; end   % multi-file acquisitions (seams)
     clear raw
 
     if isGuess, [outDat, P] = paramCheck(outDat, P); end
@@ -88,6 +89,17 @@ for s = 1:numel(sessionIDs)
     disp(['........................spike and blink ', sessionIDs{s}])
 
     % ===== TASK-SPECIFIC (pacedBreathing) =====
+    % recording segments (an acquisition stopped and restarted is stitched end to
+    % end by the LoadData script): carry the seam positions to the final fs so
+    % that breaths straddling a seam can be flagged (build_behavior_table)
+    outDat.segments = table();
+    if isfield(outDat, 'segmentsRaw')
+        sg = outDat.segmentsRaw;
+        sg.startSample = round((sg.startSample - 1) * outDat.fs / outDat.origFS) + 1;
+        sg.nSamples    = round(sg.nSamples * outDat.fs / outDat.origFS);
+        outDat.segments = sg;
+        outDat = rmfield(outDat, 'segmentsRaw');
+    end
     isRsp  = cellfun(@(x) contains(x, 'rsp'), outDat.labels);
     rspDat = outDat.data(isRsp, :);
     rspDat = rspDat(P.rspIDX, :) .* P.rspFlip;
