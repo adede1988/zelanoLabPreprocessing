@@ -34,8 +34,7 @@ S = load(packPath);
 B = S.behDat; K = S.blocks; fs = S.fs; fsP = S.fsPack;
 durS = S.nSamples / fs;
 assert(PRE_SEC + FINAL_SEC < durS, 'ZLP_PRE_SEC (%g s) + ZLP_FINAL_SEC (%g s) must be shorter than the recording (%.0f s)', PRE_SEC, FINAL_SEC, durS);
-fprintf('periods: pre 0-%.1f min, paced %.1f-%.1f min, final %.1f-%.1f min
-', PRE_SEC / 60, PRE_SEC / 60, (durS - FINAL_SEC) / 60, (durS - FINAL_SEC) / 60, durS / 60);
+fprintf('periods: pre 0-%.1f min, paced %.1f-%.1f min, final %.1f-%.1f min\n', PRE_SEC / 60, PRE_SEC / 60, (durS - FINAL_SEC) / 60, (durS - FINAL_SEC) / 60, durS / 60);
 id = S.sessID;
 fprintf('%s: %d breaths, %.1f min\n', id, height(B), durS / 60);
 
