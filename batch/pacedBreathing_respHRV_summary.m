@@ -54,6 +54,20 @@ for k = 1:numel(seamSec)
     B.nearSeamWide = B.nearSeamWide | (onsetSec - SEAM_PAD_SEC <= seamSec(k) & onsetSec + B.length + SEAM_PAD_SEC >= seamSec(k));
 end
 B.good = B.good & ~B.nearSeamWide;
+% wall-clock bookkeeping (stitched time + cumulative gaps = wall clock) and a loud note if a
+% seam falls inside a period that is treated as a homogeneous baseline
+segWall = table();
+if ~isempty(seamSec)
+    segWall = S.segments; segWall.startSec = (segWall.startSample - 1) / fs;
+    segWall.wallClockOffsetSec = cumsum(segWall.gapBeforeSec);
+    for k = 1:numel(seamSec)
+        if seamSec(k) < PRE_SEC || seamSec(k) > durS - FINAL_SEC
+            per = 'pre'; if seamSec(k) > durS - FINAL_SEC, per = 'final'; end
+            warning('summary:seamInsidePeriod', '%s: recording seam at %.1f s lies inside the %s period (PRE_SEC=%g, FINAL_SEC=%g) - check the period definition', id, seamSec(k), per, PRE_SEC, FINAL_SEC);
+        end
+    end
+end
+finLab = sprintf('final %g min', FINAL_SEC / 60);
 B.clean   = B.good & B.nSubPeaks <= 1 & B.localPeriodCV < 0.20;
 pre     = onsetSec < PRE_SEC;
 final10 = onsetSec >= durS - FINAL_SEC;
@@ -64,6 +78,7 @@ stats = struct();
 stats.sessID = id; stats.durationMin = durS / 60;
 stats.seamMin = seamSec(:)' / 60; stats.seamPadSec = SEAM_PAD_SEC; stats.nNearSeamExcluded = sum(B.nearSeamWide);
 stats.preSec = PRE_SEC; stats.finalSec = FINAL_SEC;
+stats.segments = segWall;
 stats.periods = struct('preEndMin', PRE_SEC / 60, 'pacedStartMin', PRE_SEC / 60, 'pacedEndMin', (durS - FINAL_SEC) / 60, 'final10StartMin', (durS - FINAL_SEC) / 60);
 % mean RR / HR over each breath from the 50-Hz RRint
 RR = S.RRint(:)';
@@ -303,7 +318,7 @@ end
 hs(4) = scatter(fB.length, fB.rsa_ms, 22, cFinal, 'filled', 'MarkerFaceAlpha', 0.7, 'MarkerEdgeColor', 'w');
 errorbar(fMean.length, fMean.rsa, fMean.rsaSD, fMean.rsaSD, fMean.lengthSD, fMean.lengthSD, 'd', 'Color', cFinal, 'LineWidth', 1.5, 'CapSize', 6);
 hs(5) = plot(fMean.length, fMean.rsa, 'd', 'MarkerSize', 13, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.2);
-xlabel('breath length (s)'); ylabel('RSA (ms)'); title('RSA vs length (paced, colour = volume tertile; final 10 min overlaid)'); grid on
+xlabel('breath length (s)'); ylabel('RSA (ms)'); title(['RSA vs length (paced, colour = volume tertile; ' finLab ' overlaid)']); grid on
 legend(hs, [ampLab, {'final 10 min (breaths)', sprintf('final 10 min mean \\pm SD (n=%d)', fMean.n)}], 'Location', 'northwest');
 subplot(1, 3, 2); hold on
 hs = gobjects(1, 5);
@@ -320,7 +335,7 @@ hs(4) = scatter(fB.depth, fB.rsa_ms, 22, cFinal, 'filled', 'MarkerFaceAlpha', 0.
 errorbar(fMean.depth, fMean.rsa, fMean.rsaSD, fMean.rsaSD, fMean.depthSD, fMean.depthSD, 'd', 'Color', cFinal, 'LineWidth', 1.5, 'CapSize', 6);
 hs(5) = plot(fMean.depth, fMean.rsa, 'd', 'MarkerSize', 13, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.2);
 xlim([0 max(prctile(T.depth, 99.5), max(fB.depth)) * 1.05]);
-xlabel(DEPTHLAB); ylabel('RSA (ms)'); title(['RSA vs ' DEPTHSHORT ' (paced, colour = length tercile; final 10 min overlaid)']); grid on
+xlabel(DEPTHLAB); ylabel('RSA (ms)'); title(['RSA vs ' DEPTHSHORT ' (paced, colour = length tercile; ' finLab ' overlaid)']); grid on
 legend(hs, [lenLab3, {'final 10 min (breaths)', 'final 10 min mean \pm SD'}], 'Location', 'northeast');
 subplot(2, 3, 3); hold on
 g = linspace(min(mdlTbl.logLen), max(mdlTbl.logLen), 50)';
@@ -362,7 +377,7 @@ scatter(log(fB.length), log(fB.depth), 26, cFinal, 'filled', 'MarkerEdgeColor', 
 plot(log(fMean.length), log(fMean.depth), 'd', 'MarkerSize', 15, 'MarkerFaceColor', cFinal, 'MarkerEdgeColor', 'k', 'LineWidth', 1.3);
 set(gca, 'XTick', log(tickL), 'XTickLabel', tickL, 'YTick', log(tickA), 'YTickLabel', tickALab);
 xlabel('breath length (s), log axis'); ylabel([DEPTHLAB ', log axis']);
-title(sprintf('%s - estimated RSA over breath length x %s (paced breaths, n=%d; bandwidth %.2f SD; blank = too few paced breaths)\ngrey dots = paced breaths, violet = final 10 min (n=%d), diamond = final-10 mean', id, DEPTHSHORT, height(T), h, height(fB)), 'Interpreter', 'none');
+title(sprintf('%s - estimated RSA over breath length x %s (paced breaths, n=%d; bandwidth %.2f SD; blank = too few paced breaths)\ngrey dots = paced breaths, violet = %s (n=%d), diamond = its mean', id, DEPTHSHORT, height(T), h, finLab, height(fB)), 'Interpreter', 'none');
 saveas(fig, fullfile(outDir, 'F8_rsa_surface.png')); close(fig);
 
 % F9 mean prediction error of the final-10 breaths over the same surface

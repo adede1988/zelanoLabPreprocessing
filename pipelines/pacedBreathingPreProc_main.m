@@ -96,7 +96,7 @@ for s = 1:numel(sessionIDs)
     if isfield(outDat, 'segmentsRaw')
         sg = outDat.segmentsRaw;
         sg.startSample = round((sg.startSample - 1) * outDat.fs / outDat.origFS) + 1;
-        sg.nSamples    = round(sg.nSamples * outDat.fs / outDat.origFS);
+        sg.nSamples    = [diff(sg.startSample); size(outDat.data, 2) - sg.startSample(end) + 1];   % tiles the data exactly
         outDat.segments = sg;
         outDat = rmfield(outDat, 'segmentsRaw');
     end
