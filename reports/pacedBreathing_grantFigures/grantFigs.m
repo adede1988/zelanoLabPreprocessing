@@ -60,14 +60,25 @@ J = D.jw;
 keep = ~J.nearSeam;                 % drop breaths straddling the 56-s recording gap (rate artefact)
 fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 9 5]);
 ax = axes('Parent', fig); hold(ax, 'on');
-m = keep & J.pre;   scatter(ax, J.onsetSec(m)/60, J.rate(m), 46, cBase, 'filled', 'MarkerFaceAlpha', 0.9);
-m = keep & J.paced; scatter(ax, J.onsetSec(m)/60, J.rate(m), 46, cPace, 'filled', 'MarkerFaceAlpha', 0.9);
-m = keep & J.atb;   scatter(ax, J.onsetSec(m)/60, J.rate(m), 46, cATB, 'filled', 'MarkerFaceAlpha', 0.95);
-xlim(ax, [0 J.durS/60]); ylim(ax, [0 30]);
+xmax = J.durS / 60; ymax = 30;
+% reserve a clear rectangle in the top-right corner for the legend and drop any
+% breath that would fall inside it, so the legend sits on white
+lgX0 = 0.67 * xmax; lgY0 = 19.5;
+tmin = J.onsetSec / 60;
+notLg = ~(tmin > lgX0 & J.rate > lgY0);
+m = keep & J.pre   & notLg; scatter(ax, tmin(m), J.rate(m), 46, cBase, 'filled', 'MarkerFaceAlpha', 0.9);
+m = keep & J.paced & notLg; scatter(ax, tmin(m), J.rate(m), 46, cPace, 'filled', 'MarkerFaceAlpha', 0.9);
+m = keep & J.atb   & notLg; scatter(ax, tmin(m), J.rate(m), 46, cATB, 'filled', 'MarkerFaceAlpha', 0.95);
+% large proxy markers so the legend dots are bigger than the data dots
+hp = gobjects(1, 3);
+hp(1) = plot(ax, nan, nan, 'o', 'MarkerFaceColor', cBase, 'MarkerEdgeColor', 'none', 'MarkerSize', 22);
+hp(2) = plot(ax, nan, nan, 'o', 'MarkerFaceColor', cPace, 'MarkerEdgeColor', 'none', 'MarkerSize', 22);
+hp(3) = plot(ax, nan, nan, 'o', 'MarkerFaceColor', cATB,  'MarkerEdgeColor', 'none', 'MarkerSize', 22);
+xlim(ax, [0 xmax]); ylim(ax, [0 ymax]);
 xlabel(ax, 'time (min)', 'FontSize', FS_LAB, 'FontWeight', 'bold');
 ylabel(ax, 'breaths / min', 'FontSize', FS_LAB, 'FontWeight', 'bold');
 styleAx(ax);
-lg = legend(ax, {'baseline', 'pacing', 'ATB'}, 'FontSize', FS_TICK, 'FontWeight', 'bold', ...
+legend(hp, {'baseline', 'pacing', 'ATB'}, 'FontSize', FS_TICK, 'FontWeight', 'bold', ...
     'Location', 'northeast', 'Box', 'off');
 exportgraphics(fig, fullfile(OUT, 'JW_breathRate_time.png'), 'Resolution', 300, 'BackgroundColor', 'white');
 close(fig);
@@ -96,7 +107,7 @@ for t = 1:2
 end
 xlim(ax, [2.5 11]); ylim(ax, [0 240]);
 xlabel(ax, 'breath length (s)', 'FontSize', FS_LAB, 'FontWeight', 'bold');
-ylabel(ax, 'RSA (ms)', 'FontSize', FS_LAB, 'FontWeight', 'bold');
+ylabel(ax, 'respHRV (ms)', 'FontSize', FS_LAB, 'FontWeight', 'bold');
 styleAx(ax);
 legend(h, names, 'FontSize', FS_TICK, 'FontWeight', 'bold', 'Location', 'northwest', 'Box', 'off');
 exportgraphics(fig, fullfile(OUT, 'KG_JW_RSA_by_length.png'), 'Resolution', 300, 'BackgroundColor', 'white');
@@ -150,7 +161,7 @@ fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 8.5 6.5]);
 ax = axes('Parent', fig);
 imagesc(ax, gL, gA, Zhat, 'AlphaData', ~isnan(Zhat)); set(ax, 'YDir', 'normal'); hold(ax, 'on');
 colormap(ax, blueRamp); clim(ax, [50 160]);
-cb = colorbar(ax); cb.Label.String = 'RSA (ms)'; cb.Label.FontSize = FS_LAB; cb.Label.FontWeight = 'bold';
+cb = colorbar(ax); cb.Label.String = 'respHRV (ms)'; cb.Label.FontSize = FS_LAB; cb.Label.FontWeight = 'bold';
 cb.FontSize = FS_TICK; cb.LineWidth = AXLW;
 [C, hc] = contour(ax, gL, gA, Zhat, 60:20:160, 'LineColor', 'w', 'LineWidth', 2);
 clabel(C, hc, 'Color', 'w', 'FontSize', 15, 'FontWeight', 'bold');
@@ -171,7 +182,7 @@ ax = axes('Parent', fig);
 lim = max(20, min(60, ceil(prctile(abs(Zerr(~isnan(Zerr))), 95) / 10) * 10));
 imagesc(ax, gL, gA, Zerr, 'AlphaData', ~isnan(Zerr)); set(ax, 'YDir', 'normal'); hold(ax, 'on');
 colormap(ax, divRamp); clim(ax, [-lim lim]);
-cb = colorbar(ax); cb.Label.String = 'observed - predicted RSA (ms)'; cb.Label.FontSize = FS_LAB - 3;
+cb = colorbar(ax); cb.Label.String = 'observed - predicted respHRV (ms)'; cb.Label.FontSize = FS_LAB - 5;
 cb.Label.FontWeight = 'bold'; cb.FontSize = FS_TICK; cb.LineWidth = AXLW;
 contour(ax, gL, gA, Zhat, 60:20:160, 'LineColor', [0.5 0.5 0.5], 'LineWidth', 1.5);
 gf = inRange(log(Af)) & okF;
