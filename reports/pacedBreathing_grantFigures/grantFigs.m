@@ -66,9 +66,12 @@ xmax = J.durS / 60; ymax = 30;
 lgX0 = 0.67 * xmax; lgY0 = 19.5;
 tmin = J.onsetSec / 60;
 notLg = ~(tmin > lgX0 & J.rate > lgY0);
-m = keep & J.pre   & notLg; scatter(ax, tmin(m), J.rate(m), 46, cBase, 'filled', 'MarkerFaceAlpha', 0.9);
-m = keep & J.paced & notLg; scatter(ax, tmin(m), J.rate(m), 46, cPace, 'filled', 'MarkerFaceAlpha', 0.9);
-m = keep & J.atb   & notLg; scatter(ax, tmin(m), J.rate(m), 46, cATB, 'filled', 'MarkerFaceAlpha', 0.95);
+% figure-only colour boundaries (a display choice; the analysis periods are unchanged):
+% baseline grey out to 12 min, ATB blue from 2 min before the final-10 window
+greyMax = 12; blueMin = xmax - 12;
+m = keep & notLg & tmin <  greyMax;                  scatter(ax, tmin(m), J.rate(m), 46, cBase, 'filled', 'MarkerFaceAlpha', 0.9);
+m = keep & notLg & tmin >= greyMax & tmin < blueMin; scatter(ax, tmin(m), J.rate(m), 46, cPace, 'filled', 'MarkerFaceAlpha', 0.9);
+m = keep & notLg & tmin >= blueMin;                  scatter(ax, tmin(m), J.rate(m), 46, cATB, 'filled', 'MarkerFaceAlpha', 0.95);
 % large proxy markers so the legend dots are bigger than the data dots
 hp = gobjects(1, 3);
 hp(1) = plot(ax, nan, nan, 'o', 'MarkerFaceColor', cBase, 'MarkerEdgeColor', 'none', 'MarkerSize', 22);
