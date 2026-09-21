@@ -108,6 +108,10 @@ for t = 1:2
     a = P.good & P.atb & isfinite(P.rsa) & P.len > 0;
     plot(ax, mean(P.len(a)), mean(P.rsa(a)), 'd', 'MarkerSize', 22, 'MarkerFaceColor', cols{t}, ...
         'MarkerEdgeColor', 'k', 'LineWidth', 2);
+    % audiobook (baseline) 2-D mean as a square (no error bars)
+    q = P.good & P.pre & isfinite(P.rsa) & P.len > 0;
+    plot(ax, mean(P.len(q)), mean(P.rsa(q)), 's', 'MarkerSize', 20, 'MarkerFaceColor', cols{t}, ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 2);
 end
 xlim(ax, [2.5 11]); ylim(ax, [0 240]);
 xlabel(ax, 'breath length (s)', 'FontSize', FS_LAB, 'FontWeight', 'bold');

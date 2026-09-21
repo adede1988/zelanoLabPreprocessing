@@ -6,7 +6,7 @@ JW_breathRate_time.png     JW breath rate over the whole recording, one dot per 
                            grey = baseline (first recording file), black = pacing, blue = ATB (final 10 min focused).
 KG_JW_RSA_by_length.png    respHRV (within-breath RR max-min) by breath-length bin (medians only, no IQR bars), KG (orange) and JW (blue),
                            dots connected within participant; each participant's ATB mean as a same-colour
-                           diamond with no error bars. Bins shown only where n >= 8 good paced breaths.
+                           diamond and audiobook (baseline) 2-D mean as a same-colour square, no error bars. Bins shown only where n >= 8 good paced breaths.
                            KG uses its published 8-min opening boundary, JW its 6-min (first-file) boundary.
 JW_RSA_surface.png         JW length x inhale-volume respHRV surface (local-linear fit on good paced breaths),
                            inhale-volume axis zoomed to 60k-225k; grey = paced breaths, blue = ATB, diamond = ATB mean.
