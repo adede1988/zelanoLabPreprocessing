@@ -9,8 +9,9 @@ KG_JW_RSA_by_length.png    respHRV (within-breath RR max-min) by breath-length b
                            diamond with no error bars. Bins shown only where n >= 8 good paced breaths.
                            KG uses its published 8-min opening boundary, JW its 6-min (first-file) boundary.
 JW_RSA_surface.png         JW length x inhale-volume respHRV surface (local-linear fit on good paced breaths),
+                           inhale-volume axis zoomed to 60k-225k; grey = paced breaths, blue = ATB, diamond = ATB mean.
                            inhale-volume axis limited to 50k-250k; grey = paced breaths, blue = ATB, diamond = ATB mean.
-JW_ATB_error_surface.png   JW ATB observed-minus-predicted respHRV over the same axes/conventions (diverging map,
+JW_ATB_error_surface.png   JW ATB observed-minus-predicted respHRV ('Calibrated respHRV') over the same axes/conventions
                            ATB dots coloured by their own error, grey contours = the paced respHRV surface).
 
 Regenerate: grantFigs.m (MATLAB). It reads the 50-Hz analysis packs

@@ -124,7 +124,7 @@ Lp = J.len(selP); Ap = J.depth(selP); Rp = J.rsa(selP);
 muL = mean(log(Lp)); muA = mean(log(Ap)); sdL = std(log(Lp)); sdA = std(log(Ap));
 u = (log(Lp) - muL) / sdL; v = (log(Ap) - muA) / sdA; hbw = 0.35;
 gL = linspace(log(2.5), log(11), 60);
-gA = linspace(log(50000), log(250000), 60);      % Y AXIS LIMITED 50k-250k
+gA = linspace(log(60000), log(225000), 60);      % Y AXIS LIMITED 60k-225k
 [GL, GA] = meshgrid(gL, gA);
 GU = (GL - muL) / sdL; GV = (GA - muA) / sdA;
 Zhat = nan(size(GL));
@@ -155,13 +155,13 @@ for i = 1:numel(GL)
     if ws < 3 || ~isfinite(Zhat(i)), continue; end
     Zerr(i) = sum(w .* errF(okF)) / ws;
 end
-tickL = [2.5 3 4 5 6 8 10];
-tickA = [50000 75000 100000 150000 200000 250000];
+tickL = [3 5 8];
+tickA = [75000 150000 225000];
 tickALab = arrayfun(@(z) sprintf('%gk', z/1000), tickA, 'UniformOutput', false);
-inRange = @(z) z >= log(50000) & z <= log(250000);
+inRange = @(z) z >= log(60000) & z <= log(225000);
 
 %% ===== Figure 3: JW RSA x length surface =====
-fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 8.5 6.5]);
+fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 9 6.5]);
 ax = axes('Parent', fig);
 imagesc(ax, gL, gA, Zhat, 'AlphaData', ~isnan(Zhat)); set(ax, 'YDir', 'normal'); hold(ax, 'on');
 colormap(ax, blueRamp); clim(ax, [50 160]);
@@ -172,35 +172,35 @@ clabel(C, hc, 'Color', 'w', 'FontSize', 18, 'FontWeight', 'bold');
 gp = inRange(log(Ap)); scatter(ax, log(Lp(gp)), log(Ap(gp)), 12, [0.55 0.55 0.55], 'filled', 'MarkerFaceAlpha', 0.4);
 gf = inRange(log(Af)); scatter(ax, log(Lf(gf)), log(Af(gf)), 40, cATB, 'filled', 'MarkerEdgeColor', 'w', 'LineWidth', 0.7);
 plot(ax, log(mean(Lf)), log(mean(Af)), 'd', 'MarkerSize', 22, 'MarkerFaceColor', cATB, 'MarkerEdgeColor', 'k', 'LineWidth', 2);
-xlim(ax, [log(2.5) log(11)]); ylim(ax, [log(50000) log(250000)]);
+xlim(ax, [log(2.5) log(11)]); ylim(ax, [log(60000) log(225000)]);
 set(ax, 'XTick', log(tickL), 'XTickLabel', tickL, 'YTick', log(tickA), 'YTickLabel', tickALab);
 xlabel(ax, 'breath length (s)', 'FontSize', FS_LAB, 'FontWeight', 'bold');
 ylabel(ax, 'inhale volume', 'FontSize', FS_LAB, 'FontWeight', 'bold');
 styleAx(ax);
 set(ax, 'FontSize', FS_TICK_S); ax.XLabel.FontSize = FS_LAB_S; ax.YLabel.FontSize = FS_LAB_S;
-cb.FontSize = FS_TICK_S; cb.Label.FontSize = FS_LAB_S;
+cb.FontSize = FS_TICK_S; cb.Label.FontSize = FS_LAB;
 exportgraphics(fig, fullfile(OUT, 'JW_RSA_surface.png'), 'Resolution', 300, 'BackgroundColor', 'white');
 close(fig);
 
 %% ===== Figure 4: JW ATB prediction-error surface =====
-fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 8.5 6.5]);
+fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 9 6.5]);
 ax = axes('Parent', fig);
 lim = max(20, min(60, ceil(prctile(abs(Zerr(~isnan(Zerr))), 95) / 10) * 10));
 imagesc(ax, gL, gA, Zerr, 'AlphaData', ~isnan(Zerr)); set(ax, 'YDir', 'normal'); hold(ax, 'on');
 colormap(ax, divRamp); clim(ax, [-lim lim]);
-cb = colorbar(ax); cb.Label.String = 'observed - predicted respHRV (ms)'; cb.Label.FontSize = FS_LAB - 5;
+cb = colorbar(ax); cb.Label.String = 'Calibrated respHRV (ms)'; cb.Label.FontSize = FS_LAB - 5;
 cb.Label.FontWeight = 'bold'; cb.FontSize = FS_TICK; cb.LineWidth = AXLW;
 contour(ax, gL, gA, Zhat, 60:20:160, 'LineColor', [0.5 0.5 0.5], 'LineWidth', 1.5);
 gf = inRange(log(Af)) & okF;
 scatter(ax, log(Lf(gf)), log(Af(gf)), 46, errF(gf), 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 0.7);
 plot(ax, log(mean(Lf)), log(mean(Af)), 'd', 'MarkerSize', 22, 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'k', 'LineWidth', 2.5);
-xlim(ax, [log(2.5) log(11)]); ylim(ax, [log(50000) log(250000)]);
+xlim(ax, [log(2.5) log(11)]); ylim(ax, [log(60000) log(225000)]);
 set(ax, 'XTick', log(tickL), 'XTickLabel', tickL, 'YTick', log(tickA), 'YTickLabel', tickALab);
 xlabel(ax, 'breath length (s)', 'FontSize', FS_LAB, 'FontWeight', 'bold');
 ylabel(ax, 'inhale volume', 'FontSize', FS_LAB, 'FontWeight', 'bold');
 styleAx(ax);
 set(ax, 'FontSize', FS_TICK_S); ax.XLabel.FontSize = FS_LAB_S; ax.YLabel.FontSize = FS_LAB_S;
-cb.FontSize = FS_TICK_S; cb.Label.FontSize = FS_LAB_S - 6;
+cb.FontSize = FS_TICK_S; cb.Label.FontSize = FS_LAB;
 exportgraphics(fig, fullfile(OUT, 'JW_ATB_error_surface.png'), 'Resolution', 300, 'BackgroundColor', 'white');
 close(fig);
 
