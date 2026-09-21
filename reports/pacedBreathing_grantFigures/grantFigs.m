@@ -118,6 +118,16 @@ xlabel(ax, 'breath length (s)', 'FontSize', FS_LAB, 'FontWeight', 'bold');
 ylabel(ax, 'respHRV (ms)', 'FontSize', FS_LAB, 'FontWeight', 'bold');
 styleAx(ax);
 legend(h, names, 'FontSize', FS_TICK, 'FontWeight', 'bold', 'Location', 'northwest', 'Box', 'off');
+% second legend: symbol -> period (neutral grey so it reads independently of participant colour)
+lgc = [0.30 0.30 0.30];
+ax2 = axes('Parent', fig, 'Position', ax.Position, 'Color', 'none', 'XColor', 'none', ...
+    'YColor', 'none', 'XLim', xlim(ax), 'YLim', ylim(ax), 'HandleVisibility', 'off');
+hold(ax2, 'on');
+sD = plot(ax2, nan, nan, 'd', 'MarkerSize', 16, 'MarkerFaceColor', lgc, 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+sS = plot(ax2, nan, nan, 's', 'MarkerSize', 16, 'MarkerFaceColor', lgc, 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+sP = plot(ax2, nan, nan, '-o', 'Color', lgc, 'MarkerFaceColor', lgc, 'MarkerEdgeColor', lgc, 'MarkerSize', 9, 'LineWidth', AXLW);
+legend(ax2, [sD sS sP], {'ATB', 'Base', 'Pacing'}, 'FontSize', FS_TICK, 'FontWeight', 'bold', ...
+    'Location', 'southeast', 'Box', 'off');
 exportgraphics(fig, fullfile(OUT, 'KG_JW_RSA_by_length.png'), 'Resolution', 300, 'BackgroundColor', 'white');
 close(fig);
 
