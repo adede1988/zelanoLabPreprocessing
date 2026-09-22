@@ -14,8 +14,8 @@ JW_RSA_surface.png         JW length x inhale-volume respHRV surface (local-line
 JW_ATB_error_surface.png   JW ATB observed-minus-predicted respHRV ('Calibrated respHRV') over the same axes/conventions
                            ATB dots coloured by their own error, grey contours = the paced respHRV surface).
 
-Regenerate: grantFigs.m (MATLAB). It reads the 50-Hz analysis packs
+Regenerate: grantFigures.m (MATLAB). It reads the 50-Hz analysis packs
   260915_EEG_NWU_KG_pacedBreathing_pack.mat  and  260917_EEG_NWU_JW_pacedBreathing_pack.mat
-(export with batch/pacedBreathing_summaryPack.m; on the lab desktop they are in E:\kg260915\pack and E:\jw260917\pack).
-Edit the PACK paths at the top of grantFigs.m to point at wherever the packs live, then run it; PNGs are written
+(export with exportPack.m; on the lab desktop they are in E:\kg260915\pack and E:\jw260917\pack).
+Set env ZLP_PACK_KG / ZLP_PACK_JW to the packs and ZLP_GRANT_OUT to this folder, then run it; PNGs are written
 next to the output folder set by OUT.

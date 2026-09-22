@@ -1,15 +1,18 @@
-% grantFigs.m - grant-ready standalone figures from the KG/JW pacedBreathing packs.
+% grantFigures.m - grant-ready standalone figures from the KG/JW pacedBreathing packs.
 % White figures, large bold fonts, bold axes so each panel reads when displayed small.
 %   1) JW breath rate over time, dots coloured by period (baseline grey, pacing black, ATB blue)
-%   2) RSA x breath-length bin medians for KG and JW on one plot (connected, one colour each,
-%      each participant's ATB mean as a diamond, no error bars)
-%   3) JW RSA x length local-linear surface, inhale-volume axis limited to 50k-250k
-%   4) JW ATB prediction-error surface, same conventions as (3)
-% ATB = the final-10-min focused-breathing period (period == "final10").
-OUT = 'C:\Users\Adam\AppData\Local\Temp\claude\C--Users-Adam-Documents-GitHub-zelanoLabPreprocessing\3b2bb664-bfec-4a78-80b7-6f24ef8589dc\scratchpad\jw\grant';
+%   2) respHRV x breath-length bin medians for KG and JW on one plot (connected, one colour each;
+%      each participant's ATB mean as a diamond and audiobook/baseline mean as a square, no error bars)
+%   3) JW respHRV x length local-linear surface, inhale-volume axis zoomed to 60k-225k
+%   4) JW ATB prediction-error ("Calibrated respHRV") surface, same conventions as (3)
+% ATB = the final-focused-breathing period (period == "final10"); Base = the opening audiobook
+% period (period == "pre"). Packs are made by exportPack.m.
+%   env ZLP_PACK_KG / ZLP_PACK_JW  paths to the two *_pack.mat files (default <pwd>/pack/...)
+%   env ZLP_GRANT_OUT              output folder for the PNGs (default <pwd>/reports/grantFigures)
+OUT = getenv('ZLP_GRANT_OUT'); if isempty(OUT), OUT = fullfile(pwd, 'reports', 'grantFigures'); end
 if ~isfolder(OUT), mkdir(OUT); end
-PACK.kg = 'C:\Users\Adam\AppData\Local\Temp\claude\C--Users-Adam-Documents-GitHub-zelanoLabPreprocessing\3b2bb664-bfec-4a78-80b7-6f24ef8589dc\scratchpad\pack\260915_EEG_NWU_KG_pacedBreathing_pack.mat';
-PACK.jw = 'C:\Users\Adam\AppData\Local\Temp\claude\C--Users-Adam-Documents-GitHub-zelanoLabPreprocessing\3b2bb664-bfec-4a78-80b7-6f24ef8589dc\scratchpad\jw\pack\260917_EEG_NWU_JW_pacedBreathing_pack.mat';
+PACK.kg = getenv('ZLP_PACK_KG'); if isempty(PACK.kg), PACK.kg = fullfile(pwd, 'pack', '260915_EEG_NWU_KG_pacedBreathing_pack.mat'); end
+PACK.jw = getenv('ZLP_PACK_JW'); if isempty(PACK.jw), PACK.jw = fullfile(pwd, 'pack', '260917_EEG_NWU_JW_pacedBreathing_pack.mat'); end
 PRESEC.kg = 8 * 60;  FINSEC = 10 * 60;   % KG opening = 8 min
 PRESEC.jw = 361;                          % JW opening = first recording file (6.02 min)
 

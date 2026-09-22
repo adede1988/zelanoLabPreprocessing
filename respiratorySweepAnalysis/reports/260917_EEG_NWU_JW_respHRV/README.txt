@@ -37,8 +37,8 @@ Definitions
     Clean breath = good QC, one flow peak (nSubPeaks <= 1) and local period CV < 0.20.
 
 Regenerate
-    zelanoLabPreprocessing (commit 7fa8a24): batch/pacedBreathing_summaryPack.m (pack from the final preproc .mat,
-    env ZLP_PACK_ID=260917_EEG_NWU_JW), then batch/pacedBreathing_respHRV_summary.m with env ZLP_PACK=<pack.mat>,
+    respiratorySweepAnalysis: exportPack.m (pack from the final preproc .mat,
+    env ZLP_PACK_ID=260917_EEG_NWU_JW), then respHRV_summary.m with env ZLP_PACK=<pack.mat>,
     ZLP_SUMOUT=<output folder>, ZLP_PRE_SEC=361, ZLP_FINAL_SEC=600.
     Preprocessed final: <session>\preProc\260917_EEG_NWU_JW_pacedBreathingpreproc.mat  (pipelines/pacedBreathingPreProc_main.m)
 

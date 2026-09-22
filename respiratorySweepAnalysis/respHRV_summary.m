@@ -1,7 +1,7 @@
-% pacedBreathing_respHRV_summary - respiratory HRV (within-breath RSA) as a function
+% respHRV_summary - respiratory HRV (respHRV = within-breath RR max-min) as a function
 % of breath length and depth for a pacedBreathing session, plus a final-10-min
 % (focused breathing) vs rest comparison. Runs on the compact pack written by
-% batch/pacedBreathing_summaryPack.m (no EEG needed).
+% exportPack.m (no EEG needed).
 %
 %   env ZLP_PACK    path to <id>_pacedBreathing_pack.mat
 %   env ZLP_SUMOUT  output folder (figures PNG + stats JSON + CSV tables)
@@ -435,7 +435,7 @@ stats.final10_vs_paced_matchedLength = matched;
 fid = fopen(fullfile(outDir, [id '_stats.json']), 'w'); fwrite(fid, jsonencode(stats, 'PrettyPrint', true)); fclose(fid);
 writetable(B, fullfile(outDir, [id '_perBreath_analysis.csv']));
 save(fullfile(outDir, [id '_summary.mat']), 'stats', 'B', 'K', 'LK', 'tw', 'gL', 'gA', 'Zhat', 'Zerr', 'Wsum', 'WsumF');
-fprintf('pacedBreathing_respHRV_summary: DONE -> %s\n', outDir);
+fprintf('respHRV_summary: DONE -> %s\n', outDir);
 fprintf('  periods: pre %d breaths (<%d s), paced %d, final10 %d\n', sum(pre), PRE_SEC, sum(paced), sum(final10));
 fprintf('  additive model: len coef %.1f ms per log-unit (p=%.3g), amp coef %.1f (p=%.3g), R2=%.2f, n=%d\n', ...
     stats.model_additive.coef(2), stats.model_additive.p(2), stats.model_additive.coef(3), stats.model_additive.p(3), stats.model_additive.R2, stats.model_additive.n);
