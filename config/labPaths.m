@@ -81,6 +81,7 @@ end
 function L = deriveLabPaths(L)
 % Fill in everything that is a function of the four base paths. Keeping this in
 % one place means a new machine only ever sets the bases.
+    persistent warnedOverride   % ZLP_ADMIN_XLSX override warned once per session
 
     reqd = {'codePre', 'eeglab', 'labCommon', 'gdrive'};
     for i = 1:numel(reqd)
@@ -114,6 +115,18 @@ function L = deriveLabPaths(L)
         % warning on every call - never silently. writeSheetSep and the batch/
         % scripts use this path directly and error if it is unreachable.
         L.adminXlsx = fullfile(lc, 'Admin', 'Data', 'dataTracking.xlsx');
+    end
+    % Per-process override: ZLP_ADMIN_XLSX points every sheet reader/writer at
+    % another copy (e.g. a staging copy while the master is held open in Excel;
+    % merge the staged cells back into the master afterwards). Warned once.
+    ov = getenv('ZLP_ADMIN_XLSX');
+    if ~isempty(ov)
+        if isempty(warnedOverride)
+            warning('labPaths:adminXlsxOverride', ...
+                'dataTracking sheet overridden by ZLP_ADMIN_XLSX -> %s', ov);
+            warnedOverride = true;
+        end
+        L.adminXlsx = ov;
     end
     L.rootDupi  = [lc 'Dupi\'];
     L.rootOBE   = [lc 'OBEControl\'];
