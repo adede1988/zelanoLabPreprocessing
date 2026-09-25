@@ -32,7 +32,9 @@ function writeSheetSep(P, sessID, action, xlsxPath)
            'writeSheetSep: required sheet columns not found - aborting');
 
     conds = {'audiobook', 'distractedbreathing', 'focusedbreathing', ...
-             'sleep', 'sleepwithodor', 'restingbaseline'};
+             'sleep', 'sleepwithodor', 'restingbaseline', ...
+             'focusedbreathing_button1', 'focusedbreathing_button2', ...
+             'focusedbreathing_button_mouth'};
     rowsHit = [];
     for r = 3:size(C, 1)
         v = C{r, cSub};

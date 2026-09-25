@@ -465,8 +465,10 @@ function k = canonTask(t)
         case {'pacedbreathing'}
             k = 'paced';   % pacedBreathing (added 2026-09-15)
         case {'audiobook', 'distractedbreathing', 'focusedbreathing', ...
-              'sleep', 'sleepwithodor', 'restingbaseline'}
-            k = 'sep';    % breathingTasks_separate condition rows (D12a)
+              'sleep', 'sleepwithodor', 'restingbaseline', ...
+              'focusedbreathing_button1', 'focusedbreathing_button2', ...
+              'focusedbreathing_button_mouth'}
+            k = 'sep';    % breathingTasks_separate condition rows (D12a; OBE button/mouth 2026-09-22)
         otherwise
             k = '';
     end

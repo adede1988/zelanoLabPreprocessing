@@ -154,6 +154,10 @@ function lab = canonicalCondLabel(cond)
             lab = 'sleepWithOdor';
         case 'restingbaseline'
             lab = 'restingBaseline';
+        case {'focusedbreathing_button1', 'focusedbreathing_button2'}
+            lab = 'focusedBreathing_button';   % two OBE takes: same label, distinct section idx + sourceFile
+        case 'focusedbreathing_button_mouth'
+            lab = 'focusedBreathing_mouth';
         otherwise
             error('unknown condition "%s"', cond);
     end
