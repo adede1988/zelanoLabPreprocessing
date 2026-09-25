@@ -4,7 +4,6 @@ clear
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L            = labPaths();
 addpath(genpath(L.repo))
-addpath(genpath(L.slowBreathing))
 addpath(genpath(L.eeglab))
 
 figPath      = L.figPath;
@@ -18,7 +17,8 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 %  then the results are concatenated (D12b, concatSections). No makeOutDat:
 %  raw condition files are loaded directly (like O15).
 %  TASK-SPECIFIC pieces: assembleRaw_breathingTasks_separate,
-%  concatSections, build_behavior_table_breathingTasks_separate, writeSheetSep.
+%  concatSections, build_behavior_table_breathingTasks_separate; its sheet
+%  writer is config/writeSheetSep.
 % =====================================================================
 
 cfg        = applyParams('breathingTasks_separate','main');
@@ -31,7 +31,6 @@ mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
 mainOnlyList = {};
 if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
 
-success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
     disp(['working on ', sessionIDs{s}])
@@ -179,7 +178,6 @@ for s = 1:numel(sessionIDs)
     writeSheetSep(P, S.id, 'X');    % D12d: every in-scope condition row
 
     catch ME
-        success(s) = 0;
         disp(['fail for ', sessionIDs{s}, ': ', ME.message]); disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
     end
     close all

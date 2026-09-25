@@ -98,20 +98,6 @@ for ii = 1:nTrial
     end
 end
 
-% 
-% maxDeflection = zeros(size(tmpEEG,1), size(tmpEEG,3)); 
-% badRecord = zeros(size(maxDeflection)); 
-% window = round(5/ (1000 / fs));
-% for chan = 1:size(tmpEEG,1)
-%     for trial = 1:size(tmpEEG,3)
-%         for ii = 1:round(window/4):(size(tmpEEG,2) - window)
-%             cur = max(tmpEEG(chan,ii:ii+window, trial)) - min(tmpEEG(chan,ii:ii+window, trial));
-%             if cur > maxDeflection(chan, trial)
-%                 maxDeflection(chan,trial) = cur; 
-%             end
-%         end
-%     end
-% end
 
 
 
@@ -230,20 +216,6 @@ for ii = 1:nTrial
     end
 end
 
-% 
-% maxDeflection = zeros(size(tmpEEG,1), size(tmpEEG,3)); 
-% badRecord = zeros(size(maxDeflection)); 
-% window = round(5/ (1000 / fs));
-% for chan = 1:size(tmpEEG,1)
-%     for trial = 1:size(tmpEEG,3)
-%         for ii = 1:round(window/4):(size(tmpEEG,2) - window)
-%             cur = max(tmpEEG(chan,ii:ii+window, trial)) - min(tmpEEG(chan,ii:ii+window, trial));
-%             if cur > maxDeflection(chan, trial)
-%                 maxDeflection(chan,trial) = cur; 
-%             end
-%         end
-%     end
-% end
 
 
 
@@ -366,73 +338,5 @@ badChans = unique(badChans);
 
 
 %%%%%%%%%%%%END NEW
-
-
-
-
-
-
-
-
-% 
-% 
-% %remove channels where over 50% of trials involve a max deflection of
-% %greater than 100 microvolts
-% noiseChans = find(sum(maxDeflection>100,2) ./ size(maxDeflection,2)>.50);
-% 
-% 
-% if length(noiseChans) > size(tmpEEG,1)/4 %if over a quarter of channels are about to be removed, then try doing rough trial removal first
-%     %remove trials where over 75% of channels have 100 microvolt
-%     %deflections
-%     noiseTrials = find(sum(maxDeflection>100,1)> (size(tmpEEG,1)*3/4) );
-%     if ~isempty(noiseTrials)
-%         badRecord(:,noiseTrials) = 1; 
-%         maxDeflection(:,noiseTrials) = 0; 
-%     end
-% 
-% 
-%     % then go back and do channel removal
-%     noiseChans = find(sum(maxDeflection>100,2) ./ size(maxDeflection,2)>.50);
-%     if ~isempty(noiseChans) 
-%         badRecord(noiseChans,:) = 1; 
-%         maxDeflection(noiseChans,:) = 0; 
-%     end
-%      %remove trials where over 25% of channels have 100 microvolt
-%     %deflections
-%     noiseTrials = find(sum(maxDeflection>100,1)> (size(tmpEEG,1)/4) );
-%     if ~isempty(noiseTrials)
-%        badRecord(:,noiseTrials) = 1; 
-%        maxDeflection(:,noiseTrials) = 0; 
-%     end
-% 
-% 
-% else 
-% 
-% 
-%     if ~isempty(noiseChans) 
-%         badRecord(noiseChans,:) = 1; 
-%         maxDeflection(noiseChans,:) = 0; 
-%     end
-%      %remove trials where over 25% of channels have 100 microvolt
-%     %deflections
-%     noiseTrials = find(sum(maxDeflection>100,1)> (size(tmpEEG,1)/4) );
-%     if ~isempty(noiseTrials)
-%        badRecord(:,noiseTrials) = 1; 
-%        maxDeflection(:,noiseTrials) = 0; 
-%     end
-% 
-% 
-% end
-% 
-% badChans = find(sum(badRecord,2)==length(starts));
-% badTrials = sum(badRecord,1)==c;
-% badTrials(end) = false; 
-% badTS = zeros(L,1); 
-% for ii = 1:length(starts)
-%     if badTrials(ii)
-%         badTS(starts(ii):starts(ii)+snipL-1) = 1; 
-%     end
-% end
-   
 
 end

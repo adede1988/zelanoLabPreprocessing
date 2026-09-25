@@ -3,7 +3,6 @@ clear
 % ---- machine paths (everything machine-specific comes from labPaths) ----
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L       = labPaths();
-codePre = L.codePre;
 addpath(genpath(L.repo))
 addpath(genpath(L.eeglab))
 
@@ -80,9 +79,6 @@ for s = 1:numel(sessionIDs)
     if isGuess
         [outDat, P] = paramCheck(outDat, P);
     end
-    outDat.rspIDX = P.rspIDX;
-    outDat.rspFlip = P.rspFlip;
-
 
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
     raw    = assembleRaw_cueTask(S);    % <-- TASK-SPECIFIC: edit/replace for a new task

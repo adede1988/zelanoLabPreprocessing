@@ -5,7 +5,9 @@ function [ECGz, beatSep] = buildECGz(outDat)
 %
 %   Shared by processECG (beat detection -> HRV) and paramCheckECG (interactive
 %   verification of the beat-detection spec) so both operate on identical ECGz
-%   and beatSep. Breathing task only -- it is the only task with ECG channels.
+%   and beatSep. Used by every breath-type task that records ECG (breathingTask,
+%   breathingTasks_separate, alternating6Blocks, EmotionalMovieTask,
+%   pacedBreathing).
 %
 %   ECGz    : channels whose label contains 'ECG', band-passed 5-40 Hz and
 %             z-scored per channel (rows = channels, cols = time).
@@ -23,7 +25,8 @@ function [ECGz, beatSep] = buildECGz(outDat)
     % amplitude in a few 10-s windows) that swamp the global z-score and
     % compress real R-peaks below any usable threshold: blank the noisy
     % windows (per-channel robust window-std > 3x median) before z-scoring.
-    % CA identified 2026-08 (batch/task8_probeCA2 / task89_probeBlankSim);
+    % CA identified 2026-08 (batch/task8_probeCA2 / task89_probeBlankSim -
+    % scripts removed in cleanup; see git history);
     % TB_3 / PC_2 / CP_1 / ZF_1 added 2026-09-01 per the reportResponse
     % beatSpec probes (probe_resp2: burst overdetection in the noise windows,
     % clean rhythm once blanked). Explicit per-session list per repo

@@ -4,7 +4,6 @@ clear
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L            = labPaths();
 addpath(genpath(L.repo))
-addpath(genpath(L.slowBreathing))
 addpath(genpath(L.eeglab))
 
 figPath      = L.figPath;
@@ -28,7 +27,6 @@ sessionIDs = cfg.sessionIDs;
 % Tasks_260824.md D4 batch override (see breathingTaskPreProc_main)
 allowGuessRunEnv = strcmp(getenv('ZLP_ALLOW_GUESS_RUN'), '1');
 
-success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
     disp(['working on ', sessionIDs{s}])
@@ -149,7 +147,6 @@ for s = 1:numel(sessionIDs)
     writePreProcX(P, S.id);
 
     catch ME
-        success(s) = 0;
         disp(['fail for ', sessionIDs{s}, ': ', ME.message]); disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
     end
     close all

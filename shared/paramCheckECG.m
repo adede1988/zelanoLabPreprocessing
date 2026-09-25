@@ -3,13 +3,14 @@ function P = paramCheckECG(outDat, P)
 %
 %   P = paramCheckECG(outDat, P)
 %
-%   Breathing-task counterpart to paramCheck: when a session's parameters are a
+%   ECG counterpart to paramCheck: when a session's parameters are a
 %   guess, this shows a short ECG segment with the beats the current
 %   P.beatSpec detects and lets the user accept it or type a new spec and
 %   re-check. Returns P with a possibly-updated .beatSpec / .getBeats.
 %
-%   This is breathing-only (the only task with ECG). It is a no-op for any P
-%   that has no .beatSpec field.
+%   Used by the breath-type tasks that record ECG (breathingTask,
+%   breathingTasks_separate, alternating6Blocks, EmotionalMovieTask,
+%   pacedBreathing). It is a no-op for any P that has no .beatSpec field.
 %
 %   The detector and the figure use the SAME band-passed/z-scored ECG as
 %   processECG (via buildECGz), so what you accept here is what runs.

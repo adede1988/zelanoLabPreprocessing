@@ -14,7 +14,6 @@ zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(
 L       = labPaths();
 codePre = L.codePre;
 addpath(genpath(L.repo))
-addpath(genpath(L.slowBreathing))
 addpath(genpath(L.eeglab))
 
 cfg        = applyParams('breathingTask','makeOutDat');
@@ -22,8 +21,6 @@ sessionIDs = cfg.sessionIDs;
 datPre     = cfg.datPre;
 datPrei    = cfg.datPrei;
 newList    = cfg.newIDs;
-rspIDX     = cfg.rspIDX;
-rspFlip    = cfg.rspFlip;
 
 % targeted-run filter (2026-08-29): comma-separated session ids in
 % ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
@@ -35,9 +32,6 @@ parfor sessi = 1:length(sessionIDs)
     if ~isempty(onlyList) && ~any(strcmp(onlyList, sessionIDs{sessi}))
         continue
     end
-    % if ~ismember(sessi, [27, 29, 37, 33, 32, 31, 40])
-    %     continue
-    % end
 try
 %% custom import for different participants: 
 disp(sessi)
@@ -49,63 +43,24 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
 
 
     if strcmp(sessionIDs{sessi}, '250811_Dupi_NMH_TPB_1')
-        %special handling of JH session 1 because it was recorded in two
-        %files
+        %special handling of TPB session 1: it was recorded in two files
+        %(raw_breathingTasks + raw_breathingTasks2); only the first is used,
+        %with hard-coded block starts. The second file is just another
+        %round of audio, so it is skipped.
         dat = load([datPre{datPrei(sessi)} sessionIDs{sessi} ...
                             '\raw\raw_breathingTasks/raw_breathingTasks.mat']);
         dat = dat.curDat; 
-        dat2 = load([datPre{datPrei(sessi)} sessionIDs{sessi} ...
-                   '\raw\raw_breathingTasks2/raw_breathingTasks2.mat']);
-        dat2 = dat2.curDat; 
-        % set(0, 'defaultfigurewindowstyle', 'docked')
-        
         
         behDat = ['closed-loop-respiration\processedBehavior\' ...
                     '250811_Dupi_NMH_TPB_1.csv'];
         behDat = readtable([codePre behDat]);
         
         outDat = struct; 
-        outDat.tim = .0005:.0005:300;
         outDat.behDat = behDat; 
         outDat.labels = dat.outLabs;
         outDat.CSClist = dat.ncslabels; 
         outDat.fs = dat.rawData.fsample; 
     
-        idx = cellfun(@(x) contains(x, 'event'), outDat.labels);
-        photoDiode = dat.rawData.trial{1}(idx, :); 
-        
-
-       % Find missing samples in the photodiode channel
-        nanidx = isnan(photoDiode);
-        nNan   = sum(nanidx);
-        
-        if nNan > 4000
-            error('too many missing values!');
-        end
-        
-        % Get raw data for this trial (rows = channels, cols = time)
-        rawData = dat.rawData.trial{1};
-        
-        if nNan > 0
-            % --- 1) Interpolate photodiode (1-D vector) ---
-            % Fill internal NaNs by linear interpolation
-            photoDiode = fillmissing(photoDiode, 'linear');
-            % Any leading/trailing NaNs get replaced by nearest neighbor
-            photoDiode = fillmissing(photoDiode, 'nearest');
-        
-            % --- 2) Interpolate rawData along time (dimension 2) ---
-            % Linear interpolation across time for each channel
-            rawData = fillmissing(rawData, 'linear', 2);
-            % Nearest neighbor for any remaining edge NaNs
-            rawData = fillmissing(rawData, 'nearest', 2);
-        end
-
-
-
-        photoDiode = abs(photoDiode); 
-        photoDiode = (photoDiode - mean(photoDiode)) / std(photoDiode);
-        % figure; plot(photoDiode)
-        
         TTLs = [112116 709263];
         di = 1; 
         for ii = 1:2:length(TTLs)
@@ -113,26 +68,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
                                               TTLs(ii):TTLs(ii)+599999); 
             di = di+1; 
         end
-
-        % % second dataset
-        % idx = cellfun(@(x) contains(x, 'event'), outDat.labels);
-        % photoDiode = dat2.rawData.trial{1}(idx, :); 
-        % 
-        % photoDiode = abs(photoDiode); 
-        % photoDiode = (photoDiode - mean(photoDiode)) / std(photoDiode);
-        % figure; plot(photoDiode)
-        % 
-        % TTLs = [113048, 711003];
-        % 
-        % TTLs = sort(TTLs); 
-        % 
-        % for ii = 1:2:length(TTLs)
-        %     outDat.data(:,:,di) = dat.rawData.trial{1}(:,...
-        %                                       TTLs(ii):TTLs(ii)+599999); 
-        %     di = di+1; 
-        % end
-
-        %The second dataset is just another round of audio so skip for now
 
     
     elseif strcmp(sessionIDs{sessi}, '250818_Dupi_NMH_JH_1')
@@ -144,8 +79,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         dat2 = load([datPre{datPrei(sessi)} sessionIDs{sessi} ...
                    '\raw\raw_breathingTasks/raw_breathingTasks.mat']);
         dat2 = dat2.curDat; 
-        % set(0, 'defaultfigurewindowstyle', 'docked')
-        
         
         behDat = ['closed-loop-respiration\processedBehavior\' ...
                     '250818_Dupi_NMH_JH_1.csv'];
@@ -154,7 +87,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         outDat = struct; 
         
         outDat.data =dat.rawData.trial{1}(:,20000:600000+19999);
-        outDat.tim = .0005:.0005:300;
         
         outDat.behDat = behDat; 
         outDat.labels = dat.outLabs;
@@ -164,14 +96,9 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
         photoDiodeDat = dat2.rawData.trial{1}; 
         photoDiodeDat = photoDiodeDat(end,:); 
-        tim = dat2.rawData.time{1}; 
         %TTLs in sample indices 
         TTLs = find(photoDiodeDat(1:length(photoDiodeDat)-1)<3000 &...
              photoDiodeDat(2:length(photoDiodeDat))>3000);
-        
-        % figure; plot(photoDiodeDat)
-        % xline(TTLs([1, find(diff(TTLs)> 15000), ...
-        %                     find(diff(TTLs)> 15000)+1, end]))
         
         TTLs = TTLs([1, find(diff(TTLs)> 15000), ...
                         find(diff(TTLs)> 15000)+1, end]);
@@ -219,7 +146,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
                                              TTLs(ii):TTLs(ii)+599999); 
             di = di+1; 
         end
-        outDat.tim = .0005:.0005:300;
         outDat.behDat = behDat; 
         outDat.labels = dat.outLabs;
         outDat.CSClist = dat.ncslabels; 
@@ -238,7 +164,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
     
         outDat = struct; 
-        outDat.tim = .0005:.0005:300;
         outDat.behDat = behDat; 
         outDat.labels = dat.outLabs;
         outDat.CSClist = dat.ncslabels; 
@@ -249,7 +174,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
     
         photoDiode = (photoDiode - mean(photoDiode)) / std(photoDiode);
-        % figure; plot(photoDiode)
         TTLs = find(photoDiode(1:length(photoDiode)-1)<1 &...
                                 photoDiode(2:length(photoDiode))>1);
         TTLs = TTLs([1, find(diff(TTLs)> 15000), ...
@@ -277,7 +201,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
     
         outDat = struct; 
-        outDat.tim = .0005:.0005:300;
         outDat.behDat = behDat; 
         outDat.labels = dat.outLabs;
         outDat.CSClist = dat.ncslabels; 
@@ -288,7 +211,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
     
         photoDiode = (photoDiode - mean(photoDiode)) / std(photoDiode);
-        % figure; plot(photoDiode)
         TTLs = find(photoDiode(1:length(photoDiode)-1)<1 &...
                                 photoDiode(2:length(photoDiode))>1);
         TTLs = TTLs([1, find(diff(TTLs)> 15000), ...
@@ -297,7 +219,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         TTLs([1,2, 10, 18]) = []; %extra detections for this participant! 
 
         TTLs = sort(TTLs); 
-        % xline(TTLs)
         outDat.data = zeros(size(dat.rawData.trial{1}, 1), 600000, ...
                     length(TTLs)/2);
         di = 1; 
@@ -318,7 +239,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
     
         outDat = struct; 
-        outDat.tim = .0005:.0005:300;
         outDat.behDat = behDat; 
         outDat.labels = dat.outLabs;
         outDat.CSClist = dat.ncslabels; 
@@ -329,7 +249,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
     
         photoDiode = (photoDiode - mean(photoDiode)) / std(photoDiode);
-        % figure; plot(photoDiode)
         TTLs = find(photoDiode(1:length(photoDiode)-1)<1.1 &...
                                 photoDiode(2:length(photoDiode))>1.1);
         TTLs = TTLs([1, find(diff(TTLs)> 15000), ...
@@ -338,7 +257,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
 
         TTLs = sort(TTLs); 
-        % xline(TTLs)
         outDat.data = zeros(size(dat.rawData.trial{1}, 1), 600000, ...
                     length(TTLs)/2);
         di = 1; 
@@ -425,7 +343,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         for ii = 1:numel(TTLs)
             outDat.data(:,:,ii) = dat.rawData.trial{1}(:, TTLs(ii):TTLs(ii)+599999);
         end
-        outDat.tim = .0005:.0005:300;
         outDat.behDat = behDat;
         outDat.labels = dat.outLabs;
         outDat.CSClist = dat.ncslabels;
@@ -465,7 +382,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         outDat.labels = dat.outLabs;
         outDat.CSClist = dat.ncslabels; 
         outDat.fs = dat.rawData.fsample; 
-        outDat.tim = .0005:.0005:300;
     
         idx = cellfun(@(x) contains(x, 'event'), outDat.labels);
         photoDiode = dat.rawData.trial{1}(idx, :);
@@ -509,12 +425,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         photoDiode = smoothdata(photoDiode, 'gaussian', 200); 
         dat.rawData.trial{1} = rawData;
         
-        %audio, focused, slow shadow, fast shadow, focus shadow
-        cndSeps = [1, 1.1, 1.3, 1.6, 1.7, 1.8, 1.9];
-
-        % thresh = prctile(photoDiode, 2);
-        % TTLs = find(photoDiode(1:length(photoDiode)-1)>thresh &...
-        %                         photoDiode(2:length(photoDiode))<thresh);
         absPho = abs(photoDiode); 
         
         isLow  = absPho(1:end-80) < 40;
@@ -537,36 +447,11 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         next5Close  = conv(double(dTTL(2:end)   < gapThr), ones(1,5), 'valid') == 5;
         isLongGap   = dTTL(1:end-5) > gapThr;
         startTTLs   = find(isLongGap & next5Close) + 1;
-        startTTLs   = TTLs(startTTLs) - 0*outDat.fs; %adjustment for dead time at condition start
+        startTTLs   = TTLs(startTTLs);
         
         prior5Close = conv(double(dTTL(1:end-1) < gapThr), ones(1,5), 'valid') == 5;
         next1Far    = dTTL(6:end) > gapThr;
         endTTLs     = TTLs(find(prior5Close & next1Far) + 5);
-
-        % minDist = min(cndSeps) *outDat.fs - 700; 
-        % TTLs = TTLs([1,  ...
-        %                         find(diff(TTLs)> minDist), end]);
-        % TTLs: vector of time stamps (samples or seconds)
-       
-        % 1) Intervals between consecutive TTLs
-        % dTTL = diff(TTLs);
-        % 
-        % isLongGap = dTTL>outDat.fs*5;
-        % gapIntIdx = find(isLongGap);
-        % 
-        % % 2) Find the "long" gaps (between blocks)
-        % %    Here I use a robust outlier rule; tweak 'ThresholdFactor'
-        % isLongGap = dTTL>outDat.fs*5;
-        % 
-        % % indices in dTTL of long gaps
-        % gapIntIdx = find(isLongGap);
-        % 
-        % % 3) Indices in TTLs:
-        % idx_before_gap = gapIntIdx;          % last TTL of each block
-        % idx_after_gap  = gapIntIdx + 1;      % first TTL of next block
-        % 
-        % startTTLs = [TTLs(1); TTLs(idx_after_gap)];
-        % endTTLs = [TTLs(idx_before_gap); TTLs(end)]; 
 
         blockLens = (endTTLs - startTTLs) ./ outDat.fs;
 
@@ -587,18 +472,14 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         end
 
         % loud guard (2026-08-31, AD_2): zero blocks surviving the length
-        % filter used to crash obscurely at the diagnostic xline
+        % filter used to crash obscurely at the (since removed) diagnostic
+        % xline
         if isempty(TTLs)
             error('%s: photodiode found no 180-400 s task blocks - needs a measured-window special case', ...
                 sessionIDs{sessi});
         end
 
-        figure
-        plot(photoDiode)
-        xline(TTLs)
-        title(sessi)
-        xline(endTTLs, 'color', 'red')
-       % block lengths from true start/end indices
+        % block lengths from true start/end indices
         blockLens = endTTLs - TTLs + 1;
         
         % preallocate concatenated data matrix
@@ -636,7 +517,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
     
         outDat = struct; 
-        outDat.tim = .0005:.0005:300;
         outDat.behDat = behDat; 
         outDat.labels = dat.outLabs;
         outDat.CSClist = dat.ncslabels; 
@@ -647,7 +527,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         
         photoDiode = abs(photoDiode); 
         photoDiode = (photoDiode - mean(photoDiode)) / std(photoDiode);
-        % figure; plot(photoDiode)
         
         TTLs = find(photoDiode(1:length(photoDiode)-1)<4 &...
                                 photoDiode(2:length(photoDiode))>4);
@@ -665,10 +544,6 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
         end
     
     end
-    
-    % if strcmp(sessionIDs{sessi},'250811_Dupi_NMH_TPB_1')
-    %     outDat.data(:,:,3) = []; 
-    % end
 
     %put all the data into Chan X time with conditions concatenated
     %together

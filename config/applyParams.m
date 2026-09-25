@@ -185,8 +185,6 @@ function out = applyParams(task, sel, xlsxPath)
     P.task        = taskCallerKey(task);
     P.type        = typeStr(typeStudy);
     P.fs_target   = 500;
-    P.debug       = false;
-    P.computeResp = true;
     P.rspIDX      = num_or(rows{ri, cRsp}, 1);
     P.rspFlip     = num_or(rows{ri, cFlip}, 1);
 
@@ -210,16 +208,11 @@ function out = applyParams(task, sel, xlsxPath)
             P.respThresh   = num_or(rows{ri, cRespT}, 500);
             P.cuedBackBuff = num_or(rows{ri, cBack}, 150);
             P.adjWin       = num_or(rows{ri, cAdj}, 500);
-            P.ttlMap = struct( ...
-                'cue',    {'cue','Cue','cueOnset'}, ...
-                'target', {'targ','target','TargetOnset'}, ...
-                'resp',   {'resp','response','button'} );
 
         case 'thresh'
             P.respThresh   = num_or(rows{ri, cRespT}, 500);
             P.cuedBackBuff = num_or(rows{ri, cBack}, 150);
             P.adjWin       = num_or(rows{ri, cAdj}, 500);
-            P.ttlMap = struct('sniff', {'sniff'});
 
         case 'O15'
             P.respThresh   = num_or(rows{ri, cRespT}, 500);

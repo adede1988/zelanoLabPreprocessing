@@ -53,7 +53,7 @@ the toolbox's own sanctioned post-manual-adjustment path.
 - `pipelines/alternating6BlocksPreProc_main.m`,
   `pipelines/emotionalMovieTaskPreProc_main.m`,
   `pipelines/breathingTasks_separatePreProc_main.m` — one-line engine swap.
-- `tasks/breathing/flagBadBreaths.m` — 2026-08-29 fix: the `goodBreath==0`
+- `shared/flagBadBreaths.m` — 2026-08-29 fix: the `goodBreath==0`
   branch read `rrDat(bonset:boffset)` (the recording's first seconds) instead
   of the breath-local `curRR` window; and breaths whose 20-s QC window falls
   off a recording edge (or length ≥ 18 s) now read NaN instead of a silent 0.

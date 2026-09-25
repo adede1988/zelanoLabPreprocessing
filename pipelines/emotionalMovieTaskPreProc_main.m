@@ -4,7 +4,6 @@ clear
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L            = labPaths();
 addpath(genpath(L.repo))
-addpath(genpath(L.slowBreathing))
 addpath(genpath(L.eeglab))
 
 figPath      = L.figPath;
@@ -35,7 +34,6 @@ mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
 mainOnlyList = {};
 if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
 
-success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
     S = struct;
@@ -160,7 +158,6 @@ for s = 1:numel(sessionIDs)
     writePreProcX(P, S.id);
 
     catch ME
-        success(s) = 0;
         disp(['fail for ', sessionIDs{s}, ': ', ME.message]); disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
     end
     close all

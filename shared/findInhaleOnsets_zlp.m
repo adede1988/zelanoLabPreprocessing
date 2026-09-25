@@ -1,33 +1,49 @@
 function [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method, r2Factor, r3Factor, dipFrac, dipDur)
-% r2Factor (default 0.75): rule-2 rise target as a fraction of local amplitude
-% r3Factor (default 3): rule-3 slope-contrast ratio (max/min in -0.25..+0.5s)
-% dipFrac/dipDur (default 0.50 / 0.10 s): the kneeBacktrack walk's sustained
-%   -dip stop - slope < dipFrac*dmax continuously for >= dipDur seconds
-%   (exposed 2026-08-28 for the tri-variant early-onset review)
 %FINDINHALEONSETS_ZLP  Inhale onsets per trough->peak pair (QC round 3).
 %
-%   onsets = findInhaleOnsets_zlp(resp, fs, peaks, troughs, method)
+%   [onsets, peaks, troughs] = findInhaleOnsets_zlp(resp, fs, peaks, troughs, ...
+%                                  method, r2Factor, r3Factor, dipFrac, dipDur)
 %
 %   resp   : detection trace (windowed-normalized), row vector
-%   peaks/troughs : strictly alternating extrema (findAlternatingExtrema) -
+%   peaks/troughs : strictly alternating extrema (prepBreathTrace_zlp) -
 %            bm-style sample indices, so this slots directly into the
-%            breathMetrics flow in place of findRespiratoryPausesAndOnsets
+%            breathMetrics flow in place of findRespiratoryPausesAndOnsets.
+%            Returned PRUNED: a trough->peak pair with no sample passing
+%            the eligibility rules is a false split and is removed.
 %   method : 'slopeGate' | 'kneeBacktrack' | 'changepoint'
+%   r2Factor : rule-2 ABSOLUTE rise (normalized units) the trace must reach
+%            above a candidate somewhere within max(0.4 s, 25% of the pair)
+%            (default 0.75 when omitted; a passed 0.25 is raised to 0.4)
+%   r3Factor : rule-3 slope-contrast ratio (max/min slope in -0.25..+0.5 s),
+%            used to refine kneeBacktrack landings (default 3)
+%   dipFrac/dipDur : the kneeBacktrack walk's sustained-dip stop - slope <
+%            dipFrac*dmax continuously for >= dipDur seconds (default
+%            0.50 / 0.10 s; exposed 2026-08-28 for the tri-variant
+%            early-onset review)
+%   The locked engine (segmentBreaths_zlp) calls
+%   ('kneeBacktrack', 0.4, 1.25, 0.50, 0.10).
 %
 %   Morphology (lab definition): a true inhale onset is a FAST UPWARD
 %   deflection beginning near zero - a sharp positive increase in slope while
 %   the value sits well above the trough and below the peak. Zero crossings
 %   alone fail (pauses hover around zero; onsets can start below zero).
-%   Exactly one onset is returned per trough->peak pair; pairs are >=1.5 s
-%   apart by the backbone's refractory.
+%   Exactly one onset is returned per surviving trough->peak pair (peaks are
+%   >= 1.0 s apart in prepBreathTrace_zlp 'conservative'), and never in the
+%   first 20% of its trough->peak interval (rev13 hard floor).
 %
 %   Methods:
 %     slopeGate     first SUSTAINED crossing of a slope threshold (20% of the
 %                   window's max slope) within the amplitude mid-band
 %                   (trough+15% .. peak-25% of the range)
-%     kneeBacktrack from the steepest point of the rise, walk backward until
-%                   slope falls below 15% of that maximum: the foot/knee of
-%                   the fast rise
+%     kneeBacktrack anchor at the last eligible second-half sample whose
+%                   slope is >= 70% of the second half's max, then walk
+%                   backward until a sustained dip (slope < dipFrac x the
+%                   pair's max slope for >= dipDur): the foot/knee of the
+%                   fast rise. Landings below trough+10% of the swing fall
+%                   back to the last upward midpoint crossing; otherwise a
+%                   landing above trough+35% tries a stricter extension
+%                   walk (0.05 dmax / 0.15 s), and rule 3 then snaps the
+%                   landing to the nearest slope-contrasted sample.
 %     changepoint   two-line least-squares fit (flat-ish left segment, rising
 %                   right segment); onset = breakpoint minimizing total
 %                   residual with rightSlope > leftSlope (the principled

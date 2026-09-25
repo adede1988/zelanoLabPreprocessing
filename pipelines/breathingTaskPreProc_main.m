@@ -3,9 +3,7 @@ clear
 % ---- machine paths (everything machine-specific comes from labPaths) ----
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L            = labPaths();
-codePre      = L.codePre;
 addpath(genpath(L.repo))
-addpath(genpath(L.slowBreathing))
 addpath(genpath(L.eeglab))
 % NB: breathMetrics (vendored in external/breathMetrics) is the per-breath
 % segmentation engine via shared/segmentBreaths_breathMetrics — on the path
@@ -28,11 +26,12 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 %    - process_respiration_breathing.m       (per-breath metrics, bmObj)
 %    - alignTargetBreathingTraceSimplify.m   (paced/shadow target-trace alignment)
 %    - build_behavior_table_breathingTask.m
-%    - processECG.m / buildECGz.m / paramCheckECG.m   (ECG beat detection + HRV)
-%    - flagBadBreaths.m, plotBreathLengths.m
+%    - plotBreathLengths.m
 %  Everything else is SHARED: applyParams, assembleOutDat, downsample_data,
 %  preprocess_eeg, preprocess_macros, preprocess_respiration_wholetrace,
-%  paramCheck, writeParams, writePreProcX, plot_sniff_epochs.
+%  paramCheck, writeParams, writePreProcX, plot_sniff_epochs, and the ECG/QC
+%  helpers every breath-type task uses (processECG / buildECGz / detectBeats /
+%  paramCheckECG for beat detection + HRV, flagBadBreaths).
 % =====================================================================
 
 cfg        = applyParams('breathingTask','main');
@@ -49,7 +48,6 @@ mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
 mainOnlyList = {};
 if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
 
-success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
     disp(['working on ', sessionIDs{s}])
@@ -115,11 +113,9 @@ for s = 1:numel(sessionIDs)
     %       behavior table + ECG/HRV + breath QC. (preprocess_respiration_wholetrace
     %       and plot_sniff_epochs below are shared helpers reused for plotting.) =====
     outDat = process_respiration_breathing(outDat, P);
-    if isfield(outDat, 'TTL')
-        TaskBreaks = [outDat.TTL/outDat.fs size(outDat.data,2)/outDat.fs];
-    else
-        TaskBreaks = 0:300:max(outDat.behDat.order)*300-10; 
-    end
+    % outDat.TTL always exists here (assembleRaw_breathingTask adds the
+    % 5-min-window fallback when the intermediate has none)
+    TaskBreaks = [outDat.TTL/outDat.fs size(outDat.data,2)/outDat.fs];
     for cndi = 1:length(TaskBreaks)
        
         outDat.bmObj(outDat.bmObj(:,2)>TaskBreaks(cndi),12) = cndi; 
@@ -133,7 +129,7 @@ for s = 1:numel(sessionIDs)
         disp(['TPB 1 had target trace problems'])
     else
         % This doesn't work for the wave breathing task really at all: 
-        [outDat, targTraces] = alignTargetBreathingTraceSimplify(outDat, targTraceDir);
+        outDat = alignTargetBreathingTraceSimplify(outDat, targTraceDir);
     end
     outDat = build_behavior_table_breathingTask(outDat, outDat.bmObj);
 
@@ -181,7 +177,6 @@ for s = 1:numel(sessionIDs)
     writePreProcX(P, S.id);   % mark Data Preprocessed = X in dataTracking.xlsx
 
     catch ME
-        success(s) = 0;
         disp(['fail for ', sessionIDs{s}, ': ', ME.message])
         % full stack (2026-08-31): message-only reporting made remote
         % debugging needlessly slow - twice

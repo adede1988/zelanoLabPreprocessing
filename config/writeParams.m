@@ -48,7 +48,7 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
 %     rspIDX rspFlip hasEEG spikeClean spikeThresh spikeWin macroRemove
 %     paramSource hasMacros beatSpec respThresh cuedBackBuff adjWin
 %     ttlRemoveIdx (<- P.ttl.removeTrialMarksIdx) ttlNote (<- P.ttl.note)
-%   Non-serialisable fields (getBeats, ttlMap, pd) are ignored by design.
+%   Non-serialisable fields (getBeats, pd) are ignored by design.
 
     % ---------------- options ----------------
     opt.Verbose           = true;

@@ -1,7 +1,8 @@
 function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankBelowFrac, cySpan, floorFrac)
 %PREPBREATHTRACE_ZLP  Step-1 preparation + peak/trough detection (QC round 4).
 %
-%   [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankBelowFrac)
+%   [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, ...
+%                                     blankBelowFrac, cySpan, floorFrac)
 %
 %   Three alternatives for preparing the trace and finding breath extrema,
 %   addressing the 2026-08 review's two step-1 failures: (a) over-detection
@@ -11,22 +12,32 @@ function [det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankB
 %   can replace findRespiratoryExtrema in the bm flow. Onset detection
 %   (findInhaleOnsets_zlp) runs downstream on the returned det trace.
 %
-%   mode 'pwl'          piecewise-linear (Douglas-Peucker) reconstruction:
-%                       breakpoints only where line-fit error > 15% of local
-%                       amplitude - micro-bumps vanish, sharp slope changes
-%                       are preserved exactly. Extrema = alternating polyline
-%                       vertices. det = the polyline itself.
-%   mode 'conservative' minimal smoothing (150 ms); over-detection attacked
-%                       at the criteria: prominence >= 0.6 (normalized),
-%                       trough->peak rise >= 40% of local breath amplitude,
-%                       2.5-s min separation, strict alternation.
-%   mode 'twoscale'     extrema on a 500-ms-smoothed skeleton (bumps cannot
-%                       survive), each refined to the true extremum on the
-%                       150-ms trace within +/-0.6 s; det = the 150-ms trace
-%                       (sharp uptick intact for onset placement).
+%   Common to all: linear NaN fill, 500-ms moving-mean smoothing (rev7; was
+%   300 ms), then 30-s moving-std windowed amplitude normalization (floor
+%   floorFrac x median, default 0.05) and optional blankBelowFrac exclusion
+%   (samples whose local std is below blankBelowFrac x median are zeroed).
+%   cySpan ([start end] samples, optional): inside a cyclicSigh span, of two
+%   peaks < 5 s apart only the first is kept.
 %
-%   Common to all: linear NaN fill, 30-s moving-std windowed amplitude
-%   normalization (floor 0.05 x median), optional blankBelowFrac exclusion.
+%   mode 'pwl'          piecewise-linear (Douglas-Peucker at 20 Hz)
+%                       reconstruction: breakpoints only where line-fit
+%                       error > 0.15 normalized units - micro-bumps vanish,
+%                       sharp slope changes are preserved exactly. Extrema =
+%                       alternating polyline vertices. det = the polyline.
+%   mode 'conservative' (the mode the locked segmentBreaths_zlp uses) no
+%                       smoothing beyond the common 500 ms; over-detection
+%                       attacked at the criteria: prominence >= 0.6
+%                       (normalized), 1.0-s min separation (rev11; was
+%                       2.0 s), peak validity (height >= 1.0, or >= 0.5 with
+%                       a 0.5 drop within the next 1 s), trough->peak rise
+%                       >= 40% of the local breath amplitude (half the 30-s
+%                       max-min range), strict alternation. det = the
+%                       normalized trace.
+%   mode 'twoscale'     extrema on a further 500-ms-smoothed skeleton
+%                       (bumps cannot survive), each refined to the true
+%                       extremum on det within +/-0.6 s; det = the
+%                       normalized trace (sharp uptick intact for onset
+%                       placement).
 
     if nargin < 4, blankBelowFrac = []; end
     if nargin < 5, cySpan = []; end

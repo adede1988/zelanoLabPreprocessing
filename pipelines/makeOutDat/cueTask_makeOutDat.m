@@ -16,7 +16,6 @@ while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2
 end
 addpath(genpath(zlpRoot));
 L          = labPaths();
-codePre    = L.codePre;
 behDatPath = L.behCue;
 addpath(genpath(L.repo))
 addpath(genpath(L.eeglab))
@@ -30,8 +29,6 @@ sessionIDs = cfg.sessionIDs;
 datPre     = cfg.datPre;
 datPrei    = cfg.datPrei;
 newSet     = cfg.newIDs;
-rspIDX     = cfg.rspIDX;
-rspFlip    = cfg.rspFlip;
 
 % targeted-run filter (2026-09-01): comma-separated session ids in
 % ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
@@ -868,7 +865,8 @@ end
     % no-cue trials; hit/miss/cr/fa are undefined there, so they get their own
     % outcome value. The cue column keeps the 0. The photodiode structure is
     % unchanged on no-cue trials (trial-start/sniff/response pulses all
-    % present - verified on SP_2/RC_1/KA_2, batch/task6_probeNoCueTTL.m).
+    % present - verified on SP_2/RC_1/KA_2, batch/task6_probeNoCueTTL.m
+    % (script removed in cleanup; see git history)).
     idx = find(outDat.behDat.cue == 0);
     outDat.behDat.type(idx) = repmat("noCue", length(idx),1);
   

@@ -21,10 +21,10 @@ function L = labPaths()
 %                 the breathing target-trace files; '' if not present here.
 %     .fieldtrip  FieldTrip root to addpath (must contain external/brainstorm for
 %                 the FOOOF analyses); optional ('' / unset) on machines that don't
-%                 run the cue/O15 FOOOF analyses. Used by cue_init_paths/o15_init_paths.
+%                 run the cue/O15 FOOOF analyses.
 %
 %   ---- Derived fields (built from the bases; never set these per machine) -----
-%     .repo .eegLocCsv .slowBreathing .closedLoopResp .procBehavior .figPath
+%     .repo .eegLocCsv .slowBreathing .procBehavior .figPath
 %     .adminXlsx .rootDupi .rootOBE .rootEEG .behCue .behThresh .targTraceDir
 %     .labCommonCanon  (the Lab_Common prefix as stored in dataTracking.xlsx;
 %                       lets loaders rebase the sheet's absolute paths onto a
@@ -90,7 +90,7 @@ function L = deriveLabPaths(L)
                 'Base field "%s" is missing (check your labPaths case or labPaths_local).', reqd{i});
         end
     end
-    if ~isfield(L, 'fieldtrip'), L.fieldtrip = ''; end   % optional; cue_init_paths/o15_init_paths validate
+    if ~isfield(L, 'fieldtrip'), L.fieldtrip = ''; end   % optional; callers validate before use
 
     cp = L.codePre;
     lc = L.labCommon;
@@ -99,7 +99,6 @@ function L = deriveLabPaths(L)
     L.repo           = fileparts(fileparts(mfilename('fullpath')));  % this repo root (config/ is one level down)
     L.eegLocCsv      = fullfile(L.repo, 'config', 'eegLocs_standard_coords.csv');
     L.slowBreathing  = fullfile(L.repo, 'external', 'slowBreathing');   % vendored
-    L.closedLoopResp = fullfile(L.repo, 'external', 'closed-loop-respiration');
     L.procBehavior   = fullfile(L.repo, 'processedBehavior');   % per-breath CSV output (repo-local)
 
     % lab-common data side. Roots used in raw string concatenation downstream

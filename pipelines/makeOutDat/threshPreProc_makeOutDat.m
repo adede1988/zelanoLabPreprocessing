@@ -10,7 +10,6 @@ clear
 % the path before calling labPaths().
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L                 = labPaths();
-codePre           = L.codePre;
 
 % Centralized behavioral results location for "newSet" participants
 behDatPath_newSet = L.behThresh;
@@ -25,7 +24,6 @@ behDatPath_newSet = L.behThresh;
 %% Toolboxes / paths
 addpath(genpath(L.repo))
 addpath(genpath(L.eeglab))
-addpath(genpath(L.slowBreathing))
 
 set(0, 'defaultfigurewindowstyle', 'docked')
 
@@ -35,8 +33,6 @@ sessionIDs = cfg.sessionIDs;
 datPre     = cfg.datPre;
 datPrei    = cfg.datPrei;
 newSet     = cfg.newIDs;
-rspIDX     = cfg.rspIDX;
-rspFlip    = cfg.rspFlip;
 
 % targeted-run filter (2026-09-01): comma-separated session ids in
 % ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
@@ -201,10 +197,8 @@ for sessi = 1:numel(sessionIDs)
     outDat.fs      = dat.rawData.fsample;
     outDat.sessID  = sessID;
     outDat.behDat  = behDat;
-
-    % Keep these session-level params in case downstream code wants them
-    outDat.rspIDX  = rspIDX(sessi);
-    outDat.rspFlip = rspFlip(sessi);
+    % (rspIDX / rspFlip are not stored here: loadIntermediateRaw ignores them
+    % and assembleOutDat sets them from the sheet via applyParams)
 
     %% -----------------------
     %  TTL extraction (single event type; must be exactly 45)
