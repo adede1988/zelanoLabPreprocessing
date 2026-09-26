@@ -2,7 +2,7 @@
 # (qc8_guessReviewFigs.m output pulled into the repo). Windows PowerShell 5.1.
 # Usage: powershell -File batch\buildGuessReview.ps1 [-RepoRoot <dir holding FigDir>] [-FigDir figs]
 #        [-OutFile x.html] [-IntroHtml <fragment inserted after the title>]
-#        [-AnswersFile <previous round's answers json, '' = none>] [-NewIds <comma list: badge 'new this round'>]
+#        [-AnswersFile <previous round's answers json, '' = none>] [-NewIds <comma list of id or task:id - badge 'new this round'>]
 param(
   [string]$RepoRoot    = (Split-Path $PSScriptRoot -Parent),
   [string]$FigDir      = 'guessReviewFigs',
@@ -177,7 +177,7 @@ foreach ($e in $all) {
   }
   $cls = ''
   if ($status -ne 'ok') { $cls = ' class="flag"' }
-  $badge = ''; if ($newSet.ContainsKey($e.Id)) { $badge = ' <b>(new)</b>' }
+  $badge = ''; if ($newSet.ContainsKey($e.Id) -or $newSet.ContainsKey($e.Task + ':' + $e.Id)) { $badge = ' <b>(new)</b>' }
   $H.Add('<tr><td>' + $e.Task + '</td><td><a href="#' + $e.Task + '_' + $e.Id + '">' + $e.Id + '</a>' + $badge + '</td><td' + $cls + '>' + (HtmlEnc $status) + '</td><td>' + $blink + '</td><td>' + $spike + '</td><td>' + $beats + '</td><td>' + $n + '</td><td>' + $nf + '</td></tr>')
 }
 $H.Add('</table>')
@@ -188,7 +188,7 @@ foreach ($task in $taskOrder) {
   if (-not $entries) { continue }
   $H.Add('<h2>' + (HtmlEnc $taskTitles[$task]) + '</h2>')
   foreach ($e in $entries) {
-    $badge = ''; if ($newSet.ContainsKey($e.Id)) { $badge = ' &mdash; new this round' }
+    $badge = ''; if ($newSet.ContainsKey($e.Id) -or $newSet.ContainsKey($e.Task + ':' + $e.Id)) { $badge = ' &mdash; new this round' }
     $H.Add('<h3 id="' + $e.Task + '_' + $e.Id + '">' + $e.Id + $badge + '</h3>')
     $i = $e.Info
     $H.Add('<div class="meta"><ul>')
