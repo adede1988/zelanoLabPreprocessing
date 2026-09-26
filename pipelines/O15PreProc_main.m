@@ -11,16 +11,17 @@ EEGLOC  = readtable(L.eegLocCsv);   % load once, reuse
 
 % =====================================================================
 %  O15 preprocessing -- main pipeline
-%  Sections marked TASK-SHARED are identical across all four pipelines
-%  (breathing / cue / thresh / O15); do NOT edit them when adding a new task.
-%  Sections marked TASK-SPECIFIC must be rewritten per task.
+%  Sections marked TASK-SHARED call the shared functions every *PreProc_main
+%  uses (runSharedCore + the shared stage helpers); do NOT edit or copy them
+%  when adding a new task. Sections marked TASK-SPECIFIC must be rewritten per task.
 %  TASK-SPECIFIC pieces for O15 (rewrite these for a new task):
 %    - assembleRaw_O15.m      (raw_O15 load + detect_ttls_O15 -> raw, TTL)
 %    - detect_ttls_O15.m      (photodiode -> TTL table)
 %    - assembleOutDat_O15extras.m  (O15-only outDat fields: CSClist, loadFile, ...)
 %    - build_behavior_table_O15.m
-%  Everything else is SHARED: applyParams, downsample_data, preprocess_eeg,
-%  preprocess_macros, preprocess_respiration_wholetrace, detect_sniffs_from_TTLs,
+%  Everything else is SHARED: applyParams, assembleOutDat, runSharedCore
+%  (downsample_data -> preprocess_eeg -> preprocess_macros),
+%  preprocess_respiration_wholetrace, detect_sniffs_from_TTLs,
 %  refine_onsets_with_phase, paramCheck, writeParams, writePreProcX, plot_sniff_epochs.
 % =====================================================================
 

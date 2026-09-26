@@ -17,8 +17,9 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 
 % =====================================================================
 %  breathingTask preprocessing -- main pipeline
-%  TASK-SHARED sections are identical across all four pipelines; do NOT edit
-%  them when adding a new task. TASK-SPECIFIC sections must be rewritten.
+%  TASK-SHARED sections call the shared functions every *PreProc_main uses
+%  (runSharedCore + the shared stage helpers); do NOT edit or copy them when
+%  adding a new task. TASK-SPECIFIC sections must be rewritten.
 %  Breathing is the richest task: it alone has ECG/HRV and target-trace alignment.
 %  TASK-SPECIFIC pieces for breathingTask (rewrite these for a new task):
 %    - assembleRaw_breathingTask.m           (raw load -> raw struct)
@@ -27,9 +28,11 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 %    - alignTargetBreathingTraceSimplify.m   (paced/shadow target-trace alignment)
 %    - build_behavior_table_breathingTask.m
 %    - plotBreathLengths.m
-%  Everything else is SHARED: applyParams, assembleOutDat, downsample_data,
-%  preprocess_eeg, preprocess_macros, preprocess_respiration_wholetrace,
-%  paramCheck, writeParams, writePreProcX, plot_sniff_epochs, and the ECG/QC
+%  Everything else is SHARED: applyParams, assembleOutDat, runSharedCore
+%  (downsample_data -> preprocess_eeg -> preprocess_macros),
+%  preprocess_respiration_wholetrace, segmentBreaths_zlp, behDatFromBreaths /
+%  appendBmFeatureCols (inside the behavior-table builder), paramCheck,
+%  writeParams, writePreProcX, plot_sniff_epochs, and the ECG/QC
 %  helpers every breath-type task uses (processECG / buildECGz / detectBeats /
 %  paramCheckECG for beat detection + HRV, flagBadBreaths).
 % =====================================================================

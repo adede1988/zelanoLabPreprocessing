@@ -5,7 +5,7 @@
 MATLAB preprocessing pipelines for the Zelano Lab's respiration + scalp‑EEG / intracranial‑EEG (+ ECG)
 experiments. One shared signal‑processing core serves every task; tasks differ only in how raw data are laid
 out and how events (photodiode/TTL) and behavior are parsed. The repo is **self‑contained** (the
-`slowBreathing` functions it needs are vendored under `external/`) and contains **no data**. The session list
+breathMetrics fork it needs is vendored under `external/`) and contains **no data**. The session list
 and every per‑session parameter live in **`dataTracking.xlsx`** (git‑ignored) — nothing is hard‑coded in
 scripts.
 
@@ -14,8 +14,10 @@ Companion documents:
 - `TUTORIAL_adding_a_task.md` — the recipe for adding a task while leaving the shared core untouched.
 - `currentState.md` — the authoritative record of the **July 2026 full reprocessing run**: what was and
   wasn't reprocessed and why, and where the pre‑edit backups live (`E:\reprocBackup\`).
-- `Tasks_<date>.md` — the current work order; `guessSessions.md`, `runReport_<date>.md`,
-  `inventory_<date>.csv` are its running outputs.
+- `Tasks_260824.md` — the finished Aug‑2026 work order; its D1–D13 decisions are cited from code (keep it).
+  `guessSessions.md` is the living ledger of guess sessions.
+- `customBreathMetrics.md` — the spec of the LOCKED breath‑segmentation engine (`shared/segmentBreaths_zlp`)
+  and how it drives the vendored breathMetrics.
 
 ---
 
@@ -28,13 +30,18 @@ Companion documents:
 | `threshTask` | `threshold` | PEA threshold; 45 single‑sniff trials |
 | `O15` | `O15` | loads raw directly (no `makeOutDat`); photodiode TTLs via `detect_ttls_O15`. `O15_noTTLs_skip` / `O15_corrupted` are deliberately unmatched. |
 | `pacedBreathing` | `pacedBreathing` | **marker-free** single EEG_breathing recording (added 2026-09-15 with `260915_EEG_NWU_KG`): ~7 min audiobook/survey, ~90 min paced breathing at a sweep of paces x depths with brief breaks, ~10 min focused breathing. Loads raw directly (no `makeOutDat`, no behavioral file); **blocks are inferred from the segmented breaths** (`inferBlocks_pacedBreathing`, positional labels `pre`/`paced`/`final`, stored in `outDat.blocks` + `blockInference`, `TTL` = block starts); per-breath table adds `rateBPM`, `localPeriodCV`, `localAmpCV`, `nSubPeaks` (raggedness). ECG/HRV via the breathing path. Multi-file recordings (an acquisition stop/restart) are stitched end to end by the LoadData script; the seam is carried to the final (`outDat.segments`) and breaths near it flagged (`behDat.nearSeam`). |
-
-Being added (see the current task file): `EmotionalMovieTask`, `alternating6Blocks`, and
-`breathingTasks_separate` (one session = several sheet rows/recordings whose `Task` is a condition name:
-`audioBook`/`audiobook`, `distractedBreathing`, `focusedBreathing`, `sleep`, `sleepWithOdor`, `restingBaseline`).
+| `EmotionalMovieTask` | `EmotionalMovieTask` | emotional film clips, **no behavioral file**: `emotionalMovieTask_makeOutDat` parses the photodiode (`detect_ttls_emotionalMovieTask`: 1 / 2 / 3 pulses = neutral / happy / sad) into a **clip table** that is `outDat.TTL` (`clipOnset, clipEnd, nPulses, valence`). The per‑breath table keeps **only in‑clip breaths** (`condition` = valence code 1/2/3; the final clip has no defined end, so its breaths are dropped). ECG/HRV via `runECGStage` (NaN‑HRV fallback, `ecgSkipped`). |
+| `alternating6Blocks` | `alternating6Blocks` | alternating breathing blocks (EEG_breathing) with ratings from the Google‑Drive behavioral files: `alternating6Blocks_makeOutDat` matches the `mindfulBreathing` ratings file (carries the participant ID) and the `sniffLogicLog` (matched by date + start time) and aligns the log to the raw respiration (`alignLogToRaw`) → `outDat.blocks` (`label, order, startSample, endSample`) + block‑start `TTL`. The per‑breath table keeps in‑block breaths (`task` = block label, `condition` = block order) with the block's ratings broadcast + `baseEmotion`. ECG/HRV via `runECGStage`. |
+| `breathingTasks_separate` | one row **per condition recording**, `Task` = a condition name — the one vocabulary is `config/sepConditionInfo.m`: `audioBook`/`audiobook`/`distractedBreathing`, `focusedBreathing`, `sleep`, `sleepWithOdor`, `restingBaseline`, `focusedBreathing_button` (+ `…_button1`/`…_button2`, `…_button_mouth`), and `<condition>_run<N>` | a session = the Subject ID's eligible condition rows (`dataType` = `ephys` only). No `makeOutDat`: each condition's `raw\raw_<condition>\` file (folder rules in `sepConditionInfo`) is loaded directly, run through the shared core + segmentation + ECG **separately**, then concatenated in recording order (`concatSections` → `outDat.sections`, `TTL` = `[start_1 end_1 start_2 end_2 …]`). Per‑breath `task` = section label, `condition` = section index; no ratings / `baseEmotion`. Sheet writes go through `config/writeSheetSep` (every condition row), not `writeParams`/`writePreProcX`. |
 
 The name mappings live in `config/applyParams.m` (`taskKey` caller → canon, `canonTask` sheet → canon,
-`taskCallerKey` canon → `P.task`) and are mirrored in `pipelines/preprocessAll.m`.
+`taskCallerKey` canon → `P.task`) and are mirrored in `pipelines/preprocessAll.m` for every task except
+`breathingTasks_separate`, which `preprocessAll` does not handle yet (it also reports but does not run
+`EmotionalMovieTask` / `alternating6Blocks` — run those mains directly).
+
+Adding a participant or recording to an existing task = sheet rows + its extraction script. When Claude
+writes that script it is `LoadData_<id>_claude.m`, next to the lab's own `*LoadData*.m`, and its channel map
+is verified with `batch/probeMontage.m` first (§2). Adding a task follows `TUTORIAL_adding_a_task.md`.
 
 ---
 
@@ -45,8 +52,8 @@ RAW  (Neuralynx/Atlas export + behavioral .mat/.csv)
   │   <root>\<id>\*LoadData*.m         (per session × task: raw export → extracted raw .mat)
   ▼
 <root>\<id>\raw\raw_<task>\...                      ← EXTRACTED RAW
-  │   <task>_makeOutDat.m               (breathing / cue / thresh — parse photodiode → TTLs,
-  │                                      load behavior, stitch runs)   [O15 skips this step]
+  │   <task>_makeOutDat.m               (breathing / cue / thresh / movie / alt6 — parse photodiode → TTLs,
+  │                                      load behavior, stitch runs)   [O15 / paced / sep skip this step]
   ▼
 <root>\<id>\preProc\<id>_<task>PreProc.mat           ← INTERMEDIATE ("raw" outDat)
   │   <task>PreProc_main.m              (applyParams → assembleOutDat → shared core → task onsets/behavior)
@@ -57,19 +64,31 @@ RAW  (Neuralynx/Atlas export + behavioral .mat/.csv)
 - **Session folder layout** (`<root>\<id>\`): `AtlasData\` (raw export), the `*LoadData*.m` script(s),
   `raw\raw_<task>\`, `preProc\`, and a figure folder under `labPaths().figPath`. When adding a participant,
   copy the layout of an already‑extracted participant of the same `Type` — never invent a new one.
+- **LoadData scripts.** The lab's own extraction scripts are `<root>\<id>\*LoadData*.m`; one written by Claude
+  goes next to them as **`LoadData_<id>_claude.m`** (never edit or replace the lab's script). Each should store
+  `curDat.loadFile = [mfilename '.m']` in every raw `.mat` it writes: `shared/findLoadDataScript` reads that
+  provenance first, then falls back to the only `*LoadData*.m`, the unique `*_claude.m`, a per‑task tie‑break,
+  else `''` with a warning (never fatal). Before extracting, verify the script's channel map against the data
+  with **`batch/probeMontage.m`** (`probeMontage(atlasDir, suffix, outDir)` scores every `CSC*.ncs` channel for
+  the respiration / ECG / event / scalp‑EEG / macro roles and writes a CSV + two figures; montages differ
+  between OBE eras and sometimes between recordings).
 - **Windows / case‑insensitive quirk (intentional, don't "fix").** The intermediate (`…PreProc.mat`) and the
   final (`…preproc.mat`) differ only in case, so they are the **same file** — `_main` overwrites the
   intermediate in place and a fully processed session has one file. Take the exact per‑task strings from the
   `save(...)` line of each `*PreProc_main.m` (legacy names exist, e.g. thresh `<id>_PEA_threshold_preproc.mat`).
 - O15 loads `<id>\raw\raw_O15\raw_O15.mat` directly.
-- **Top‑level variable** is `outDat`; older breathing finals used `chanDat` or `out`. Load robustly:
+- **Top‑level variable** is `outDat`, except breathingTask finals — current ones included — which store
+  `chanDat` (written by `parSave`; some older ones `out`). Load robustly:
   ```matlab
   s = load(finalPath); fn = fieldnames(s); outDat = s.(fn{1});
   ```
 - A file is **fully processed** iff `outDat.moreThan1` exists (and, since July 2026, `behDat.manOnset`;
-  breathing additionally `bmObj` / `baseEmotion`).
-- The breathing pipeline also writes a per‑breath **processed‑behavior CSV** to a local `processedBehavior\`
-  folder (`labPaths`); the `closed-loop-respiration` repo consumes it but is not a code dependency.
+  breathing additionally `bmObj` / `baseEmotion`; the movie / alt6 / paced / sep mains check `moreThan1` +
+  `bmFeatures` via `isSessionDone`).
+- Every breath‑type pipeline also writes a per‑breath **processed‑behavior CSV** to a local
+  `processedBehavior\` folder (`labPaths`): `<id>_processedBreathing.csv` for breathingTask,
+  `<id>_<task>_processedBreathing.csv` for the others; the `closed-loop-respiration` repo consumes the
+  breathingTask one but is not a code dependency.
 
 ---
 
@@ -114,21 +133,22 @@ P   = applyParams(task, sessID)                % Mode B: one session's parameter
 | `spikeClean` | all | targeted‑ICA spike clean of macros (default true; O15 false; EEG_breathing false) |
 | `spikeThresh` / `spikeWin` | all | spike detector params (default `20` / `11`) |
 | `macroRemove` | all | macro channels to drop before bipolar (`""` = none → `[]`) |
-| `hasMacros` | breathing | run `preprocess_macros` (cue/thresh/O15 always run it; EEG_breathing false) |
+| `hasMacros` | breath‑type tasks | run `preprocess_macros` (blank → true for breathingTask / breathingTasks_separate, false for alternating6Blocks / pacedBreathing and EEG‑type EmotionalMovieTask). cue/thresh/O15 do not read the cell: `applyParams` sets `P.hasMacros = true` (they always run it), which a curated run writes back via `writeParams` |
 | `respThresh` / `cuedBackBuff` / `adjWin` | cue/thresh/O15 | sniff‑detection windows (default `500` / `150` / `500`) |
-| `beatSpec` | breathing | ECG beat‑detection spec for `detectBeats`, e.g. `1,0,gt,3.5` or `1,0,gt,2.5 & 3,10,gt,1` |
+| `beatSpec` | breath‑type tasks | ECG beat‑detection spec for `detectBeats`, e.g. `1,0,gt,3.5` or `1,0,gt,2.5 & 3,10,gt,1` (blank → `1,0,gt,3` for breathingTask, `1,0,gt,3.5` for the others) |
 | `ttlRemoveIdx` / `ttlNote` | O15 | aberrant photodiode TTL indices to drop / note |
 | `isNewStd` | breathing/cue/thresh | selects the "new standard" ingestion branch |
 | `paramSource` | target rows | `curated` (trusted, runs unattended) / `guess` (unverified → interactive verification before any save) / blank (no parameters yet) |
 | `Data Preprocessed` | all | set to `X` by `writePreProcX` when a final is saved; must mirror the disk (see above) |
 
-`P` (Mode B) always carries `task, type ('Dupi'|'OBE'|'EEG'), fs_target=500, debug, computeResp, rspIDX,
-rspFlip, hasEEG, spikeClean, spikeThresh, spikeWin, macroRemove, paramSource` + task extras (breathing:
-`hasMacros, beatSpec, getBeats`; cue/thresh/O15: `respThresh, cuedBackBuff, adjWin` + `ttlMap`; O15 also
-`pd`, `ttl`).
+`P` (Mode B) always carries `task, type ('Dupi'|'OBE'|'EEG'), fs_target=500, rspIDX, rspFlip, hasEEG,
+spikeClean, spikeThresh, spikeWin, macroRemove, paramSource, hasMacros` + task extras (breath‑type tasks:
+`beatSpec, getBeats`; cue/thresh/O15: `respThresh, cuedBackBuff, adjWin`; O15 also `pd`, `ttl`;
+EmotionalMovieTask `pd`; pacedBreathing `pacedOpts`; breathingTasks_separate `conditions`). The mains add
+`allowGuessRun` and `figDir` (the session's task figure subfolder).
 
 **`guess` rows** halt for interactive verification before any save: `paramCheck` (rsp + macro choices),
-`paramCheckECG` (breathing ECG beats), and a deliberate onset‑gate `error` so a human inspects the figures,
+`paramCheckECG` (breath‑type ECG beats), and a deliberate onset‑gate `error` so a human inspects the figures,
 promotes the row to `curated`, and re‑runs. A batch driver may bypass the gate only with an explicit
 override flag, and must then leave `paramSource=guess` and save every QC figure.
 
@@ -138,7 +158,7 @@ override flag, and must then leave `paramSource=guess` and save every QC figure.
 
 Every machine‑specific path comes from `labPaths.m`, which auto‑detects the machine by Windows `USERNAME`
 (`adam` = home desktop, `dtf8829` = lab desktop) and returns the four base fields `codePre`, `eeglab`,
-`labCommon`, `gdrive`; everything else (repo root, `eegLocs` CSV, vendored `slowBreathing`, Admin sheet,
+`labCommon`, `gdrive`; everything else (repo root, `eegLocs` CSV, Admin sheet,
 behavioral dirs, figure dir, target‑trace dir, `processedBehavior`) is derived. **New machine = add one
 `case`** or drop an untracked `labPaths_local.m`; unknown machines error with a copy‑paste template.
 
@@ -153,7 +173,8 @@ traces, the alternating6Blocks `mindfulBreathing` / `sniffLogicLog` CSVs) are on
 
 `assembleRaw_<task>` → `assembleOutDat(raw, S, P)` builds the initial `outDat` (§6), then `_main` runs:
 
-**Shared (byte‑identical across all tasks — never edit per task):**
+**Shared (`shared/runSharedCore(outDat, P, EEGLOC)` — every main calls it right after assembly, per
+condition recording for breathingTasks_separate; never edit per task):**
 
 1. **`downsample_data(outDat, 500)`** — `resample` to **`fs_target = 500 Hz`**, then per channel a 4th‑order
    IIR **high‑pass 0.03 Hz** and 4th‑order IIR **low‑pass ≈ Nyquist**. **No line‑noise notch** (the
@@ -164,8 +185,8 @@ traces, the alternating6Blocks `mindfulBreathing` / `sniffLogicLog` CSVs) are on
    (`removeNoiseChansVolt`), removes blinks on the good channels via ICA (`blinkRemoveWrapper`; blink‑IC
    auto‑selection with a manual fallback) when > 10 survive, and computes a Perrin surface Laplacian.
    Appends QC channels and EEG fields (§6.3).
-3. **`preprocess_macros(outDat, P)`** *(breathing only if `P.hasMacros`; others always)* — finds `macro`
-   channels, drops `macroRemove`, **bipolar re‑references adjacent pairs → `macBP1..N`**; if `P.spikeClean`,
+3. **`preprocess_macros(outDat, P)`** *(only if `P.hasMacros`; always true for cue/thresh/O15)* — finds `macro`
+   channels (any number ≥ 2), drops `macroRemove`, **bipolar re‑references adjacent pairs → `macBP1..N`**; if `P.spikeClean`,
    removes spike artifacts via targeted ICA. If there are too few spikes to train the ICA it **falls back to
    bipolar‑only with `spikeCleanVec = ones`** (July 2026 fix). Appends `macBP*` + `spikeCleanVec`.
 
@@ -175,15 +196,20 @@ traces, the alternating6Blocks `mindfulBreathing` / `sniffLogicLog` CSVs) are on
   phase, deflection metric); `detect_sniffs_from_TTLs(R,P,outDat)` finds a sniff onset near each TTL
   (windows `respThresh/cuedBackBuff/adjWin`); `refine_onsets_with_phase` snaps onsets to a respiration‑phase
   zero‑crossing and appends `adjust`, `finalOnset`, and a NaN **`manOnset`** placeholder for manual QC.
-- **breathing:** per‑breath segmentation over the whole recording → **`bmObj`** (the engine is being switched
-  from `process_respiration_breathing` to **breathMetrics** — see the task file); `alignTargetBreathingTraceSimplify`
+- **breathing:** per‑breath segmentation over the whole recording → **`bmObj`** via `shared/segmentBreaths_zlp`
+  (LOCKED rev13; spec `customBreathMetrics.md`; called by `process_respiration_breathing`, which derives the
+  cyclicSigh span); `alignTargetBreathingTraceSimplify`
   aligns each paced block to its target trace and appends a `targTrace` channel (a block whose `shadowFile`
   is `NA` / whose CSV has no `target` column gets a zero target, like the audio/pre conditions);
   `processECG` band‑passes the `ECG` channels 5–40 Hz, z‑scores (`buildECGz`), detects beats (`detectBeats`
   per `beatSpec`, min separation `fs/20`), filters inter‑beat intervals physiologically, and appends an
   interpolated **`RRint`** channel; `flagBadBreaths` adds per‑breath QC.
+- **other breath‑type tasks** (movie / alt6 / paced / sep) call `segmentBreaths_zlp` from their mains; ECG goes
+  through `shared/runECGStage` (movie / alt6 / paced: on failure NaN HRV via `fillNaNHRV` + `ecgSkipped`, where
+  breathingTask stays strict and errors); sep probes ECG once per session and runs `processECG` per section.
 
-**Behavior table:** `build_behavior_table_<task>` joins raw behavior to detected onsets (§6.4).
+**Behavior table:** `build_behavior_table_<task>` joins raw behavior to detected onsets (§6.4); the breath‑type
+builders share `behDatFromBreaths` (the 14 base columns) and `appendBmFeatureCols` (`bm_*`).
 **Save** (§2) + `writeParams` + `writePreProcX`.
 
 ---
@@ -202,7 +228,7 @@ in `outDat.data` (rows = channels, addressed by `outDat.labels`); everything els
 | `labels` | cell of char/string | channel labels parallel to `data` rows. **Index channels by label string, never by fixed position** (except the EEG block, 6.2) |
 | `fs` | `500` | sample rate (Hz). Also `origFS`, `downsampled=1` |
 | `sessID` | char | e.g. `250623_Dupi_NMH_KS_2` (= raw session folder name) |
-| `task` | char | `breathingTask` / `cueTask` / `threshTask` / `O15` (legacy breathing files: `breathing`) |
+| `task` | char | `P.task`: `breathingTask` / `cueTask` / `threshTask` / `O15` / … (§1; legacy breathing files: `breathing`) |
 | `type` | char | `Dupi` / `OBE` / `EEG` |
 | `figs` | char | this session's figure folder |
 | `rspIDX`, `rspFlip` | int, ±1 | which `rsp` channel is the respiration trace, and its polarity (inhale ↑) |
@@ -245,8 +271,8 @@ keeps their real values), `EEGInterpolation`, `EEGCleaning`, `blinkRemoval` (0/1
 **cue / thresh / O15 — per‑sniff.** Shared first six columns from `behDatFromSniffs`: `sniffOnset` (coarse
 onset, samples), `n` (trial), `wiTriali` (sniff index within trial), `TTLoffSet`, `sniffType`, `sniffLabel`
 (cue/thresh `cued`; O15 `start`/`free`/`confirm`). Then the task columns —
-cue: `cue` (1–10; `0` = no‑cue condition, being added), `odor`, `response`, `respString`, `type`
-(`hit`/`miss`/`cr`/`fa`); thresh: `odor` (1–3), `pleasantness`, `intensity`, `type` (`air`/`low`/`med`);
+cue: `cue` (1–10; `0` = no‑cue condition), `odor`, `response`, `respString`, `type`
+(`hit`/`miss`/`cr`/`fa`; `noCue` on `cue==0` trials); thresh: `odor` (1–3), `pleasantness`, `intensity`, `type` (`air`/`low`/`med`);
 O15: `target`, `response`, `expScore`. Finally `refine_onsets_with_phase` appends **`adjust`**,
 **`finalOnset`** (phase‑refined onset — *use this for epoching*) and **`manOnset`** (NaN placeholder for
 manual QC). Sanity sizes from real Dupi files: cue ≈ `[40 × 14]`, thresh ≈ `[45 × 13]`, O15 ≈ `[81 × 12]`
@@ -265,11 +291,11 @@ manual QC). Sanity sizes from real Dupi files: cue ≈ `[40 × 14]`, thresh ≈ 
 | `<question>_<category>` | one column per emotion question × rating category (e.g. `calm_affective`, `emoAware_mindfulness`), the block's rating broadcast to every breath in it |
 | `goodBreath` | 1/0 quality flag (`flagBadBreaths`) |
 | `maxRR`, `minRR`, `RR_max_min` | within‑breath HRV (s) |
-| `bm_*` | (being added) breathMetrics per‑breath features, appended after the columns above |
+| `bm_*` | breathMetrics per‑breath features (`appendBmFeatureCols`), appended after the columns above |
 
 Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ratings plus
-`task/noseMouth/shadowFile/warp`), `bmObj`, `heartBeats` (6.6), and — once the breathMetrics switch lands —
-`bmFeatures` (plain struct, never the class object). Empirically a 32‑ch‑EEG Dupi breathing session gives
+`task/noseMouth/shadowFile/warp`), `bmObj`, `heartBeats` (6.6), and `bmFeatures` (plain struct, never the
+class object). Empirically a 32‑ch‑EEG Dupi breathing session gives
 `behDat` ≈ `[389 breaths × 34 vars]`; the emotion column set varies with the questions asked.
 
 ### 6.5 `TTL` conventions (samples @ 500 Hz)
@@ -280,7 +306,10 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
 - **thresh** — table `[45 × 3]`: `start (= sniff − 1000)`, `trial`, `sniff`.
 - **cue** — table `[nTrial × 3]`: `trialStart, response, sniff`.
 - **breathing** — **vector** of block‑boundary samples (or a 5‑min fallback `0:600000:end`). New breath‑based
-  tasks keep this vector and may add a descriptive table (`blocks` / `sections` / clip table) alongside it.
+  tasks keep this vector and may add a descriptive table alongside it (alternating6Blocks: block starts +
+  `blocks`; breathingTasks_separate: `[start_1 end_1 start_2 end_2 …]` + `sections`).
+- **EmotionalMovieTask** — the exception: `TTL` is the clip table itself (`clipOnset, clipEnd, nPulses,
+  valence`; `clipEnd` is NaN for the final clip).
 - **pacedBreathing** — vector of INFERRED block starts (no markers exist); the `blocks` table (`label, order,
   startSample, endSample, durationSec, nBreaths, medRateBPM, medPeriodSec, medAmp, periodCV, ampCV, regularity,
   gapSplit`) and `blockInference` (parameters, raw changepoints, merge history, per‑breath block index) sit
@@ -291,7 +320,8 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
 - `bmObj` `[nBreaths × 14]`: `1`=onset Y, `2`=onset time (s), `3`=inhale‑peak Y, `4`=peak time, `5`=end Y,
   `6`=end time, `7`=length (s), `8`=amplitude, `9`=peak idx, `10`=exhale‑peak Y, `11`=exhale‑peak time,
   `12`=**condition/block**, `13` unused, `14`=index. This layout is load‑bearing for `flagBadBreaths`,
-  `build_behavior_table_breathingTask`, and downstream code — keep it whatever engine produces it.
+  `behDatFromBreaths` / the `build_behavior_table_*` builders, and downstream code — keep it whatever engine
+  produces it (full column doc: the `shared/segmentBreaths_zlp.m` header).
 - `heartBeats` — ECG beat sample indices (`detectBeats` / `beatSpec`).
 
 ---
@@ -306,7 +336,8 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
 - **Index `behDat` by name.** Legacy analysis did `behDat(:,13)==0` assuming a numeric matrix; in the table
   col 13 is `index` and the quality flag is `behDat.goodBreath`. Never rely on positions.
 - **`task` value drift:** new files `breathingTask`; some older finals `breathing`. Top‑level var name varies
-  (`outDat` vs `chanDat`/`out`) — load via `fieldnames` (§2).
+  (`outDat`; breathingTask finals, current ones included, `chanDat` via `parSave`; some older `out`) — load
+  via `fieldnames` (§2).
 - **EEG channels are exactly rows 1–32** and only when `hasEEG`; everything else is label‑addressed.
 - **`spikeRemoval` reads 1 in both `preprocess_macros` branches** — inspect `spikeCleanVec` (all‑ones ⇒
   nothing removed) to know what actually happened.
@@ -314,12 +345,16 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
   `250904_OBE_NWU_TI` vs sheet `…_TI_1`; `250811_Dupi_NMH_TPB_1` is remapped to `…_TB_1` downstream and skips
   target‑trace alignment. (The sheet ID `2607802_OBE_NWU_SP_2` was a typo for `260702_OBE_NWU_SP_2` and is
   corrected in the 2026‑08‑24 work order — the folder name is the correct one.)
-- **`datPrei` order is load‑bearing:** the `*_makeOutDat.m` scripts branch on `datPrei==1/2/3` to set
-  `outDat.type` (`1=Dupi, 2=OBEControl, 3=EEGbreathing`); `applyParams` returns roots in that order with
-  extras appended. Don't reorder.
-- **"Unchanged after assemble."** In every `_main.m`, everything from the first `downsample_data(...)` onward is
-  the shared core — keep it byte‑for‑byte identical across tasks so a fix in one propagates to all. New
-  capability goes into shared functions that every relevant main calls.
+- **`datPrei` order is load‑bearing:** `applyParams` returns roots in the order `1=Dupi, 2=OBEControl,
+  3=EEGbreathing` with extras (e.g. `OBEControl\anosmics\`) appended, and the `*_makeOutDat.m` scripts
+  index `datPre{datPrei}` and branch on `datPrei==1/2/3` to set the intermediate's `outDat.type`. That type is
+  informational only — the final's `type` comes from the sheet (`P.type` in `assembleOutDat`) — and an extra
+  root no longer stops a session (thresh used to error). Don't reorder.
+- **Shared stages stay shared.** Every `_main.m` calls `runSharedCore` right after assembly and uses the
+  shared stage helpers (`runECGStage`, `fillNaNHRV`, `behDatFromBreaths`, `appendBmFeatureCols`,
+  `isSessionDone`, …) instead of inline copies; task logic lives in `tasks/<task>/`. A fix
+  goes into the shared function so it reaches every task — never patch one main's copy. New capability goes
+  into shared functions that every relevant main calls.
 - **Prefer strict over flexible:** if the data aren't the expected shape, let it error — a loud failure
   surfaces a real data problem. Keep per‑session photodiode special cases explicit (`switch sessID` blocks).
 - **Memory:** a single raw session is multi‑GB. Process one session per iteration and clear big variables;
@@ -347,17 +382,20 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
 
 | Folder | Contents |
 |---|---|
-| `config/` | `labPaths.m`, `applyParams.m` / `writeParams.m` / `writePreProcX.m` / `clearPreProcX.m`, `eegLocs_standard_coords.csv` |
-| `pipelines/` | `preprocessAll.m` + the `*PreProc_main.m` entry points |
-| `pipelines/makeOutDat/` | raw → intermediate ingestion (`breathing` / `cue` / `thresh` …) |
-| `shared/` | the shared signal core (`assembleOutDat`, `downsample_data`, `preprocess_eeg`, `preprocess_macros`, `preprocess_respiration_wholetrace`, `detect_sniffs_from_TTLs`, `refine_onsets_with_phase`, `behDatFromSniffs`, `paramCheck`, EEG/spike/onset helpers) |
-| `tasks/<task>/` | each task's `assembleRaw_<task>.m`, `build_behavior_table_<task>.m`, task helpers (breathing: `process_respiration_breathing`, `alignTargetBreathingTraceSimplify`, `processECG`/`buildECGz`/`paramCheckECG`, `detectBeats`, `flagBadBreaths`; O15: `detect_ttls_O15`; pacedBreathing: `inferBlocks_pacedBreathing`, `plotBlocks_pacedBreathing`) |
-| `external/` | vendored dependencies (`slowBreathing/` — five functions; `breathMetrics/` once added) |
-| `respiratorySweepAnalysis/` | downstream analysis + figures for the pace × depth sweep sessions: ingests the preprocessed `pacedBreathing` finals → 50 Hz packs → respHRV stats, per-session HTML reports and grant figures. Self-contained with its own `CLAUDE.md`; being split off into an independent repo (not part of preprocessing). |
+| `config/` | `labPaths.m`, `applyParams.m` / `writeParams.m` / `setPreProcX.m` (+ its thin wrappers `writePreProcX.m` / `clearPreProcX.m`), `writeSheetSep.m` (breathingTasks_separate sheet writer), `sepConditionInfo.m` (the sep condition vocabulary), `eegLocs_standard_coords.csv` |
+| `pipelines/` | `preprocessAll.m` + the `*PreProc_main.m` entry points (one per task) |
+| `pipelines/makeOutDat/` | raw → intermediate ingestion (`breathing` / `cue` / `thresh` / `emotionalMovie` / `alternating6Blocks`) |
+| `shared/` | the shared signal core: `runSharedCore` (`downsample_data` → `preprocess_eeg` → `preprocess_macros`), `assembleOutDat`, `preprocess_respiration_wholetrace`, `detect_sniffs_from_TTLs`, `refine_onsets_with_phase`, `behDatFromSniffs`, `paramCheck` / `guessFigDir`, EEG/spike/onset helpers; the breath engine `segmentBreaths_zlp` (+ `prepBreathTrace_zlp`, `findInhaleOnsets_zlp`); the breath‑type stage helpers `behDatFromBreaths`, `appendBmFeatureCols`, `runECGStage`, `fillNaNHRV`, `isSessionDone` and the ECG/QC helpers `processECG` / `buildECGz` / `detectBeats` / `paramCheckECG` / `flagBadBreaths`; `findLoadDataScript` (LoadData provenance), `toTargetSamples` (raw → 500 Hz sample indices) |
+| `tasks/<task>/` | each task's `assembleRaw_<task>.m`, `build_behavior_table_<task>.m`, task helpers (breathing: `process_respiration_breathing`, `alignTargetBreathingTraceSimplify`, `plotBreathLengths`, `tidyImport_waveExp_matlab` (writes the processedBehavior CSV the breathing makeOutDat reads); cue: `outMat_to_table`; O15: `detect_ttls_O15`, `assembleOutDat_O15extras`; emotionalMovie: `detect_ttls_emotionalMovieTask`; alternating6Blocks: `alignLogToRaw`, `parse_mindfulBreathing`, `parse_sniffLogicLog`; breathingSeparate: `concatSections`; pacedBreathing: `inferBlocks_pacedBreathing`, `plotBlocks_pacedBreathing`) |
+| `batch/` | reusable QC / maintenance tools (not pipeline steps): `probeMontage` (verify a new LoadData channel map against the data), `probeSessionParams` / `probeECGpolarity` (measure guess parameters), `qc4`–`qc8` audits and figure generators, `qualityCheckOverlays`, `resegmentAll_zlp`, `reconstructPacedBlocks`, `buildGuessReview.ps1` |
+| `external/` | vendored dependencies: `breathMetrics/` (fork qhyang42 @9791153; unmodified) |
 
-Adding a participant is a sheet edit plus its load‑data script; adding a task follows the tutorial —
+The pace × depth sweep analysis (`respiratorySweepAnalysis/`) now lives in its own repo, `../calibratedHRV`.
+
+Adding a participant is a sheet edit plus its load‑data script (`LoadData_<id>_claude.m` when Claude writes it,
+channel map checked with `batch/probeMontage.m`); adding a task follows the tutorial —
 `applyParams` + `preprocessAll` registration, `assembleRaw_*`, optional `*_makeOutDat`,
-`build_behavior_table_*`, a `_main` whose shared body is untouched.
+`build_behavior_table_*`, a `_main` that calls `runSharedCore` and the shared helpers (no inline copies).
 
 ---
 

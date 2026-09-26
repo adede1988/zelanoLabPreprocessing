@@ -17,9 +17,14 @@
 % NOTES
 %  - GUESS sessions need interactive verification (paramCheck / onset gate) and
 %    will halt a batch. Curate them first; pending guess rows are flagged below.
-%  - Memory (16 GB): each task runs all its sessions in one MATLAB process. If you
-%    hit "Out of memory", run one task at a time, or use the per-session
-%    _dev/run_* harnesses (they clear big vars each iteration).
+%  - Memory: a raw session is multi-GB and each task runs all its sessions in
+%    one MATLAB process. If you hit "Out of memory", run one task per MATLAB
+%    process (matlab -batch "<task>PreProc_main"); every main except
+%    alternating6Blocks also takes ZLP_MAIN_ONLY=<comma-separated ids> to
+%    restrict the sweep (CLAUDE.md sections 7-8).
+%  - Coverage: EmotionalMovieTask and alternating6Blocks are REPORTED but not
+%    run here, and breathingTasks_separate is neither - run their pipelines
+%    directly.
 % ---------------------------------------------------------------------------
 
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));

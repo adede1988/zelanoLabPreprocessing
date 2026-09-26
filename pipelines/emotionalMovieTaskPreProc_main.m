@@ -12,8 +12,9 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 
 % =====================================================================
 %  EmotionalMovieTask preprocessing -- main pipeline (Tasks_260824.md Task 7)
-%  TASK-SHARED sections are identical to the other *PreProc_main scripts; do
-%  NOT edit them. TASK-SPECIFIC pieces:
+%  TASK-SHARED sections call the shared functions every *PreProc_main uses
+%  (runSharedCore, runECGStage, isSessionDone, ...); do NOT edit or copy them.
+%  TASK-SPECIFIC pieces:
 %    - assembleRaw_emotionalMovieTask.m        (intermediate load + clip TTL)
 %    - emotionalMovieTask_makeOutDat.m         (photodiode -> clip table)
 %    - build_behavior_table_emotionalMovieTask.m  (D10 per-breath + clip cols)

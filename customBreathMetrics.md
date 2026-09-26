@@ -38,11 +38,11 @@ the toolbox's own sanctioned post-manual-adjustment path.
 | `shared/segmentBreaths_zlp.m` | **The engine / integration point.** `[bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelowFrac, cySpan)`. Runs the two functions below, then drives the breathMetrics object (§4) and emits the lab's `bmObj` (14-col) + `bmFeatures` (plain struct) contracts. | locked, in production |
 | `shared/prepBreathTrace_zlp.m` | Stage 0–1: detection-trace conditioning + peak/trough detection. `[det, peaks, troughs, info] = prepBreathTrace_zlp(rsp, fs, mode, blankBelowFrac, cySpan, floorFrac)`. Three modes exist (`'pwl'`, `'conservative'`, `'twoscale'`); **`'conservative'` is the locked choice**. Outputs are bm-style sample-index vectors, strictly alternating. | locked (`conservative`) |
 | `shared/findInhaleOnsets_zlp.m` | Stage 2–3: eligibility rules + one inhale onset per trough→peak pair. `[onsets, peaks, troughs] = findInhaleOnsets_zlp(det, fs, peaks, troughs, method, r2Factor, r3Factor, dipFrac, dipDur)`. Three methods exist (`'slopeGate'`, `'kneeBacktrack'`, `'changepoint'`); **`'kneeBacktrack'` with `(0.4, 1.25, 0.50, 0.10)` is the locked choice.** May *delete* spurious trough/peak pairs (returns the pruned extrema). | locked (`kneeBacktrack`) |
-| `shared/segmentBreaths_breathMetrics.m` | The superseded "v3b" engine (bm-native detection + p25 band relocation). Kept for comparison reruns only — no production caller remains. | superseded |
-| `shared/findAlternatingExtrema.m` | Round-3 extrema backbone. Dropped from the final flow (prep's own alternation replaced it). | deprecated |
+| `shared/segmentBreaths_breathMetrics.m` | The superseded "v3b" engine (bm-native detection + p25 band relocation). Removed in a9b1fa2 (recover with `git show a9b1fa2^:shared/segmentBreaths_breathMetrics.m` for a comparison rerun). | removed |
+| `shared/findAlternatingExtrema.m` | Round-3 extrema backbone. Dropped from the final flow (prep's own alternation replaced it); removed in a9b1fa2. | removed |
 | `batch/resegmentAll_zlp.m` | In-place re-segmentation of existing finals under the locked engine (backs up first; rebuilds behDat from the stored final — never from raw, because reconstructed paced traces live only in finals). | tooling |
 | `batch/qc4_onsetDiagnostics.m` | The live-review diagnostic generator used to lock the algorithm (per-condition minute traces + onset-locked overlays + summary CSV). | tooling |
-| `batch/qc5_flipAudit.m`, `batch/qc5_reconSignFix.m`, `batch/qc5_hrvRepair.m` | rspFlip A/B audit, reconstruction sign fixes, and the flagBadBreaths HRV repair pass. | tooling |
+| `batch/qc5_flipAudit.m`, `batch/qc5_reconSignFix.m` | rspFlip A/B audit and reconstruction sign fixes. | tooling |
 
 **Modified files** (call-site switches, no shared-core changes):
 
@@ -188,8 +188,9 @@ durations and time-to-peak are seconds.
 - Sessions without a usable ECG keep NaN HRV columns (`goodBreath`,
   `maxRR`, `minRR`, `RR_max_min`); breaths whose QC window falls off a
   recording edge are NaN (not 0) as of 2026-08-29.
-- `segmentBreaths_breathMetrics.m` (v3b) and `findAlternatingExtrema.m` are
-  kept only for historical comparison — do not build new callers on them.
+- `segmentBreaths_breathMetrics.m` (v3b) and `findAlternatingExtrema.m` were
+  removed in a9b1fa2 — recover them from git history only for a historical
+  comparison rerun; do not build new callers on them.
 
 ---
 
@@ -208,9 +209,9 @@ interpretable amplitude analysis use the raw twins:
   (60-s moving-mean baseline removed - the same convention as the `bmObj`
   amplitude columns) between the SAME stored landmark indices. Timing
   metrics are untouched. Computed by `segmentBreaths_zlp` on every run; all
-  pre-existing finals were backfilled in place by `batch/qc9_rawVolumes.m`
-  (sep finals integrate on per-section baselines; provenance in
-  `bmFeatures.conditioning.rawVolumeSpec`).
+  pre-existing finals were backfilled in place by a one-off script (since
+  removed; see git history) (sep finals integrate on per-section baselines;
+  provenance in `bmFeatures.conditioning.rawVolumeSpec`).
 - Units remain arbitrary sensor units (belt/pressure voltage, not liters):
   within-session and cross-condition comparisons are meaningful; for
   cross-session comparisons consider a per-session normalization at analysis

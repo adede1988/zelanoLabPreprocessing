@@ -2,7 +2,7 @@
 labPaths_local.m
 
 # session tracking sheet is lab data, not code — supply it locally, do not commit
-dataTracking.xlsx
+dataTracking*.xlsx
 
 # data / outputs
 *.mat
@@ -19,8 +19,6 @@ figures/
 # ...and the guess-review report figures (guessReview.html deliverable)
 !guessReviewFigs/**/*.jpg
 !guessReviewFigs/**/*.png
-# ...and the per-session analysis reports under reports/ (self-contained HTML + its figures)
-!reports/**/*.png
 
 # OS cruft
 .DS_Store

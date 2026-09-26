@@ -13,17 +13,19 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 
 % =====================================================================
 %  threshTask preprocessing -- main pipeline
-%  TASK-SHARED sections are identical across all four pipelines; do NOT edit
-%  them when adding a new task. TASK-SPECIFIC sections must be rewritten.
+%  TASK-SHARED sections call the shared functions every *PreProc_main uses
+%  (runSharedCore + the shared stage helpers); do NOT edit or copy them when
+%  adding a new task. TASK-SPECIFIC sections must be rewritten.
 %  TASK-SPECIFIC pieces for threshTask (rewrite these for a new task):
 %    - assembleRaw_threshTask.m    (raw load -> raw struct)
 %    - threshPreProc_makeOutDat.m  (PEA photodiode/behavior ingestion)
 %    - the per-trial sniff-TTL table rebuild in the loop below
 %    - build_behavior_table_threshTask.m
-%  Everything else is SHARED: applyParams, assembleOutDat, downsample_data,
-%  preprocess_eeg, preprocess_macros, preprocess_respiration_wholetrace,
-%  detect_sniffs_from_TTLs, refine_onsets_with_phase, paramCheck, writeParams,
-%  writePreProcX, plot_sniff_epochs.
+%  Everything else is SHARED: applyParams, assembleOutDat, runSharedCore
+%  (downsample_data -> preprocess_eeg -> preprocess_macros),
+%  preprocess_respiration_wholetrace, detect_sniffs_from_TTLs,
+%  refine_onsets_with_phase, paramCheck, writeParams, writePreProcX,
+%  plot_sniff_epochs.
 % =====================================================================
 
 cfg        = applyParams('threshTask','main');

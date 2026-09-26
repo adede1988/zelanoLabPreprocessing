@@ -13,17 +13,19 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 
 % =====================================================================
 %  cueTask preprocessing -- main pipeline
-%  TASK-SHARED sections are identical across all four pipelines; do NOT edit
-%  them when adding a new task. TASK-SPECIFIC sections must be rewritten.
+%  TASK-SHARED sections call the shared functions every *PreProc_main uses
+%  (runSharedCore + the shared stage helpers); do NOT edit or copy them when
+%  adding a new task. TASK-SPECIFIC sections must be rewritten.
 %  TASK-SPECIFIC pieces for cueTask (rewrite these for a new task):
 %    - assembleRaw_cueTask.m  (raw load -> raw struct)
 %    - cueTask_makeOutDat.m   (photodiode/behavior ingestion -> _cueTaskPreProc.mat)
 %    - outMat_to_table.m      (cue behavioral .mat -> table; used by makeOutDat)
 %    - build_behavior_table_cueTask.m
-%  Everything else is SHARED: applyParams, assembleOutDat, downsample_data,
-%  preprocess_eeg, preprocess_macros, preprocess_respiration_wholetrace,
-%  detect_sniffs_from_TTLs, refine_onsets_with_phase, paramCheck, writeParams,
-%  writePreProcX, plot_sniff_epochs.
+%  Everything else is SHARED: applyParams, assembleOutDat, runSharedCore
+%  (downsample_data -> preprocess_eeg -> preprocess_macros),
+%  preprocess_respiration_wholetrace, detect_sniffs_from_TTLs,
+%  refine_onsets_with_phase, paramCheck, writeParams, writePreProcX,
+%  plot_sniff_epochs.
 % =====================================================================
 
 cfg        = applyParams('cueTask','main');
