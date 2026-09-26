@@ -336,7 +336,12 @@ else
         dat2 = load([datFolders(idx(2)).folder '\' ...
                      datFolders(idx(2)).name  '\' ...
                      datFolders(idx(2)).name  '.mat']);
-        dat2 = dat2.curDat; 
+        dat2 = dat2.curDat;
+        % recording gaps arrive as NaN from newer FieldTrip (2026-09-25
+        % re-extractions of FM / SJ / BG): fill them as the new-set branch does,
+        % otherwise the photodiode z-score below is all-NaN and finds no TTLs
+        dat1 = fillRawNaNs(dat1, 12000);
+        dat2 = fillRawNaNs(dat2, 12000);
 
         %behavioral data loading
         switch sessionIDs{sessi}

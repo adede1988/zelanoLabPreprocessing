@@ -99,7 +99,27 @@ for s = 1:numel(sessionIDs)
         elseif ~hasECG
             hasECGSession = false;
         end
-        if hasECG && hasECGSession
+        secECG = hasECG && hasECGSession;
+        if secECG && c > 1
+            % per-section viability (2026-09-25, 260831_OBE_NWU_CS_2: the ECG
+            % died in the last section only). The session keeps its ECG; this
+            % section gets an all-NaN RRint row so the labels still match (D12b)
+            try
+                [ECGzS, sepS] = buildECGz(od);
+                bpmS = numel(P.getBeats(ECGzS, sepS)) / (size(od.data, 2) / od.fs / 60);
+                clear ECGzS
+            catch
+                bpmS = 0;
+            end
+            if bpmS < 20
+                warning('%s section %d (%s): beat detection implausible (%.1f bpm) - NaN RRint for this section, REVIEW', ...
+                    S.id, c, raws(c).label, bpmS);
+                secECG = false;
+                od.data(end+1, :) = NaN;
+                od.labels{end+1} = 'RRint';
+            end
+        end
+        if secECG
             od = processECG(od, P);
             % processECG saves fixed-name QC figures; keep one per section
             for fnm = {'ECG_beatDetect', 'interbeatHist', 'RespirationHeart'}
