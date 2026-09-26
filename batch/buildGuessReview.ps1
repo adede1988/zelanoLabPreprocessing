@@ -1,11 +1,17 @@
 # buildGuessReview.ps1 - assemble guessReview.html from guessReviewFigs\<task>\<id>\
 # (qc8_guessReviewFigs.m output pulled into the repo). Windows PowerShell 5.1.
-# Usage: powershell -File batch\buildGuessReview.ps1
+# Usage: powershell -File batch\buildGuessReview.ps1 [-RepoRoot <dir holding FigDir>] [-FigDir figs]
+#        [-OutFile x.html] [-IntroHtml <fragment inserted after the title>]
+#        [-AnswersFile <previous round's answers json, '' = none>] [-NewIds <comma list: badge 'new this round'>]
 param(
-  [string]$RepoRoot = (Split-Path $PSScriptRoot -Parent),
-  [string]$FigDir   = 'guessReviewFigs',
-  [string]$OutFile  = 'guessReview.html'
+  [string]$RepoRoot    = (Split-Path $PSScriptRoot -Parent),
+  [string]$FigDir      = 'guessReviewFigs',
+  [string]$OutFile     = 'guessReview.html',
+  [string]$IntroHtml   = '',
+  [string]$AnswersFile = 'guessReviewAnswers.json',
+  [string]$NewIds      = ''
 )
+$newSet = @{}; foreach ($x in ($NewIds -split ',')) { if ($x.Trim()) { $newSet[$x.Trim()] = 1 } }
 $ErrorActionPreference = 'Stop'
 $figRoot = Join-Path $RepoRoot $FigDir
 
@@ -44,12 +50,13 @@ function SniffNum([string]$name) {
 }
 
 $taskOrder = @('breathingTask','EmotionalMovieTask','alternating6Blocks',
-               'breathingTasks_separate','cueTask','threshTask','O15')
+               'breathingTasks_separate','pacedBreathing','cueTask','threshTask','O15')
 $taskTitles = @{
   'breathingTask'           = 'breathingTask (breathMetrics segmentation + ECG/HRV)'
   'EmotionalMovieTask'      = 'EmotionalMovieTask (breathMetrics segmentation + ECG/HRV)'
   'alternating6Blocks'      = 'alternating6Blocks (breathMetrics segmentation + ECG/HRV)'
   'breathingTasks_separate' = 'breathingTasks_separate (audioBook / focusedBreathing / sleep / etc.)'
+  'pacedBreathing'          = 'pacedBreathing (marker-free pace x depth sweep; inferred blocks)'
   'cueTask'                 = 'cueTask (odor cue; sniff-per-trial)'
   'threshTask'              = 'threshTask (PEA threshold; sniff-per-trial)'
   'O15'                     = 'O15 (sniff-per-trial)'
@@ -80,14 +87,16 @@ $H.Add('<h1>guessReview &mdash; all paramSource=guess sessions</h1>')
 $H.Add('<p>Generated ' + (Get-Date -Format 'yyyy-MM-dd HH:mm') + '. Every session below ran with unverified (guess) parameters and was never promoted to curated. Review each block; the figures come from the saved finals and the standard pipeline QC output.</p>')
 
 # ---- response instructions (per work order: at the beginning of the report) ----
-$H.Add('<div class="howto"><b>How to respond to this report:</b> write your instructions into a new file named <code>reportResponse.md</code> in the repo root.
-Either create it directly on the lab machine at <code>E:\GitHub\zelanoLabPreprocessing\reportResponse.md</code>, or commit + push it to origin/main from any machine (it will be pulled to the lab machine automatically).
-<b>Claude checks for this file every 15 minutes</b> and will read and execute the instructions it contains.
+$H.Add('<div class="howto"><b>How to respond to this report:</b> write your instructions into a new file named <code>reportResponse.md</code> in the repo root
+(on the lab machine at <code>E:\GitHub\zelanoLabPreprocessing\reportResponse.md</code>, or commit + push it from any machine) and point a Claude session at it.
 Useful things to put in it: per-session verdicts (e.g. &quot;promote X to curated&quot;, &quot;re-run Y with rspFlip=-1&quot;, &quot;rspIDX should be 2 for Z&quot;), beatSpec corrections, sessions to re-run or drop, and any follow-up work.</div>')
 
+if ($IntroHtml -and (Test-Path $IntroHtml)) { $H.Add((Get-Content -Raw $IntroHtml)) }
+
 # ---- answers to the previous reportResponse round (repo-root guessReviewAnswers.json) ----
-$ansPath = Join-Path $RepoRoot 'guessReviewAnswers.json'
-if (Test-Path $ansPath) {
+$ansPath = ''
+if ($AnswersFile) { $ansPath = Join-Path $RepoRoot $AnswersFile }
+if ($ansPath -and (Test-Path $ansPath)) {
   $ans = $null
   try { $ans = Get-Content $ansPath -Raw | ConvertFrom-Json } catch { $ans = $null }
   if ($ans) {
@@ -168,7 +177,8 @@ foreach ($e in $all) {
   }
   $cls = ''
   if ($status -ne 'ok') { $cls = ' class="flag"' }
-  $H.Add('<tr><td>' + $e.Task + '</td><td><a href="#' + $e.Task + '_' + $e.Id + '">' + $e.Id + '</a></td><td' + $cls + '>' + (HtmlEnc $status) + '</td><td>' + $blink + '</td><td>' + $spike + '</td><td>' + $beats + '</td><td>' + $n + '</td><td>' + $nf + '</td></tr>')
+  $badge = ''; if ($newSet.ContainsKey($e.Id)) { $badge = ' <b>(new)</b>' }
+  $H.Add('<tr><td>' + $e.Task + '</td><td><a href="#' + $e.Task + '_' + $e.Id + '">' + $e.Id + '</a>' + $badge + '</td><td' + $cls + '>' + (HtmlEnc $status) + '</td><td>' + $blink + '</td><td>' + $spike + '</td><td>' + $beats + '</td><td>' + $n + '</td><td>' + $nf + '</td></tr>')
 }
 $H.Add('</table>')
 
@@ -178,7 +188,8 @@ foreach ($task in $taskOrder) {
   if (-not $entries) { continue }
   $H.Add('<h2>' + (HtmlEnc $taskTitles[$task]) + '</h2>')
   foreach ($e in $entries) {
-    $H.Add('<h3 id="' + $e.Task + '_' + $e.Id + '">' + $e.Id + '</h3>')
+    $badge = ''; if ($newSet.ContainsKey($e.Id)) { $badge = ' &mdash; new this round' }
+    $H.Add('<h3 id="' + $e.Task + '_' + $e.Id + '">' + $e.Id + $badge + '</h3>')
     $i = $e.Info
     $H.Add('<div class="meta"><ul>')
     if ($i) {
