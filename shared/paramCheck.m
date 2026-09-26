@@ -118,16 +118,3 @@ function [outDat, P] = paramCheck(outDat, P)
 
 
 end
-
-function figDir = guessFigDir(outDat, P)
-% figure folder for run-on-guess QC output: P.figDir, else outDat.figs,
-% else a reprocBackup fallback so the figures are never silently lost
-    if isfield(P, 'figDir') && ~isempty(P.figDir)
-        figDir = P.figDir;
-    elseif isfield(outDat, 'figs') && ~isempty(outDat.figs)
-        figDir = outDat.figs;
-    else
-        figDir = fullfile('E:\reprocBackup_260824', 'guessQC', outDat.sessID);
-    end
-    if ~isfolder(figDir), mkdir(figDir); end
-end

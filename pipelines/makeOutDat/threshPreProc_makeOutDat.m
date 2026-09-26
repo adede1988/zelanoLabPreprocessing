@@ -292,7 +292,7 @@ for sessi = 1:numel(sessionIDs)
     xline(downs, 'color', 'magenta', 'linewidth', 2)
     title(sprintf('Photodiode TTLs: %s (n=%d)', sessID, length(downs)))
 
-    TTLs = round(downs(:) ./ 4);  % sample->ms index (assuming 4 kHz -> 1 kHz)
+    TTLs = toTargetSamples(downs(:), outDat.fs, 500);  % raw samples -> final 500 Hz samples (P.fs_target)
 
     %% -----------------------
     %  Metadata + save
@@ -300,26 +300,20 @@ for sessi = 1:numel(sessionIDs)
     outDat.task = "PEAintensityPleasantness_threshold";
     outDat.OGdataDir = fullfile(datPre{datPrei(sessi)}, sessID);
 
-    tmp = dir(fullfile(datPre{datPrei(sessi)}, sessID, '*.m'));
-    tmp = tmp(contains({tmp.name}, 'LoadData'));
-    if numel(tmp) == 1
-        outDat.loadFile = tmp.name;
-    else
-        tmp2 = dir(fullfile(datPre{datPrei(sessi)}, sessID, '*AD.m'));
-        if numel(tmp2) == 1
-            outDat.loadFile = tmp2.name;
-        else
-            error('PEA loader: load file not identified uniquely for %s', sessID);
-        end
-    end
+    % LoadData provenance (shared lookup; never fatal - the intermediate's
+    % loadFile is not carried into the final)
+    outDat.loadFile = findLoadDataScript(outDat.OGdataDir, 'threshTask', dat);
 
     outDat.preProcScript = 'threshPreProc_makeOutDat.m';
+    % (informational only: assembleOutDat sets the final's type from the
+    % sheet; roots beyond the fixed three - e.g. OBEControl\anosmics\ - no
+    % longer stop the session here)
     if datPrei(sessi) == 1
         outDat.type = 'Dupi';
     elseif datPrei(sessi) == 2
         outDat.type = 'OBE';
-    else
-        error('PEA loader: unexpected datPrei value for %s', sessID);
+    elseif datPrei(sessi) == 3
+        outDat.type = 'EEG';
     end
 
     outDat.TTL = table;

@@ -43,19 +43,16 @@ for s = 1:numel(sessionIDs)
     P = applyParams('breathingTasks_separate', S.id);
     isGuess = ~strcmpi(strtrim(P.paramSource), 'curated');
     P.allowGuessRun = allowGuessRunEnv;        % D4: every Task 9 session
-    P.figDir = S.fig;
+    % task subfolder (= assembleOutDat's outDat.figs) so the paramCheck PNGs of the
+    % session's different breath-type tasks cannot overwrite each other (C12)
+    P.figDir = fullfile(S.fig, P.task);
 
     % --- done-check ---
     preDir = fullfile(S.root, S.id, 'preProc');
     fpath  = fullfile(preDir, [S.id '_breathingTasks_separatepreproc.mat']);
-    if exist(fpath, 'file')
-        chk = load(fpath); fn = fieldnames(chk); chk = chk.(fn{1});
-        if isfield(chk, 'moreThan1') && isfield(chk, 'bmFeatures')
-            disp(['Done with ' S.id ' ; ' num2str(s)])
-            clear chk
-            continue
-        end
-        clear chk
+    if isSessionDone(fpath, {'moreThan1', 'bmFeatures'})
+        disp(['Done with ' S.id ' ; ' num2str(s)])
+        continue
     end
 
     raws = assembleRaw_breathingTasks_separate(S, P);   % <-- TASK-SPECIFIC
@@ -73,9 +70,7 @@ for s = 1:numel(sessionIDs)
             [od, P] = paramCheck(od, P);   % run-on-guess: saves QC figures
         end
 
-        od = downsample_data(od, P.fs_target);
-        if P.hasEEG, od = preprocess_eeg(od, EEGLOC, P); end
-        if P.hasMacros, od = preprocess_macros(od, P); end
+        od = runSharedCore(od, P, EEGLOC);   % shared: downsample, EEG, macros
 
         isRsp  = cellfun(@(x) contains(x, 'rsp'), od.labels);
         rspDat = od.data(isRsp, :);
@@ -135,11 +130,7 @@ for s = 1:numel(sessionIDs)
         if isGuess, P = paramCheckECG(outDat, P); end
         outDat = flagBadBreaths(outDat);
     else
-        n = height(outDat.behDat);
-        outDat.behDat.goodBreath = nan(n, 1);
-        outDat.behDat.maxRR      = nan(n, 1);
-        outDat.behDat.minRR      = nan(n, 1);
-        outDat.behDat.RR_max_min = nan(n, 1);
+        outDat.behDat = fillNaNHRV(outDat.behDat);
         outDat.ecgSkipped = 1;
     end
     % breaths whose QC window crosses a section boundary get goodBreath = 0

@@ -86,10 +86,8 @@ for s = 1:numel(sessionIDs)
     outDat.rspFlip = P.rspFlip;
      disp(['........................Loaded ', sessionIDs{s}])
   % trialStarts, buttonPresses, sniffMarks    
-    outDat = downsample_data(outDat, P.fs_target);
-    if P.hasEEG, outDat = preprocess_eeg(outDat, EEGLOC, P); end
-    outDat = preprocess_macros(outDat, P);
-    
+    outDat = runSharedCore(outDat, P, EEGLOC);   % shared: downsample, EEG, macros
+
   disp(['........................spike and blink ', sessionIDs{s}])
     R = preprocess_respiration_wholetrace(outDat); % fields: rsp, rsp_smooth, phase, onset_metric
 

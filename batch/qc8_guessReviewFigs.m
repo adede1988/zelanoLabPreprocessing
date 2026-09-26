@@ -300,6 +300,13 @@ for tt = 1:size(TASKS, 1)
                         'interbeatHist*', 'breathLengths*', 'HeartByBreathLengths*', ...
                         'shadowResp*', 'removedBlink*', 'blinkAmbiguous*', ...
                         'macrosRaw*', 'macroSpikeRemoval*', '*logAlign*', '*movieClipTTLs*'};
+                    % since cleanup C12 the breath-type mains save paramCheck
+                    % PNGs into the task subfolder; root-level ones are then
+                    % legacy output that another task of the session may have
+                    % overwritten - harvest them only when the subfolder has none
+                    if any(contains(copied, 'paramCheck'))
+                        pats = pats(~strcmp(pats, '*paramCheck*'));
+                    end
                     for p = 1:numel(pats)
                         hits = dir(fullfile(base, pats{p}));
                         hits = hits(~[hits.isdir]);

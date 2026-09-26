@@ -53,6 +53,10 @@ for sessi = 1:length(sessionIDs)
     outDat.fs      = dat.rawData.fsample;
     outDat.sessID  = sessionIDs{sessi};
     outDat.data    = dat.rawData.trial{1};
+    % LoadData provenance (shared lookup; never fatal - the intermediate's
+    % loadFile is not carried into the final)
+    outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
+    outDat.loadFile  = findLoadDataScript(outDat.OGdataDir, 'alternating6Blocks', dat);
     clear dat
     if any(isnan(outDat.data(:)))
         nBad = sum(isnan(outDat.data(1, :)));
@@ -60,16 +64,6 @@ for sessi = 1:length(sessionIDs)
         outDat.data = fillmissing(outDat.data, 'linear', 2, 'EndValues', 'nearest');
     end
     outDat.type = 'EEG';
-    outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
-    tmp = dir([datPre{datPrei(sessi)} sessionIDs{sessi}]);
-    tmp = tmp(cellfun(@(x) contains(x, 'LoadData') & endsWith(x, '.m'), {tmp.name}));
-    if size(tmp, 1) == 1
-        outDat.loadFile = tmp.name;
-    else
-        tmp2 = tmp(cellfun(@(x) contains(x, 'alternating6Blocks'), {tmp.name}));
-        assert(size(tmp2, 1) == 1, 'load file not identified uniquely');
-        outDat.loadFile = tmp2.name;
-    end
     outDat.preProcScript = 'alternating6Blocks_makeOutDat.m';
 
     % ---- behavioral files (D11a) ----

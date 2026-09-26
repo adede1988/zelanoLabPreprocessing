@@ -38,6 +38,7 @@ function [raw, TTL] = assembleRaw_O15(S, P)
     raw.data   = dat.rawData.trial{1};
     raw.labels = dat.outLabs;
     if isfield(dat, 'ncslabels'), raw.ncslabels = dat.ncslabels; end
+    if isfield(dat, 'loadFile'), raw.loadFile = dat.loadFile; end   % LoadData provenance, if recorded
     raw.beh    = readtable(behPath);
     raw.paths.mat = matPath;
     raw.paths.beh = behPath;

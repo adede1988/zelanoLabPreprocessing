@@ -50,7 +50,9 @@ for s = 1:numel(sessionIDs)
     % reportResponse directs to run - same override semantics as breathing
     P.allowGuessRun = allowGuessRunEnv && (strcmp(P.type, 'EEG') || ...
         strcmp(getenv('ZLP_ALLOW_GUESS_RUN_ALL'), '1'));   % D4
-    P.figDir = S.fig;
+    % task subfolder (= assembleOutDat's outDat.figs) so the paramCheck PNGs of the
+    % session's different breath-type tasks cannot overwrite each other (C12)
+    P.figDir = fullfile(S.fig, P.task);
     if isGuess && allowGuessRunEnv && ~P.allowGuessRun
         disp(['SKIP (guess, not run per D4): ' S.id])
         continue
@@ -59,14 +61,9 @@ for s = 1:numel(sessionIDs)
     % --- done-check: a NEW-format final has moreThan1 AND bmFeatures ---
     preDir = fullfile(S.root, S.id, 'preProc');
     fpath  = fullfile(preDir, [S.id '_EmotionalMovieTaskpreproc.mat']);
-    if exist(fpath, 'file')
-        chk = load(fpath); fn = fieldnames(chk); chk = chk.(fn{1});
-        if isfield(chk, 'moreThan1') && isfield(chk, 'bmFeatures')
-            disp(['Done with ' S.id ' ; ' num2str(s)])
-            clear chk
-            continue
-        end
-        clear chk
+    if isSessionDone(fpath, {'moreThan1', 'bmFeatures'})
+        disp(['Done with ' S.id ' ; ' num2str(s)])
+        continue
     end
 
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
@@ -75,9 +72,7 @@ for s = 1:numel(sessionIDs)
 
     if isGuess, [outDat, P] = paramCheck(outDat, P); end
 
-    outDat = downsample_data(outDat, P.fs_target);
-    if P.hasEEG, outDat = preprocess_eeg(outDat, EEGLOC, P); end
-    if P.hasMacros, outDat = preprocess_macros(outDat, P); end
+    outDat = runSharedCore(outDat, P, EEGLOC);   % shared: downsample, EEG, macros
     disp(['........................spike and blink ', sessionIDs{s}])
 
     % ===== TASK-SPECIFIC (movie): per-breath segmentation + clip windows =====
@@ -97,38 +92,8 @@ for s = 1:numel(sessionIDs)
 
     % ECG / HRV via the breathing path; skip (and record) when absent, and
     % fall back to NaN HRV when detection fails (bad lead / wrong beatSpec)
-    % rather than losing the breath data - flagged for review
-    hasECG = sum(cellfun(@(x) contains(x, 'ECG'), outDat.labels)) > 0;
-    ecgDone = false;
-    if hasECG
-        try
-            % viability probe (as in breathingTasks_separate): an implausible
-            % beat rate means no usable cardiac signal - NaN HRV
-            [ECGzP, sepP] = buildECGz(outDat);
-            bpmP = numel(P.getBeats(ECGzP, sepP)) / (size(outDat.data, 2) / outDat.fs / 60);
-            clear ECGzP
-            assert(bpmP >= 20, '%s: beat detection implausible (%.1f bpm)', S.id, bpmP);
-            if isGuess, P = paramCheckECG(outDat, P); end
-            outDat = processECG(outDat, P);
-            outDat = flagBadBreaths(outDat);
-            outDat.ecgSkipped = 0;
-            ecgDone = true;
-        catch MEecg
-            warning('%s: ECG processing failed (%s) - HRV set to NaN, REVIEW', ...
-                S.id, MEecg.message);
-            outDat.ecgSkipped = 2;   % 2 = present but detection failed
-        end
-    else
-        disp(['NO ECG channels for ' S.id ' - HRV columns set to NaN'])
-        outDat.ecgSkipped = 1;
-    end
-    if ~ecgDone
-        n = height(outDat.behDat);
-        outDat.behDat.goodBreath = nan(n, 1);
-        outDat.behDat.maxRR      = nan(n, 1);
-        outDat.behDat.minRR      = nan(n, 1);
-        outDat.behDat.RR_max_min = nan(n, 1);
-    end
+    % rather than losing the breath data - flagged for review (shared stage)
+    [outDat, P] = runECGStage(outDat, P, isGuess, S.id);
     disp(['........................breath behave heart ', sessionIDs{s}])
 
     % onset-QC figures (shared helpers)

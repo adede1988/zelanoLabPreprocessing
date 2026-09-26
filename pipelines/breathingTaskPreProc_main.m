@@ -83,7 +83,9 @@ for s = 1:numel(sessionIDs)
     % paramSource never promoted)
     P.allowGuessRun = allowGuessRunEnv && (strcmp(P.type, 'EEG') || ...
         strcmp(getenv('ZLP_ALLOW_GUESS_RUN_ALL'), '1'));
-    P.figDir = S.fig;
+    % task subfolder (= assembleOutDat's outDat.figs) so the paramCheck PNGs of the
+    % session's different breath-type tasks cannot overwrite each other (C12)
+    P.figDir = fullfile(S.fig, P.task);
 
     % D4 batch runs: guess sessions that are NOT allowed to run are skipped
     % before the multi-GB raw load (interactive runs still hit the gates)
@@ -100,13 +102,8 @@ for s = 1:numel(sessionIDs)
     % Guessed params: verify rsp channel + macro/spike choices interactively
     if isGuess, [outDat, P] = paramCheck(outDat, P); end
 
-    outDat = downsample_data(outDat, P.fs_target);
+    outDat = runSharedCore(outDat, P, EEGLOC);   % shared: downsample, EEG, macros
 
-    if P.hasEEG, outDat = preprocess_eeg(outDat, EEGLOC, P); end
-
-    if P.hasMacros, outDat = preprocess_macros(outDat, P); end
-    
-    
     disp(['........................spike and blink ', sessionIDs{s}])
 
     % ===== TASK-SPECIFIC (breathing): per-breath metrics + target trace +

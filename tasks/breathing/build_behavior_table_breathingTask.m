@@ -32,55 +32,10 @@ function outDat = build_behavior_table_breathingTask(outDat, bmObj)
     % Preserve original behavior table for emotion info
     tmpBehDat = outDat.behDat;
 
-    % New behDat table based on bmObj
-    outDat.behDat = table();
-
-    % Build time axis in seconds for index conversion
-    tim = (1:size(outDat.data, 2)) / outDat.fs;
-
-    % Column 2: onset time → sniffOnset and finalOnset (sample indices)
-    idx = arrayfun(@(x) find(x <= tim, 1), bmObj(:, 2));
-    outDat.behDat.sniffOnset = idx;
-    outDat.behDat.finalOnset = idx;
-
-    % Manual-onset placeholder column: NaN here, filled in by hand during later QC.
-    outDat.behDat.manOnset = nan(size(idx));
-
-    % Column 12: condition
-    outDat.behDat.condition = bmObj(:, 12);
-
-    % Column 1: onset Y value
-    outDat.behDat.Yonset = bmObj(:, 1);
-
-    % Column 3: peak Y value
-    outDat.behDat.inhaleMax = bmObj(:, 3);
-
-    % Column 4: peak time → inMaxTim (sample indices)
-    idx = arrayfun(@(x) find(x <= tim, 1), bmObj(:, 4));
-    outDat.behDat.inMaxTim = idx;
-
-    % Column 5: end Y value
-    outDat.behDat.Yend = bmObj(:, 5);
-
-    % Column 6: end time → endTim (sample indices)
-    idx = arrayfun(@(x) find(x <= tim, 1), bmObj(:, 6));
-    outDat.behDat.endTim = idx;
-
-    % Column 7: length (end - onset)
-    outDat.behDat.length = bmObj(:, 7);
-
-    % Column 8: amp (peak Y - avg of two ends)
-    outDat.behDat.amp = bmObj(:, 8);
-
-    % Column 10: exhale peak Y value
-    outDat.behDat.exhaleMin = bmObj(:, 10);
-
-    % Column 11: exhale peak time → exMinTim (sample indices)
-    idx = arrayfun(@(x) find(x <= tim, 1), bmObj(:, 11));
-    outDat.behDat.exMinTim = idx;
-
-    % Column 14: index
-    outDat.behDat.index = bmObj(:, 14);
+    % New behDat table based on bmObj: the 14 shared per-breath columns
+    % (sniffOnset/finalOnset/manOnset, condition, Yonset, inhaleMax, inMaxTim,
+    % Yend, endTim, length, amp, exhaleMin, exMinTim, index)
+    outDat.behDat = behDatFromBreaths(bmObj, size(outDat.data, 2), outDat.fs);
 
     % ---------------- integrate emotion data into respiration ----------------
     Qs = unique(tmpBehDat.Q_short);  % e.g., emotion questions
@@ -150,39 +105,6 @@ function outDat = build_behavior_table_breathingTask(outDat, bmObj)
     % ---------------- breathMetrics per-breath features (Tasks_260824 D8e) ----------------
     % Every existing column above is kept; the breathMetrics feature set is
     % appended as bm_* columns, aligned to bmObj rows via bmObjBreathIdx.
-    if isfield(outDat, 'bmFeatures') && isfield(outDat.bmFeatures, 'bmObjBreathIdx')
-        F  = outDat.bmFeatures;
-        bi = F.bmObjBreathIdx(:);
-        nRows = height(outDat.behDat);
-        if numel(bi) == nRows
-            perBreath = {'inhaleOnsets', 'exhaleOnsets', 'inhaleOffsets', 'exhaleOffsets', ...
-                         'inhalePeaks', 'exhaleTroughs', 'peakInspiratoryFlows', ...
-                         'troughExpiratoryFlows', 'inhaleTimeToPeak', 'exhaleTimeToTrough', ...
-                         'inhaleVolumes', 'exhaleVolumes', 'inhaleDurations', 'exhaleDurations', ...
-                         'inhalePauseOnsets', 'exhalePauseOnsets', ...
-                         'inhalePauseDurations', 'exhalePauseDurations', ...
-                         'inhaleVolumesRaw', 'exhaleVolumesRaw'};
-            for f = 1:numel(perBreath)
-                fld = perBreath{f};
-                if isfield(F, fld) && numel(F.(fld)) >= max(bi)
-                    v = F.(fld)(:);
-                    outDat.behDat.(['bm_' fld]) = v(bi);
-                end
-            end
-            if isfield(F, 'shapeFeatures') && istable(F.shapeFeatures) ...
-                    && height(F.shapeFeatures) >= max(bi)
-                sv = F.shapeFeatures.Properties.VariableNames;
-                for f = 1:numel(sv)
-                    if strcmp(sv{f}, 'breath_id'), continue; end
-                    v = F.shapeFeatures.(sv{f});
-                    outDat.behDat.(['bm_' sv{f}]) = v(bi);
-                end
-            end
-        else
-            warning('build_behavior_table_breathingTask:bmMisaligned', ...
-                '%s: bmObjBreathIdx (%d) does not match behDat rows (%d); bm_* columns skipped', ...
-                outDat.sessID, numel(bi), nRows);
-        end
-    end
+    outDat = appendBmFeatureCols(outDat, 'build_behavior_table_breathingTask');
 
 end

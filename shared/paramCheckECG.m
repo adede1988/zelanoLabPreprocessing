@@ -46,7 +46,7 @@ function P = paramCheckECG(outDat, P)
         end
         title(sprintf('%s paramCheckECG (guess): beatSpec=%s, %.1f bpm overall', ...
             outDat.sessID, P.beatSpec, bpm), 'Interpreter', 'none');
-        figDir = guessFigDirECG(outDat, P);
+        figDir = guessFigDir(outDat, P);
         saveas(fig, fullfile(figDir, [outDat.sessID '_paramCheck_ECG.png']));
         close(fig);
         return;
@@ -90,16 +90,4 @@ function P = paramCheckECG(outDat, P)
     end
 
     set(0, 'defaultfigurewindowstyle', 'normal');
-end
-
-function figDir = guessFigDirECG(outDat, P)
-% figure folder for run-on-guess QC output (mirrors paramCheck>guessFigDir)
-    if isfield(P, 'figDir') && ~isempty(P.figDir)
-        figDir = P.figDir;
-    elseif isfield(outDat, 'figs') && ~isempty(outDat.figs)
-        figDir = outDat.figs;
-    else
-        figDir = fullfile('E:\reprocBackup_260824', 'guessQC', outDat.sessID);
-    end
-    if ~isfolder(figDir), mkdir(figDir); end
 end

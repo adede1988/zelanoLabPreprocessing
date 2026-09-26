@@ -76,17 +76,7 @@ function out = applyParams(task, sel, xlsxPath)
     nAll = size(data, 1);
     keep = false(nAll, 1);
     for r = 1:nAll
-        if isBlank(data{r, cSub}), continue; end          % drop fully empty / no-ID rows
-        if ~strcmp(canonTask(data{r, cTask}), tkey), continue; end
-        rawv = data{r, cRaw};
-        if isBlank(rawv), continue; end
-        if strcmpi(strtrim(asChar(rawv)), 'INCOMPLETE'), continue; end
-        if strcmp(tkey, 'sep') && cDT > 0
-            % D12a/D1: breathingTasks_separate takes ONLY dataType == ephys
-            % condition rows (ephys_echem recordings are skipped for now)
-            if ~strcmpi(strtrim(asChar(data{r, cDT})), 'ephys'), continue; end
-        end
-        keep(r) = true;
+        keep(r) = isEligibleRow(data(r, :), tkey, cSub, cTask, cRaw, cDT);
     end
     rows = data(keep, :);
 
@@ -196,28 +186,19 @@ function out = applyParams(task, sel, xlsxPath)
     P.macroRemove= list_or(rows{ri, cMacR}, []);
     P.paramSource= asChar(rows{ri, cPS});
 
+    row = rows(ri, :);
     switch tkey
         case 'breathing'
-            P.hasMacros = bool_or(rows{ri, cHasM}, true);
-            beatSpec    = asChar(rows{ri, cBeat});
-            if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3'; end
-            P.beatSpec  = beatSpec;
-            P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
+            P = ecgParams(P, row, cHasM, cBeat, true, '1,0,gt,3');
 
         case 'cue'
-            P.respThresh   = num_or(rows{ri, cRespT}, 500);
-            P.cuedBackBuff = num_or(rows{ri, cBack}, 150);
-            P.adjWin       = num_or(rows{ri, cAdj}, 500);
+            P = sniffParams(P, row, cRespT, cBack, cAdj);
 
         case 'thresh'
-            P.respThresh   = num_or(rows{ri, cRespT}, 500);
-            P.cuedBackBuff = num_or(rows{ri, cBack}, 150);
-            P.adjWin       = num_or(rows{ri, cAdj}, 500);
+            P = sniffParams(P, row, cRespT, cBack, cAdj);
 
         case 'O15'
-            P.respThresh   = num_or(rows{ri, cRespT}, 500);
-            P.cuedBackBuff = num_or(rows{ri, cBack}, 150);
-            P.adjWin       = num_or(rows{ri, cAdj}, 500);
+            P = sniffParams(P, row, cRespT, cBack, cAdj);
             P.pd = struct('zthresh', -2, 'minPulseSamp', 200, ...
                           'maxPulseSamp', 1200, 'trialSplitSamp', 850);
             P.ttl = struct( ...
@@ -231,11 +212,7 @@ function out = applyParams(task, sel, xlsxPath)
             % (ZelanoLabScripts getSessionParams_emotionTask).
             % EEG_breathing recordings have no macro channels, so the blank-
             % cell default is Type-aware.
-            P.hasMacros = bool_or(rows{ri, cHasM}, ~strcmp(typeStudy, 'eeg'));
-            beatSpec    = asChar(rows{ri, cBeat});
-            if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
-            P.beatSpec  = beatSpec;
-            P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
+            P = ecgParams(P, row, cHasM, cBeat, ~strcmp(typeStudy, 'eeg'), '1,0,gt,3.5');
             P.pd = struct('zthresh', -2, 'minPulseSamp', 350, ...
                           'maxPulseSamp', 2000, 'searchWin', 2000, ...
                           'numNeg', 3, 'numPos', 2, 'numNeu', 1, ...
@@ -245,11 +222,7 @@ function out = applyParams(task, sel, xlsxPath)
             % alternating6Blocks (Tasks_260824.md Task 8): breathing-type
             % processing; blocks/ratings come from the Google-Drive behavioral
             % files (sniffLogicLog + mindfulBreathing), aligned in makeOutDat
-            P.hasMacros = bool_or(rows{ri, cHasM}, false);   % EEG_breathing: no macros
-            beatSpec    = asChar(rows{ri, cBeat});
-            if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
-            P.beatSpec  = beatSpec;
-            P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
+            P = ecgParams(P, row, cHasM, cBeat, false, '1,0,gt,3.5');   % EEG_breathing: no macros
 
         case 'paced'
             % pacedBreathing (added 2026-09-15): breathing-type processing of a
@@ -258,11 +231,7 @@ function out = applyParams(task, sel, xlsxPath)
             % at a sweep of paces x depths, ~10 min focused breathing). Blocks are
             % INFERRED from the segmented breaths (inferBlocks_pacedBreathing)
             % with P.pacedOpts; there is no makeOutDat (raw loaded directly).
-            P.hasMacros = bool_or(rows{ri, cHasM}, false);   % EEG_breathing: no macros
-            beatSpec    = asChar(rows{ri, cBeat});
-            if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
-            P.beatSpec  = beatSpec;
-            P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
+            P = ecgParams(P, row, cHasM, cBeat, false, '1,0,gt,3.5');   % EEG_breathing: no macros
             % block-inference options: empty = the documented defaults inside
             % inferBlocks_pacedBreathing (minBlockSec 60, gapSec 15, penaltyBIC 4,
             % merge tolerances ...). Override per session here if a review of
@@ -274,20 +243,13 @@ function out = applyParams(task, sel, xlsxPath)
             % session's condition recordings, processed per file then
             % concatenated. Params are stored identically on every in-scope
             % condition row (D12d); this reads the first one.
-            P.hasMacros = bool_or(rows{ri, cHasM}, true);
-            beatSpec    = asChar(rows{ri, cBeat});
-            if isBlank(rows{ri, cBeat}), beatSpec = '1,0,gt,3.5'; end
-            P.beatSpec  = beatSpec;
-            P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
-            % which condition recordings this session has (sheet order)
+            P = ecgParams(P, row, cHasM, cBeat, true, '1,0,gt,3.5');
+            % which condition recordings this session has (sheet order): the
+            % session's rows that the Mode-A selection accepts for 'sep'
             allConds = {};
             for r2 = 1:size(data, 1)
-                if isBlank(data{r2, cSub}), continue; end
+                if ~isEligibleRow(data(r2, :), 'sep', cSub, cTask, cRaw, cDT), continue; end
                 if ~strcmpi(strtrim(asChar(data{r2, cSub})), selStr), continue; end
-                if ~strcmp(canonTask(data{r2, cTask}), 'sep'), continue; end
-                rawv2 = data{r2, cRaw};
-                if isBlank(rawv2) || strcmpi(strtrim(asChar(rawv2)), 'INCOMPLETE'), continue; end
-                if cDT > 0 && ~strcmpi(strtrim(asChar(data{r2, cDT})), 'ephys'), continue; end
                 allConds{end+1} = strtrim(asChar(data{r2, cTask})); %#ok<AGROW>
             end
             % a duplicated condition row would load the same recording twice
@@ -304,6 +266,43 @@ function out = applyParams(task, sel, xlsxPath)
 end
 
 % ======================= helpers =======================
+
+function tf = isEligibleRow(row, tkey, cSub, cTask, cRaw, cDT)
+% A sheet row feeds task tkey iff it has a Subject ID, its Task maps to tkey,
+% and Raw Data Extracted is non-blank and not INCOMPLETE. breathingTasks_
+% separate (D12a/D1) additionally takes ONLY dataType == ephys condition rows
+% (ephys_echem recordings are skipped for now). Shared by the Mode-A row
+% selection and the per-session condition list of Mode B.
+    tf = false;
+    if isBlank(row{cSub}), return; end                   % fully empty / no-ID rows
+    if ~strcmp(canonTask(row{cTask}), tkey), return; end
+    rawv = row{cRaw};
+    if isBlank(rawv), return; end
+    if strcmpi(strtrim(asChar(rawv)), 'INCOMPLETE'), return; end
+    if strcmp(tkey, 'sep') && cDT > 0 && ~strcmpi(strtrim(asChar(row{cDT})), 'ephys')
+        return;
+    end
+    tf = true;
+end
+
+function P = ecgParams(P, row, cHasM, cBeat, hasMacrosDefault, defaultSpec)
+% breath-type tasks: hasMacros (blank cell -> the task's default) and the ECG
+% beat-detection spec (blank cell -> the task's default spec) + P.getBeats
+    P.hasMacros = bool_or(row{cHasM}, hasMacrosDefault);
+    beatSpec    = asChar(row{cBeat});
+    if isBlank(row{cBeat}), beatSpec = defaultSpec; end
+    P.beatSpec  = beatSpec;
+    P.getBeats  = @(ECGz, beatSep) detectBeats(ECGz, beatSep, beatSpec);
+end
+
+function P = sniffParams(P, row, cRespT, cBack, cAdj)
+% sniff tasks (cue / thresh / O15): the macro stage always runs (the sheet's
+% hasMacros cell is not read) + the sniff-detection windows
+    P.hasMacros    = true;
+    P.respThresh   = num_or(row{cRespT}, 500);
+    P.cuedBackBuff = num_or(row{cBack}, 150);
+    P.adjWin       = num_or(row{cAdj}, 500);
+end
 
 function p = resolveDefaultXlsx()
 % Prefer the lab Admin master IF it already carries the parameter columns;

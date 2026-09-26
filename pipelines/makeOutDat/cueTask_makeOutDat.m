@@ -29,6 +29,7 @@ sessionIDs = cfg.sessionIDs;
 datPre     = cfg.datPre;
 datPrei    = cfg.datPrei;
 newSet     = cfg.newIDs;
+fsTarget   = 500;   % final sample rate (applyParams P.fs_target): TTLs are stored in these samples
 
 % targeted-run filter (2026-09-01): comma-separated session ids in
 % ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
@@ -282,7 +283,7 @@ if sum(cellfun(@(x) strcmp(sessionIDs{sessi}, x), newSet))==1
                 ri = ri+1; 
             end
         end
-        TTLs =round(TTLs ./ 4);
+        TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
 
         outDat.behDat = behDat; 
         outDat.data = dat1.rawData.trial{1};
@@ -503,7 +504,7 @@ else
             TTLs = nan(20, 3); 
             TTLs(:,1) = cueTTLs; 
             TTLs(:,2) = sniffTTLs; 
-                TTLs =round(TTLs ./ 4);
+                TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
         else
             try
                 xline(responseTTLs, 'color', 'k', 'linewidth',2)
@@ -516,7 +517,7 @@ else
                 TTLs(:,1) = cueTTLs; 
                 TTLs(:,2) = sniffTTLs; 
                 TTLs(:,3) = responseTTLs;  
-                TTLs =round(TTLs ./ 4);
+                TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
             catch 
                 TTLs = nan(20, 3); 
                 ri = 1; 
@@ -531,7 +532,7 @@ else
                         ri = ri+1; 
                     end
                 end
-                TTLs =round(TTLs ./ 4);
+                TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
                 warning('missed response TTLs')
                 
             end
@@ -606,7 +607,7 @@ else
             TTLs2 = nan(20, 3); 
             TTLs2(:,1) = cueTTLs; 
             TTLs2(:,2) = sniffTTLs; 
-                TTLs2 =round(TTLs2 ./ 4);
+                TTLs2 = toTargetSamples(TTLs2, outDat.fs, fsTarget);
         else
             try
                 xline(responseTTLs, 'color', 'k', 'linewidth',2)
@@ -619,12 +620,14 @@ else
                 TTLs2(:,1) = cueTTLs; 
                 TTLs2(:,2) = sniffTTLs; 
                 TTLs2(:,3) = responseTTLs;  
-                TTLs2 =round(TTLs2 ./ 4);
+                TTLs2 = toTargetSamples(TTLs2, outDat.fs, fsTarget);
             catch 
-                TTLs2 = nan(20, 3); 
-                ri = 1; 
-                for tt = 1:size(behDat1,1)
-                    if isempty(behDat1.response_str{tt})
+                TTLs2 = nan(20, 3);
+                ri = 1;
+                % run 2's TTLs follow run 2's behaviour (cleanup C16: this
+                % used behDat1, pairing run-2 pulses with run-1 responses)
+                for tt = 1:size(behDat2,1)
+                    if isempty(behDat2.response_str{tt})
                         TTLs2(tt,1) = cueTTLs(tt); 
                         TTLs2(tt,2) = sniffTTLs(tt); 
                     else
@@ -634,7 +637,7 @@ else
                         ri = ri+1; 
                     end
                 end
-                TTLs2 =round(TTLs2 ./ 4);
+                TTLs2 = toTargetSamples(TTLs2, outDat.fs, fsTarget);
                 warning('missed response TTLs')
                 
             end
@@ -643,7 +646,7 @@ else
 
         %combine everything! 
         L1 = size(dat1.rawData.trial{1},2);
-        TTLs2 = TTLs2 + round(L1/4); 
+        TTLs2 = TTLs2 + toTargetSamples(L1, outDat.fs, fsTarget); 
 
         TTLs = [TTLs; TTLs2]; 
         comboDat = [dat1.rawData.trial{1}, ...
@@ -655,9 +658,9 @@ else
 
         figure
         plot(photoDiode)
-        xline(TTLs(:,1).*4, 'color', 'magenta')
-        xline(TTLs(:,2).*4, 'color', 'green')
-        xline(TTLs(:,3).*4, 'color', 'k')
+        xline(TTLs(:,1).*(outDat.fs/fsTarget), 'color', 'magenta')
+        xline(TTLs(:,2).*(outDat.fs/fsTarget), 'color', 'green')
+        xline(TTLs(:,3).*(outDat.fs/fsTarget), 'color', 'k')
         
         outDat.behDat = behDat; 
         outDat.data = comboDat;
@@ -842,7 +845,7 @@ else
                 ri = ri+1; 
             end
         end
-        TTLs =round(TTLs ./ 4);
+        TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
 
         outDat.behDat = behDat; 
         outDat.data = dat1.rawData.trial{1};
@@ -873,19 +876,9 @@ end
     
     outDat.task = "cueTask"; 
     outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
-    tmp = dir([datPre{datPrei(sessi)} sessionIDs{sessi}]);
-    tmp = tmp(cellfun(@(x) contains(x, '.m'), {tmp.name}));
-    tmp = tmp(cellfun(@(x) contains(x, 'LoadData'), {tmp.name}));
-    if size(tmp,1) == 1
-        outDat.loadFile = tmp.name;
-    else 
-        tmp = tmp(cellfun(@(x) contains(x, 'AD.m'), {tmp.name}));
-        if size(tmp,1) == 1
-            outDat.loadFile = tmp.name;
-        else 
-            error('load file not identified uniquely')
-        end
-    end
+    % LoadData provenance (shared lookup; never fatal - the intermediate's
+    % loadFile is not carried into the final)
+    outDat.loadFile = findLoadDataScript(outDat.OGdataDir, 'cueTask', dat1);
     outDat.preProcScript = 'cueTask_makeOutDat.m';
     if datPrei(sessi) == 1
         outDat.type = 'Dupi'; 

@@ -558,23 +558,10 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
     outDat.task = "breathing"; 
     outDat.sessID = sessionIDs{sessi};
     outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
-    % (2026-08-29, PC_2 incident): macOS browsing leaves AppleDouble junk
-    % ('._LoadData_*.m') that can make the wildcard match non-unique.
-    % Prefer the session's canonical script when it exists; fall back to a
-    % unique wildcard match; anything else is still a loud error.
-    canonicalLD = ['LoadData_' sessionIDs{sessi} '.m'];
-    if exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\' canonicalLD], 'file')
-        outDat.loadFile = canonicalLD;
-    else
-        tmp = dir([datPre{datPrei(sessi)} sessionIDs{sessi}]);
-        tmp = tmp(cellfun(@(x) contains(x, '.m'), {tmp.name}));
-        tmp = tmp(cellfun(@(x) contains(x, 'LoadData'), {tmp.name}));
-        if size(tmp,1) == 1
-            outDat.loadFile = tmp.name;
-        else
-            error('load file not identified uniquely')
-        end
-    end
+    % LoadData provenance (shared lookup; never fatal - the intermediate's
+    % loadFile is not carried into the final). AppleDouble '._' junk from
+    % macOS browsing (2026-08-29 PC_2 incident) is ignored there.
+    outDat.loadFile = findLoadDataScript(outDat.OGdataDir, 'breathingTask', dat);
     outDat.preProcScript = 'BreathingTask_makeOutDat.m'; 
     if datPrei(sessi) == 1
         outDat.type = 'Dupi'; 

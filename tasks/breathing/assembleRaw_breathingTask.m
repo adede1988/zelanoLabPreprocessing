@@ -2,7 +2,8 @@ function raw = assembleRaw_breathingTask(S)
 %ASSEMBLERAW_BREATHINGTASK  TASK-SPECIFIC raw load for breathingTask.
 %   Loads <id>_breathingPreProc.mat (shared loadIntermediateRaw) and applies the
 %   breathing-specific TTL handling: a 5-min-window fallback when the file has no
-%   TTL, then the /4 sample-rate rescale. Called by breathingTaskPreProc_main;
+%   TTL, then the raw-rate -> 500 Hz rescale (shared toTargetSamples; the final
+%   rate is fixed at P.fs_target = 500). Called by breathingTaskPreProc_main;
 %   shared assembly is in assembleOutDat.
 
     matPath = fullfile(S.root, S.id, 'preProc', [S.id '_breathingPreProc.mat']);
@@ -15,5 +16,5 @@ function raw = assembleRaw_breathingTask(S)
         TTLv(end) = [];
         od.TTL = TTLv;
     end
-    raw.TTL = round(od.TTL ./ 4);
+    raw.TTL = toTargetSamples(od.TTL, od.fs, 500);
 end

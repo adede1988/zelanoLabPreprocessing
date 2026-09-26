@@ -47,6 +47,10 @@ for sessi = 1:length(sessionIDs)
     outDat.fs      = dat.rawData.fsample;
     outDat.sessID  = sessionIDs{sessi};
     outDat.data    = dat.rawData.trial{1};
+    % LoadData provenance (shared lookup; never fatal - the intermediate's
+    % loadFile is not carried into the final)
+    outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
+    outDat.loadFile  = findLoadDataScript(outDat.OGdataDir, 'EmotionalMovieTask', dat);
     clear dat
 
     % old-pipeline NaN handling: drop trailing/detached NaN columns flagged on
@@ -69,19 +73,6 @@ for sessi = 1:length(sessionIDs)
         outDat.type = 'OBE';
     else
         outDat.type = 'EEG';
-    end
-    outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
-    tmp = dir([datPre{datPrei(sessi)} sessionIDs{sessi}]);
-    tmp = tmp(cellfun(@(x) contains(x, 'LoadData') & endsWith(x, '.m'), {tmp.name}));
-    if size(tmp, 1) == 1
-        outDat.loadFile = tmp.name;
-    else
-        tmp2 = tmp(cellfun(@(x) contains(x, 'EmotionalMovieTask'), {tmp.name}));
-        if size(tmp2, 1) == 1
-            outDat.loadFile = tmp2.name;
-        else
-            error('load file not identified uniquely')
-        end
     end
     outDat.preProcScript = 'emotionalMovieTask_makeOutDat.m';
 
