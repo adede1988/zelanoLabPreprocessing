@@ -4,10 +4,13 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
 %   raws = assembleRaw_breathingTasks_separate(S, P)
 %
 %   For every in-scope condition row of the session (P.conditions, from
-%   applyParams), loads raw\raw_<condition>\raw_<condition>.mat (folder found
-%   case-insensitively), requires identical labels and sampling rate across
-%   files (error otherwise), and returns a struct array ordered
-%   chronologically by recording start (D12b).
+%   applyParams), loads the single .mat of the condition's raw folder -
+%   raw\raw_<condition>\ as a rule, with the documented older aliases and
+%   the exact raw_<condition>_run<N> folders of repeated runs; the rules and
+%   the section labels live in config/sepConditionInfo (folder names matched
+%   case-insensitively, exactly one folder required) - requires identical
+%   labels and sampling rate across files (error otherwise), and returns a
+%   struct array ordered chronologically by recording start (D12b).
 %
 %   Ordering evidence (ft_appenddata drops the Neuralynx hdr, so
 %   FirstTimeStamp is unavailable): (1) the Neuralynx channel-file SUFFIX
@@ -19,9 +22,10 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
 %   combined key is not strictly ordered. Single-file sessions need no
 %   ordering.
 %
-%   Each element: .condition (sheet Task value) .label (D12c canonical:
-%   audioBook/audiobook/distractedBreathing -> 'audiobook', rest verbatim)
-%   .data .labels .fs_raw .suffix .folderTime .srcFile
+%   Each element: .condition (sheet Task value) .label (D12c canonical, from
+%   sepConditionInfo: audioBook/audiobook/distractedBreathing -> 'audiobook',
+%   focusedBreathing_button[1|2] -> 'focusedBreathing_button', <cond>_run<N>
+%   -> <cond>'s label, ...) .data .labels .fs_raw .suffix .folderTime .srcFile
 
     rawRoot = fullfile(S.root, S.id, 'raw');
     d = dir(rawRoot);
@@ -31,9 +35,11 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
                   'fs_raw', {}, 'suffix', {}, 'folderTime', {}, 'srcFile', {});
     for c = 1:numel(P.conditions)
         cond = P.conditions{c};
-        condNorm = lower(strrep(cond, ' ', ''));
-        hit = find(cellfun(@(nm) ~isempty(regexp(lower(nm), ...
-              ['^raw_' regexptranslate('escape', condNorm) '\d*$'], 'once')), dirNames));
+        info = sepConditionInfo(cond);   % label + raw-folder rule (one shared list)
+        assert(~isempty(info), 'assembleRaw_breathingTasks_separate:condition', ...
+            '%s: "%s" is not a breathingTasks_separate condition', S.id, cond);
+        hit = find(cellfun(@(nm) any(cellfun(@(rx) ~isempty(regexp(lower(nm), rx, 'once')), ...
+              info.rawRegex)), dirNames));
         assert(numel(hit) == 1, ...
             'assembleRaw_breathingTasks_separate:rawFolder', ...
             '%s: expected exactly 1 raw folder for condition "%s", found %d', ...
@@ -49,7 +55,7 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
         % struct-array assignment below
         R = struct();
         R.condition  = cond;
-        R.label      = canonicalCondLabel(cond);
+        R.label      = info.label;
         R.data       = cd0.rawData.trial{1};
         % outLabs cells can hold string objects; downstream (strjoin, isequal
         % across sections) needs plain char vectors
@@ -139,26 +145,5 @@ function t = provenanceTime(rd)
                 for k = 1:numel(p), q{end+1} = p(k); end %#ok<AGROW>
             end
         end
-    end
-end
-
-function lab = canonicalCondLabel(cond)
-    switch lower(strrep(cond, ' ', ''))
-        case {'audiobook', 'distractedbreathing'}
-            lab = 'audiobook';
-        case 'focusedbreathing'
-            lab = 'focusedBreathing';
-        case 'sleep'
-            lab = 'sleep';
-        case 'sleepwithodor'
-            lab = 'sleepWithOdor';
-        case 'restingbaseline'
-            lab = 'restingBaseline';
-        case {'focusedbreathing_button1', 'focusedbreathing_button2'}
-            lab = 'focusedBreathing_button';   % two OBE takes: same label, distinct section idx + sourceFile
-        case 'focusedbreathing_button_mouth'
-            lab = 'focusedBreathing_mouth';
-        otherwise
-            error('unknown condition "%s"', cond);
     end
 end

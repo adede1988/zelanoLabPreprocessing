@@ -6,9 +6,10 @@ function writeSheetSep(P, sessID, action, xlsxPath)
 %   writeSheetSep(P, sessID, 'X')        set Data Preprocessed = X on every row
 %   writeSheetSep(P, sessID, 'clearX')   blank it on every row
 %
-%   In-scope = the session's condition rows (audiobook/distractedBreathing/
-%   focusedBreathing/sleep/sleepWithOdor/restingBaseline, spelling-insensitive)
-%   with Raw Data Extracted non-blank/non-INCOMPLETE and dataType == ephys.
+%   In-scope = the session's condition rows (the Task values listed in
+%   config/sepConditionInfo - the same list applyParams uses; case- and
+%   whitespace-insensitive) with Raw Data Extracted non-blank/non-INCOMPLETE
+%   and dataType == ephys.
 %   The task-9 writers deliberately do NOT use writePreProcX (first-match
 %   semantics cannot cover multiple condition rows). Each write verifies the
 %   Subject ID cell at the target row first.
@@ -31,18 +32,13 @@ function writeSheetSep(P, sessID, action, xlsxPath)
            ~isempty(cDT) && ~isempty(cPre), ...
            'writeSheetSep: required sheet columns not found - aborting');
 
-    conds = {'audiobook', 'distractedbreathing', 'focusedbreathing', ...
-             'sleep', 'sleepwithodor', 'restingbaseline', ...
-             'focusedbreathing_button1', 'focusedbreathing_button2', ...
-             'focusedbreathing_button_mouth'};
     rowsHit = [];
     for r = 3:size(C, 1)
         v = C{r, cSub};
         if ~(ischar(v) || isstring(v)) || ~strcmpi(strtrim(char(string(v))), sessID), continue; end
         tk = C{r, cTask};
         if ~(ischar(tk) || isstring(tk)), continue; end
-        tn = lower(strrep(strtrim(char(string(tk))), ' ', ''));
-        if ~ismember(tn, conds), continue; end
+        if isempty(sepConditionInfo(tk)), continue; end   % not a condition row
         rawv = C{r, cRaw};
         if isa(rawv, 'missing') || ((ischar(rawv) || isstring(rawv)) && strlength(strtrim(string(rawv))) == 0), continue; end
         if (ischar(rawv) || isstring(rawv)) && strcmpi(strtrim(char(string(rawv))), 'INCOMPLETE'), continue; end

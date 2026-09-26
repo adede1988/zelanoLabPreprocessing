@@ -62,10 +62,11 @@ for sessi = 1:numel(sessionIDs)
 
     idx = find(cellfun(@(x) contains(x, 'raw_PEAintensityPleasantness'), {datFolders.name}));
     if isempty(idx)
-        % 260720_OBE_NWU_KA_2 shipped its thresh raw as raw_threshTask (same
-        % task, nonstandard folder name); output filename stays standard.
-        % raw_threshTask_echem is a different recording - exact match only.
-        idx = find(cellfun(@(x) strcmpi(x, 'raw_threshTask'), {datFolders.name}));
+        % 260720_OBE_NWU_KA_2 shipped its thresh raw as raw_threshTask, and
+        % 260921_OBE_NWU_BW_2 as raw_threshold (same task, nonstandard folder
+        % names); output filename stays standard. raw_threshTask_echem /
+        % raw_threshold_echem are different recordings - exact match only.
+        idx = find(cellfun(@(x) any(strcmpi(x, {'raw_threshTask', 'raw_threshold'})), {datFolders.name}));
     else
         % never pick the _echem variant when the standard folder also exists
         idx = idx(cellfun(@(x) ~contains(lower(x), 'echem'), {datFolders(idx).name}));

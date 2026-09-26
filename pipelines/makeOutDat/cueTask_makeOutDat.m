@@ -56,9 +56,12 @@ if sum(cellfun(@(x) strcmp(sessionIDs{sessi}, x), newSet))==1
 
     idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor'), {datFolders.name});
     if ~any(idx)
-        % 260720_OBE_NWU_KA_2 shipped its cue raw as raw_cueTask (same task,
-        % nonstandard folder name); the preProc output name stays standard
-        idx = cellfun(@(x) strcmpi(x, 'raw_cueTask'), {datFolders.name});
+        % 260720_OBE_NWU_KA_2 shipped its cue raw as raw_cueTask, and
+        % 260827_OBE_NWU_RX_2 / 260831_OBE_NWU_CS_2 as raw_odorCueTask (same
+        % task, nonstandard folder names - exact names only, never *_echem);
+        % the preProc output name stays standard
+        idx = cellfun(@(x) any(strcmpi(x, {'raw_cueTask', 'raw_odorCueTask'})), {datFolders.name});
+        assert(sum(idx) <= 1, 'cue raw folder ambiguous for %s: several of raw_cueTask / raw_odorCueTask', sessionIDs{sessi});
     end
     idx = find(idx);
 
@@ -308,8 +311,10 @@ else
 
     idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor'), {datFolders.name});
     if ~any(idx)
-        % nonstandard raw_cueTask folder name (same task) - see new-set branch
-        idx = cellfun(@(x) strcmpi(x, 'raw_cueTask'), {datFolders.name});
+        % nonstandard raw_cueTask / raw_odorCueTask folder names (same task,
+        % exact names only) - see new-set branch
+        idx = cellfun(@(x) any(strcmpi(x, {'raw_cueTask', 'raw_odorCueTask'})), {datFolders.name});
+        assert(sum(idx) <= 1, 'cue raw folder ambiguous for %s: several of raw_cueTask / raw_odorCueTask', sessionIDs{sessi});
     end
     idx = find(idx);
     
