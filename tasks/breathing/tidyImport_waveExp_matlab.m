@@ -1,8 +1,9 @@
 % tidyImport_waveExp_matlab - MATLAB port of the behavioral importers
 % (2026-08-31; R is not installed on the lab machine). Converts a session's
 % raw psychopy <id>_mindfulBreathing_<date>.csv
-% (G:\My Drive\cZelano\breathingDataFiles) into the processedBehavior CSV
-% the breathing makeOutDat consumes. TWO source formats, auto-detected:
+% (labPaths().targTraceDir = <gdrive>\cZelano\breathingDataFiles) into the
+% processedBehavior CSV the breathing makeOutDat consumes (under
+% labPaths().codePre). TWO source formats, auto-detected:
 %
 %  WAVE/EEG format (has slider_3): port of experiment_EEGsync's
 %    tidyDataImport_waveExp.R - cndName/outFile blocks, oldNames map,
@@ -17,9 +18,15 @@
 %
 % Env: ZLP_TIDY_IDS = comma-separated session ids (required).
 
-datFolder = 'G:\My Drive\cZelano\breathingDataFiles';
-outWave = 'E:\GitHub\experiment_EEGsync\processedBehavior';
-outDupi = 'E:\GitHub\closed-loop-respiration\processedBehavior';
+% every machine-specific path comes from labPaths (review fix 2026-09-25: the
+% folders were hard-coded to the lab desktop's G:\My Drive and E:\GitHub)
+zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
+L = labPaths();
+assert(~isempty(L.targTraceDir), ...
+    'tidyImport_waveExp_matlab: labPaths().gdrive is empty on this machine - the mindfulBreathing CSVs live on Google Drive');
+datFolder = L.targTraceDir;                                                       % <gdrive>\cZelano\breathingDataFiles
+outWave   = fullfile(L.codePre, 'experiment_EEGsync', 'processedBehavior');       % read by breathingTask_makeOutDat (EEG/wave sessions)
+outDupi   = fullfile(L.codePre, 'closed-loop-respiration', 'processedBehavior');  % read by breathingTask_makeOutDat (Dupi/OBE sessions)
 ids = strtrim(strsplit(getenv('ZLP_TIDY_IDS'), ','));
 assert(~isempty(ids) && ~isempty(ids{1}), 'set ZLP_TIDY_IDS');
 

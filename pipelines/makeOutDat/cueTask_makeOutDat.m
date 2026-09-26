@@ -54,7 +54,10 @@ if sum(cellfun(@(x) strcmp(sessionIDs{sessi}, x), newSet))==1
     datFolders = dir([datPre{datPrei(sessi)} sessionIDs{sessi} ...
                        '\raw\']);
 
-    idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor'), {datFolders.name});
+    % standard folder(s) raw_cueTaskOdor, or raw_cueTaskOdor1 + 2 for the
+    % two-run sessions; a *_echem twin is a different recording and must
+    % never be picked up (it would be stitched in as a second run)
+    idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor') && ~contains(lower(x), 'echem'), {datFolders.name});
     if ~any(idx)
         % 260720_OBE_NWU_KA_2 shipped its cue raw as raw_cueTask, and
         % 260827_OBE_NWU_RX_2 / 260831_OBE_NWU_CS_2 as raw_odorCueTask (same
@@ -309,7 +312,10 @@ else
     datFolders = dir([datPre{datPrei(sessi)} sessionIDs{sessi} ...
                        '\raw\']);
 
-    idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor'), {datFolders.name});
+    % standard folder(s) raw_cueTaskOdor, or raw_cueTaskOdor1 + 2 for the
+    % two-run sessions; a *_echem twin is a different recording and must
+    % never be picked up (it would be stitched in as a second run)
+    idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor') && ~contains(lower(x), 'echem'), {datFolders.name});
     if ~any(idx)
         % nonstandard raw_cueTask / raw_odorCueTask folder names (same task,
         % exact names only) - see new-set branch

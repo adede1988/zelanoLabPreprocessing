@@ -165,7 +165,10 @@ behavioral dirs, figure dir, target‑trace dir, `processedBehavior`) is derived
 Lab data roots under `labCommon`: Dupi → `Dupi\` · OBEControl → `OBEControl\` · EEGbreathing →
 `AllStudyData\EEGbreathing\` · figures → `Adam\Dupi_processing\<id>\`. Breathing behavioral files (target
 traces, the alternating6Blocks `mindfulBreathing` / `sniffLogicLog` CSVs) are on Google Drive under
-`cZelano\breathingDataFiles\` via `labPaths().gdrive`.
+`cZelano\breathingDataFiles\` via `labPaths().gdrive`. `codePre` must also hold the sibling repos
+`closed-loop-respiration\` and `experiment_EEGsync\`: `breathingTask_makeOutDat` reads each session's
+behavioral CSV from their `processedBehavior\` folders, which `tasks/breathing/tidyImport_waveExp_matlab.m`
+writes from the psychopy `mindfulBreathing` CSV (all three locations come from `labPaths`).
 
 ---
 

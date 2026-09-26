@@ -1,8 +1,10 @@
 # customBreathMetrics.md — the ZLP breath-segmentation engine and its breathMetrics integration
 
-**Status: LOCKED** (rev12b, 2026-08-28; per-breath QC fix 2026-08-29). This is the
+**Status: LOCKED** (rev13 = rev12b of 2026-08-28 + the 2026-09-01 hard onset
+floor, step 21 in §3; per-breath QC fix 2026-08-29). This is the
 segmentation engine behind every breathMetrics-based final in the lab
-(breathingTask, emotionalMovieTask, alternating6Blocks, breathingTasks_separate).
+(breathingTask, emotionalMovieTask, alternating6Blocks, breathingTasks_separate,
+pacedBreathing).
 It was designed in the August-2026 QC round 4 through ~20 live-reviewed
 diagnostic generations and two forensic drill-downs, replacing both the stock
 breathMetrics onset detector and the earlier "v3b" engine.
@@ -110,6 +112,11 @@ smoothed 120 ms):
     contrasted sample.
 20. Final eligibility snap: a non-eligible landing moves to the nearest
     eligible sample (either direction).
+21. Hard floor (rev13, 2026-09-01; applied last so nothing above can undo
+    it): an onset never sits in the first 20% of its trough→peak interval —
+    a landing before the floor moves forward to the first eligible sample at
+    or after the floor (never backward), or to the floor itself if there is
+    none.
 
 ---
 
@@ -172,7 +179,8 @@ durations and time-to-peak are seconds.
   onset → next inhale onset; final inhale dropped.
 - `bmFeatures` — plain struct (never the class object): the 18 per-breath
   arrays, `shapeFeatures` table, `secondaryFeatures`, plus a full
-  `conditioning` provenance record (`engineVersion` = "zlp rev12b LOCKED...")
+  `conditioning` provenance record (`engineVersion` = "zlp rev13 2026-09-01:
+  rev12b + hard 20% trough-to-peak onset floor ...")
   and `bmObjBreathIdx` mapping bmObj rows to feature indices.
 
 ---

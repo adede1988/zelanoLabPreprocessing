@@ -6,8 +6,9 @@ function [bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelow
 %   Replaced the earlier "v3b" engine (segmentBreaths_breathMetrics, since
 %   removed; see git history) as the shared engine for every
 %   breath-based task. Segmentation (extrema + inhale onsets) is the
-%   user-locked ZLP algorithm - conservative prep x kneeBacktrack rev12b,
-%   iterated over ~20 live-review generations - while the per-breath FEATURE
+%   user-locked ZLP algorithm - conservative prep x kneeBacktrack rev13
+%   (rev12b + the 2026-09-01 hard 20% trough-to-peak onset floor), iterated
+%   over ~20 live-review generations - while the per-breath FEATURE
 %   set is still computed by the vendored breathMetrics toolbox, fed our
 %   landmarks through its sanctioned manual-adjustment path
 %   (manualAdjustPostProcess), so the bmObj/bmFeatures/behDat contracts are
@@ -72,7 +73,8 @@ function [bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelow
 %             Feature arrays run over ALL paired inhales (1..nInhalesDetected);
 %             bmObj row k corresponds to feature index bmFeatures.bmObjBreathIdx(k).
 %
-%   LOCKED ALGORITHM (rev12b; full step list in the 2026-08-28 review chat):
+%   LOCKED ALGORITHM (rev13 = rev12b of the 2026-08-28 review + the 2026-09-01
+%   hard onset floor; full step list in customBreathMetrics.md section 3):
 %   Stage 0 prep: NaN fill, 500 ms movmean, 30 s movstd normalization
 %     (floor floorFrac x median), optional blanking.
 %   Stage 1 extrema: prominence >= 0.6, min separation 1.0 s; peak validity
@@ -87,7 +89,10 @@ function [bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelow
 %     0.10 s; clean sweep (main walk to floor < trough+10%) -> last midpoint
 %     crossing; late-landing extension (> trough+35%) slope < 0.05 dmax
 %     sustained 0.15 s with revert-on-floor; rule-3 slope-contrast landing
-%     refinement (1.25x); final bidirectional eligibility snap.
+%     refinement (1.25x); final bidirectional eligibility snap; rev13 hard
+%     floor (applied last): an onset never sits in the first 20% of its
+%     trough->peak interval - a landing before the floor moves forward to the
+%     first eligible sample at or after it (never backward).
 %
 %   Vendored toolbox: external/breathMetrics (fork qhyang42/breathmetrics,
 %   commit 9791153, 2026-08-03). Spec: customBreathMetrics.md.
