@@ -16,9 +16,9 @@ figures/
 # ...except the breath-segmentation QC overlays, which are review deliverables
 !breathingQualityCheck/*.jpg
 !breathingQualityCheck/**/*.jpg
-# ...and the guess-review report figures (guessReview.html deliverable)
-!guessReviewFigs/**/*.jpg
-!guessReviewFigs/**/*.png
+# (the guess-review report is no longer kept in the repo: batch/qc8_guessReviewFigs.m +
+#  batch/buildGuessReview.ps1 build it on the lab machine; 2026-09-25 edition is on R:
+#  under Adam\Dupi_processing\guessReview_260925\)
 
 # OS cruft
 .DS_Store
