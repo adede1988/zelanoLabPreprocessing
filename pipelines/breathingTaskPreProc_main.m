@@ -5,9 +5,9 @@ zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(
 L            = labPaths();
 addpath(genpath(L.repo))
 addpath(genpath(L.eeglab))
-% NB: breathMetrics (vendored in external/breathMetrics) is the per-breath
-% segmentation engine via shared/segmentBreaths_breathMetrics — on the path
-% through the repo genpath above
+% NB: per-breath segmentation is the LOCKED shared/segmentBreaths_zlp engine
+% (breathMetrics, vendored in external/breathMetrics, computes the features;
+% spec customBreathMetrics.md) - both on the path through the repo genpath above
 
 targTraceDir = L.targTraceDir;
 figPath      = L.figPath;

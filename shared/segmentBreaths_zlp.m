@@ -3,7 +3,8 @@ function [bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelow
 %
 %   [bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelowFrac, cySpan)
 %
-%   Replaces segmentBreaths_breathMetrics as the shared engine for every
+%   Replaced the earlier "v3b" engine (segmentBreaths_breathMetrics, since
+%   removed; see git history) as the shared engine for every
 %   breath-based task. Segmentation (extrema + inhale onsets) is the
 %   user-locked ZLP algorithm - conservative prep x kneeBacktrack rev12b,
 %   iterated over ~20 live-review generations - while the per-breath FEATURE
@@ -23,9 +24,53 @@ function [bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelow
 %     cySpan         : [startSample endSample] of the cyclicSigh block, if
 %                      any - enables the keep-first-within-5s peak rule
 %
-%   Outputs: bmObj [nBreaths x 14] in the exact legacy layout (see
-%   segmentBreaths_breathMetrics header) and bmFeatures as a plain struct
-%   with the full breathMetrics per-breath feature set + conditioning record.
+%   Outputs
+%     bmObj : [nBreaths x 14] matrix in the EXACT legacy layout that
+%             flagBadBreaths / behDatFromBreaths (every build_behavior_table_*)
+%             / the condition-assignment loop in the *_main scripts consume
+%             (CLAUDE.md 6.6):
+%               col  1: onset Y value            (baseline-corrected units)
+%               col  2: onset time               (SECONDS)
+%               col  3: inhale-peak Y value
+%               col  4: inhale-peak time         (SECONDS)
+%               col  5: end Y value  (= next breath's onset Y)
+%               col  6: end time     (= next inhale onset, SECONDS)
+%               col  7: length (col6 - col2, SECONDS)
+%               col  8: amplitude (col3 - mean(col1, col5))
+%               col  9: inhale-peak SAMPLE INDEX at fs
+%                       (legacy engine stored an internal 50-Hz index here;
+%                        nothing downstream reads it - documented drift)
+%               col 10: exhale-trough Y value
+%               col 11: exhale-trough time       (SECONDS)
+%               col 12: condition/block  (0 here; filled by the caller - the
+%                       main script / behavior-table builder / concatSections)
+%               col 13: unused           (0)
+%               col 14: breath index     (1..nBreaths, sequential)
+%             Following the legacy engine, each breath spans inhale onset ->
+%             next inhale onset, so the final detected inhale is dropped.
+%             Rows with any non-finite landmark are dropped (count reported).
+%             Amplitude columns (1,3,5,8,10) are sampled from the RAW trace
+%             (60-s moving-mean baseline removed, amplitude untouched) at the
+%             detected indices, so they stay in raw signal units.
+%
+%     bmFeatures : PLAIN STRUCT (never the class object) with the complete
+%             breathMetrics feature set plus a record of the signal
+%             conditioning applied (.engine, .version, .conditioning). Units:
+%               *Onsets/*Offsets/*Peaks/*Troughs/*PauseOnsets:
+%                   SAMPLE INDICES at fs (NaN where absent, e.g. no pause)
+%               *Durations, *TimeToPeak/*TimeToTrough: SECONDS
+%               *Volumes: sum(|amplitude|)/fs*1000 (signal-units x ms,
+%                   breathmetrics' native convention) on the windowed-
+%                   normalized trace; inhaleVolumesRaw/exhaleVolumesRaw are the
+%                   same integral on the raw-unit trace (customBreathMetrics.md 6)
+%               peakInspiratoryFlows/troughExpiratoryFlows: baseline-corrected
+%                   (normalized) signal units
+%               shapeFeatures: per-breath table (Sagar-et-al-style smoothness/
+%                   curvature/slope features), breath_id is 0-based
+%               secondaryFeatures: summary statistics struct (field names
+%                   sanitised from the breathmetrics map keys)
+%             Feature arrays run over ALL paired inhales (1..nInhalesDetected);
+%             bmObj row k corresponds to feature index bmFeatures.bmObjBreathIdx(k).
 %
 %   LOCKED ALGORITHM (rev12b; full step list in the 2026-08-28 review chat):
 %   Stage 0 prep: NaN fill, 500 ms movmean, 30 s movstd normalization
@@ -43,6 +88,9 @@ function [bmObj, bmFeatures] = segmentBreaths_zlp(rsp, fs, floorFrac, blankBelow
 %     crossing; late-landing extension (> trough+35%) slope < 0.05 dmax
 %     sustained 0.15 s with revert-on-floor; rule-3 slope-contrast landing
 %     refinement (1.25x); final bidirectional eligibility snap.
+%
+%   Vendored toolbox: external/breathMetrics (fork qhyang42/breathmetrics,
+%   commit 9791153, 2026-08-03). Spec: customBreathMetrics.md.
 
     if size(rsp, 1) > 1, rsp = rsp'; end
     assert(isvector(rsp) && isnumeric(rsp), 'rsp must be a numeric vector');

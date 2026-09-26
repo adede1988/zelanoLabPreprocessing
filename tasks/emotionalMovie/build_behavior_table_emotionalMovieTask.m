@@ -10,7 +10,7 @@ function outDat = build_behavior_table_emotionalMovieTask(outDat)
 %   1.6 s"; there is no next onset), so its breaths are among the dropped and
 %   this is reported.
 %
-%   Consumes outDat.bmObj / outDat.bmFeatures (segmentBreaths_breathMetrics)
+%   Consumes outDat.bmObj / outDat.bmFeatures (segmentBreaths_zlp)
 %   and outDat.TTL (clip table in fs=500 samples). bmObj col 12 gets the clip
 %   valence code (1 neutral / 2 happy / 3 sad, matching the old pipeline).
 

@@ -5,7 +5,7 @@ function outDat = concatSections(segs, S, P)
 %
 %   segs is a struct array; each element is a fully processed single-condition
 %   outDat (downsampled, EEG/macros done, bmObj/bmFeatures from
-%   segmentBreaths_breathMetrics, ECG done when present) plus .label /
+%   segmentBreaths_zlp, ECG done when present) plus .label /
 %   .condition / .srcFile. Labels are required to match across segments.
 %
 %   Concatenates data (and every derived channel) along time, offsets bmObj

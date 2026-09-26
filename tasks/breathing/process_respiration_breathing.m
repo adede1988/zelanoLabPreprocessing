@@ -50,9 +50,9 @@ function outDat = process_respiration_breathing(outDat, P)
 
     % LOCKED per-breath engine (QC round 4, rev12b 2026-08-28): conservative
     % prep x kneeBacktrack; breathMetrics computes the per-breath features
-    % from our landmarks. Legacy engines kept in the repo for comparison:
-    %   bmObj = breathTemplates4(rspDat, outDat.fs);
-    %   [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs);
+    % from our landmarks. The legacy engines (slowBreathing's breathTemplates4
+    % and the "v3b" segmentBreaths_breathMetrics) were removed from the repo in
+    % the cleanup; recover them from git history for a comparison rerun.
     [bmObj, bmFeatures] = segmentBreaths_zlp(rspDat, outDat.fs, [], [], cySpan);
     %col 1: onset Y value        col 8: amp (peak Y - avg of two ends)
     %col 2: onset tim            col 9: idx of peak

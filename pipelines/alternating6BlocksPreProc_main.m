@@ -17,7 +17,7 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 %      with blocks / ratings / log alignment)
 %    - assembleRaw_alternating6Blocks.m  (intermediate load + blocks/TTL)
 %    - build_behavior_table_alternating6Blocks.m  (D11d per-breath + ratings)
-%  Breath segmentation: shared segmentBreaths_breathMetrics. ECG via the
+%  Breath segmentation: shared segmentBreaths_zlp. ECG via the
 %  breathing path (these EEG_breathing sessions all carry ECG1-3).
 % =====================================================================
 

@@ -14,7 +14,7 @@ function L = labPaths()
 %
 %   ---- Base fields (machine-specific; the only things you set per machine) ----
 %     .codePre    GitHub repos root that contains ZelanoLabScripts/,
-%                 slowBreathing/, closed-loop-respiration/  (TRAILING filesep)
+%                 closed-loop-respiration/  (TRAILING filesep)
 %     .eeglab     eeglab folder to addpath(genpath(...))
 %     .labCommon  R:\...\Lab_Common base for shared lab data  (TRAILING filesep)
 %     .gdrive     Google-Drive "My Drive" base (TRAILING filesep), used only for
@@ -24,7 +24,7 @@ function L = labPaths()
 %                 run the cue/O15 FOOOF analyses.
 %
 %   ---- Derived fields (built from the bases; never set these per machine) -----
-%     .repo .eegLocCsv .slowBreathing .procBehavior .figPath
+%     .repo .eegLocCsv .procBehavior .figPath
 %     .adminXlsx .rootDupi .rootOBE .rootEEG .behCue .behThresh .targTraceDir
 %     .labCommonCanon  (the Lab_Common prefix as stored in dataTracking.xlsx;
 %                       lets loaders rebase the sheet's absolute paths onto a
@@ -65,7 +65,7 @@ function L = labPaths()
                 ['Unknown machine (USERNAME="%s", COMPUTERNAME="%s").\n' ...
                  'Add a case to labPaths.m (paths must end with a filesep where shown):\n\n' ...
                  '    case ''%s''\n' ...
-                 '        L.codePre   = ''<...>\\GitHub\\'';     %% holds ZelanoLabScripts, slowBreathing, closed-loop-respiration\n' ...
+                 '        L.codePre   = ''<...>\\GitHub\\'';     %% holds ZelanoLabScripts, closed-loop-respiration\n' ...
                  '        L.eeglab    = ''<...>\\eeglab2026.0.0'';\n' ...
                  '        L.labCommon = ''R:\\Neurology\\Zelano_Lab\\Lab_Common\\'';\n' ...
                  '        L.gdrive    = ''G:\\My Drive\\'';        %% '''''''' if Google Drive is not mapped here\n' ...
@@ -98,7 +98,6 @@ function L = deriveLabPaths(L)
     % code side (all under the GitHub repos root)
     L.repo           = fileparts(fileparts(mfilename('fullpath')));  % this repo root (config/ is one level down)
     L.eegLocCsv      = fullfile(L.repo, 'config', 'eegLocs_standard_coords.csv');
-    L.slowBreathing  = fullfile(L.repo, 'external', 'slowBreathing');   % vendored
     L.procBehavior   = fullfile(L.repo, 'processedBehavior');   % per-breath CSV output (repo-local)
 
     % lab-common data side. Roots used in raw string concatenation downstream

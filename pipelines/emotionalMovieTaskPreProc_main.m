@@ -17,7 +17,7 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 %    - assembleRaw_emotionalMovieTask.m        (intermediate load + clip TTL)
 %    - emotionalMovieTask_makeOutDat.m         (photodiode -> clip table)
 %    - build_behavior_table_emotionalMovieTask.m  (D10 per-breath + clip cols)
-%  Breath segmentation: shared segmentBreaths_breathMetrics (no cyclic-sigh
+%  Breath segmentation: shared segmentBreaths_zlp (no cyclic-sigh
 %  merging in this task). ECG runs the breathing path (processECG) when ECG
 %  channels exist; otherwise it is skipped and recorded.
 % =====================================================================
