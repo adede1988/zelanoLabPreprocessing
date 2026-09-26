@@ -23,10 +23,12 @@
 %     sheet params, conditions, beat counts, notes).
 %
 % Output tree: E:\reprocBackup_260824\guessReview\figs\<task>\<id>\
-% Env: ZLP_QC8_ONLY = comma list of session ids (blank = all guess rows).
+% Env: ZLP_QC8_ONLY = comma list of session ids (blank = all guess rows);
+%      ZLP_QC8_OUT  = output root (default above).
 
 L = labPaths();
-OUT = 'E:\reprocBackup_260824\guessReview\figs';
+OUT = getenv('ZLP_QC8_OUT');
+if isempty(OUT), OUT = 'E:\reprocBackup_260824\guessReview\figs'; end
 if ~isfolder(OUT), mkdir(OUT); end
 
 onlyEnv = getenv('ZLP_QC8_ONLY');
@@ -41,7 +43,8 @@ TASKS = { ...
  'O15',                     false, '*O15*preproc*.mat',             {'O15'}; ...
  'EmotionalMovieTask',      true,  '*EmotionalMovieTask*.mat',      {'EmotionalMovieTask', 'emotionalMovieTask'}; ...
  'alternating6Blocks',      true,  '*alternating6Blocks*.mat',      {'alternating6Blocks'}; ...
- 'breathingTasks_separate', true,  '*breathingTasks_separate*.mat', {'breathingTasks_separate'}};
+ 'breathingTasks_separate', true,  '*breathingTasks_separate*.mat', {'breathingTasks_separate'}; ...
+ 'pacedBreathing',          true,  '*pacedBreathingpreproc*.mat',   {'pacedBreathing'}};
 
 for tt = 1:size(TASKS, 1)
     [tkey, isBreathFam, finPat, figAliases] = TASKS{tt, :};

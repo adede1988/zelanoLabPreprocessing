@@ -403,8 +403,18 @@ else
 
             otherwise
 
-                %find the behavioral files: 
+                %find the behavioral files:
                 behDir = dir([behFold.folder, '\' behFold.name '\olf_cue']);
+                if isempty(behDir)
+                    % 2026-09-25: 240822_OBE_NMH_FM / 241016_OBE_NWU_BG keep
+                    % the odor-cue results outside an olf_cue folder - take
+                    % the run1/run2 odor results .txt from anywhere under the
+                    % behavioral folder, never from *backup* / echem copies
+                    % (the filters below still demand exactly two .txt)
+                    behDir = [dir(fullfile(behFold.folder, behFold.name, '**', '*_run1_cuelist_odor_results.txt')); ...
+                              dir(fullfile(behFold.folder, behFold.name, '**', '*_run2_cuelist_odor_results.txt'))];
+                    behDir(contains(lower({behDir.folder}), {'backup', 'echem'})) = [];
+                end
                 %eliminate echem and imagine files
                 idx = cellfun(@(x) contains(x, 'echem'), {behDir.name});
                 idx = find(idx);
