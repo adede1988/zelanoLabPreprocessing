@@ -305,8 +305,8 @@ keeps their real values), `EEGInterpolation`, `EEGCleaning`, `blinkRemoval` (0/1
 > 1–40 Hz, the stored `dataLap` has 97 % of its variance in the channel mean (median row SD 345 µV, inter‑channel
 > |r| 0.98); the same call with the coordinates projected onto the unit sphere (`x./r, y./r, z./r`) gives a proper
 > Laplacian (4.5 % common mode, 47 µV, |r| 0.09). Until the shared stage is fixed and `dataLap` recomputed in the
-> finals, do not use `dataLap` for analysis (Vipassana_analysis computes its own Laplacian with unit‑sphere
-> positions). Test scripts: `DataForClaude/vipassana/probe/lapTest.m` and `lapTest2.m` on the home machine.
+> finals, do not use `dataLap` for analysis (the Vipassana_analysis folder uses FieldTrip's `ft_scalpcurrentdensity`
+> instead). Test scripts: `DataForClaude/vipassana/probe/lapTest.m` and `lapTest2.m` on the home machine.
 
 ### 6.4 `behDat` — the behavior table (task‑specific)
 
