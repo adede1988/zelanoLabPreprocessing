@@ -299,6 +299,15 @@ Laplacian, `[]` if ≤ 10 good channels), `dataLapFromInterp` (0/1 — Laplacian
 copy; mask `badChans` for per‑channel Laplacian analysis), `badChans` (cell of labels; broadband `data(1:32)`
 keeps their real values), `EEGInterpolation`, `EEGCleaning`, `blinkRemoval` (0/1).
 
+> **KNOWN ISSUE (found 2026‑09‑27, not yet fixed):** `dataLap` is currently a common‑mode artefact, not a Laplacian.
+> `preprocess_eeg` feeds `laplacian_perrinX` (a spherical‑spline Laplacian that assumes electrodes on a sphere) the
+> realistic head coordinates of `eegLocs_standard_coords.csv` (radii 0.081–0.114 m). On a vipassana final, 60 s at
+> 1–40 Hz, the stored `dataLap` has 97 % of its variance in the channel mean (median row SD 345 µV, inter‑channel
+> |r| 0.98); the same call with the coordinates projected onto the unit sphere (`x./r, y./r, z./r`) gives a proper
+> Laplacian (4.5 % common mode, 47 µV, |r| 0.09). Until the shared stage is fixed and `dataLap` recomputed in the
+> finals, do not use `dataLap` for analysis (Vipassana_analysis computes its own Laplacian with unit‑sphere
+> positions). Test scripts: `DataForClaude/vipassana/probe/lapTest.m` and `lapTest2.m` on the home machine.
+
 ### 6.4 `behDat` — the behavior table (task‑specific)
 
 `behDat` is a MATLAB **`table`**. Access by **named column**, never numeric index.
