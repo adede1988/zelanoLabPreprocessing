@@ -33,6 +33,7 @@ Companion documents:
 | `EmotionalMovieTask` | `EmotionalMovieTask` | emotional film clips, **no behavioral file**: `emotionalMovieTask_makeOutDat` parses the photodiode (`detect_ttls_emotionalMovieTask`: 1 / 2 / 3 pulses = neutral / happy / sad) into a **clip table** that is `outDat.TTL` (`clipOnset, clipEnd, nPulses, valence`). The per‑breath table keeps **only in‑clip breaths** (`condition` = valence code 1/2/3; the final clip has no defined end, so its breaths are dropped). ECG/HRV via `runECGStage` (NaN‑HRV fallback, `ecgSkipped`). |
 | `alternating6Blocks` | `alternating6Blocks` | alternating breathing blocks (EEG_breathing) with ratings from the Google‑Drive behavioral files: `alternating6Blocks_makeOutDat` matches the `mindfulBreathing` ratings file (carries the participant ID) and the `sniffLogicLog` (matched by date + start time) and aligns the log to the raw respiration (`alignLogToRaw`) → `outDat.blocks` (`label, order, startSample, endSample`) + block‑start `TTL`. The per‑breath table keeps in‑block breaths (`task` = block label, `condition` = block order) with the block's ratings broadcast + `baseEmotion`. ECG/HRV via `runECGStage`. |
 | `breathingTasks_separate` | one row **per condition recording**, `Task` = a condition name — the one vocabulary is `config/sepConditionInfo.m`: `audioBook`/`audiobook`/`distractedBreathing`, `focusedBreathing`, `sleep`, `sleepWithOdor`, `restingBaseline`, `focusedBreathing_button` (+ `…_button1`/`…_button2`, `…_button_mouth`), and `<condition>_run<N>` | a session = the Subject ID's eligible condition rows (`dataType` = `ephys` only). No `makeOutDat`: each condition's `raw\raw_<condition>\` file (folder rules in `sepConditionInfo`) is loaded directly, run through the shared core + segmentation + ECG **separately**, then concatenated in recording order (`concatSections` → `outDat.sections`, `TTL` = `[start_1 end_1 start_2 end_2 …]`). Per‑breath `task` = section label, `condition` = section index; no ratings / `baseEmotion`. Sheet writes go through `config/writeSheetSep` (every condition row), not `writeParams`/`writePreProcX`. |
+| `vipassana` | `vipassana` | single continuous **BrainVision Recorder (actiCHamp)** session per participant (added 2026‑09‑26 with three `EEG_NWU` sessions AS/CC/DD): raw lives under `<id>\brainProductsDat\` (not Neuralynx/Atlas), and `Cz` — the recording reference — is reinserted as an all‑zero channel. Hand‑press event markers exist but are shaky/incomplete; treated only as hints. Loads raw directly (no `makeOutDat`); the fixed period sequence (`audiobook1`, `anapana`, `questionnaire1`, `vipassana`, `questionnaire2`, `metta`, `questionnaire3`, `audiobook2`, optional `pre`/`post`) is **inferred from an EEG artifact index by a duration‑constrained dynamic programme** (`inferBlocks_vipassana`), stored in `outDat.blocks` + `blockInference` (`TTL` = block starts). Respiration is optional per session: a viability probe (`probeRespViability_vipassana`) gates breath segmentation — when it fails (e.g. CC, no usable respiration channel), `respSkipped=2` and `outDat.respProbe` records why, no `bmObj`. ECG via `runECGStage`. |
 
 The name mappings live in `config/applyParams.m` (`taskKey` caller → canon, `canonTask` sheet → canon,
 `taskCallerKey` canon → `P.task`) and are mirrored in `pipelines/preprocessAll.m` for every task except
@@ -41,7 +42,8 @@ The name mappings live in `config/applyParams.m` (`taskKey` caller → canon, `c
 
 Adding a participant or recording to an existing task = sheet rows + its extraction script. When Claude
 writes that script it is `LoadData_<id>_claude.m`, next to the lab's own `*LoadData*.m`, and its channel map
-is verified with `batch/probeMontage.m` first (§2). Adding a task follows `TUTORIAL_adding_a_task.md`.
+is verified with `batch/probeMontage.m` first (§2; BrainVision‑sourced sessions — currently only
+`vipassana` — use `batch/probeMontageBV.m` instead). Adding a task follows `TUTORIAL_adding_a_task.md`.
 
 ---
 
@@ -72,6 +74,16 @@ RAW  (Neuralynx/Atlas export + behavioral .mat/.csv)
   with **`batch/probeMontage.m`** (`probeMontage(atlasDir, suffix, outDir)` scores every `CSC*.ncs` channel for
   the respiration / ECG / event / scalp‑EEG / macro roles and writes a CSV + two figures; montages differ
   between OBE eras and sometimes between recordings).
+- **BrainVision sources (`vipassana`).** Not every session is Neuralynx/Atlas: `vipassana`'s raw data is a
+  single BrainVision Recorder (actiCHamp) recording per participant under
+  `<root>\<id>\brainProductsDat\<id>.{vhdr,vmrk,eeg}`. The shared reader is **`batch/readBrainVision.m`**
+  (parses the `.vhdr`/`.vmrk`/`.eeg` triplet and applies each channel's resolution to get µV); each
+  session's `LoadData_<id>_claude.m` pastes the same reader in as local functions — the repo holds no
+  per‑session scripts, so the loader must stand alone — to build the lab's raw‑channel layout (including
+  reinserting the all‑zero `Cz` reference row) before saving `raw\raw_vipassana\raw_vipassana.mat`. Verify
+  the channel map with **`batch/probeMontageBV.m`** (`probeMontage.m`'s BrainVision counterpart) instead of
+  `probeMontage.m`. The raw `.mat`'s `curDat` carries the usual fields plus `curDat.markers` (every `.vmrk`
+  marker as a table), `curDat.header` (the parsed `.vhdr`), and `curDat.refChan` (`'Cz'`).
 - **Windows / case‑insensitive quirk (intentional, don't "fix").** The intermediate (`…PreProc.mat`) and the
   final (`…preproc.mat`) differ only in case, so they are the **same file** — `_main` overwrites the
   intermediate in place and a fully processed session has one file. Take the exact per‑task strings from the
@@ -112,9 +124,12 @@ P   = applyParams(task, sessID)                % Mode B: one session's parameter
 - A row is used only if its `Task` maps to a pipeline **and** `Raw Data Extracted` is non‑blank
   (`Data On Server` may also read `INCOMPLETE` for stub rows — skip those).
 - `Type` values as they appear: `OBE_Dupi` / `OBE_dupi` (→ Dupi), `OBEControl` / `OBECONTROL`, `OBE_PD`,
-  `EEG_breathing` (→ EEG). `dataType`: `ephys`, `ephys_echem`, `echem`. Only `ephys` rows are pipeline
-  inputs for now: `ephys_echem` recordings will need different processing later (skip them, but list them
-  so they aren't lost); `echem` rows and `*_echem` tasks are electrochemistry recordings, not ephys inputs.
+  `EEG_breathing` (→ EEG), `EEG_vipassana` (→ EEG; the BrainVision `vipassana` sessions — no Type→root
+  default exists for it yet, so those rows set `datPre` explicitly to the Vipassana root,
+  `R:\…\Lab_Common\AllStudyData\Vipassana\`). `dataType`: `ephys`, `ephys_echem`, `echem`. Only `ephys` rows
+  are pipeline inputs for now: `ephys_echem` recordings will need different processing later (skip them, but
+  list them so they aren't lost); `echem` rows and `*_echem` tasks are electrochemistry recordings, not
+  ephys inputs.
 - Sheet snapshot 2026‑08‑24 (extracted sessions): breathing 57 (41 curated / 15 guess / 1 blank), cue 41
   (36 / 2 / 3), thresh 35 (29 / 2 / 4), O15 40 (37 / 1 / 2), EmotionalMovieTask 3 (0 / 0 / 3).
 - **`Data Preprocessed` must mirror the disk.** It is set to `X` by `writePreProcX` when a final is saved and
@@ -207,9 +222,15 @@ condition recording for breathingTasks_separate; never edit per task):**
   `processECG` band‑passes the `ECG` channels 5–40 Hz, z‑scores (`buildECGz`), detects beats (`detectBeats`
   per `beatSpec`, min separation `fs/20`), filters inter‑beat intervals physiologically, and appends an
   interpolated **`RRint`** channel; `flagBadBreaths` adds per‑breath QC.
-- **other breath‑type tasks** (movie / alt6 / paced / sep) call `segmentBreaths_zlp` from their mains; ECG goes
-  through `shared/runECGStage` (movie / alt6 / paced: on failure NaN HRV via `fillNaNHRV` + `ecgSkipped`, where
-  breathingTask stays strict and errors); sep probes ECG once per session and runs `processECG` per section.
+- **other breath‑type tasks** (movie / alt6 / paced / sep / vipassana) call `segmentBreaths_zlp` from their
+  mains — vipassana only when its respiration viability probe passes (`probeRespViability_vipassana`;
+  otherwise `respSkipped=2`, no `bmObj`) — and vipassana's block boundaries come from an artifact‑index +
+  dynamic‑programme step (`artifactIndex_vipassana` on the raw scalp rows, 60‑Hz‑dominated rows left out of
+  its channel median → `inferBlocks_vipassana`) whose evidence is computed **before** `runSharedCore`, not
+  after, since it needs the pre‑cleaning EEG; the main re‑zeroes the inserted `Cz` row after the core (§6.1); ECG goes through
+  `shared/runECGStage` (movie / alt6 / paced / vipassana: on failure NaN HRV via `fillNaNHRV` + `ecgSkipped`,
+  where breathingTask stays strict and errors); sep probes ECG once per session and runs `processECG` per
+  section.
 
 **Behavior table:** `build_behavior_table_<task>` joins raw behavior to detected onsets (§6.4); the breath‑type
 builders share `behDatFromBreaths` (the 14 base columns) and `appendBmFeatureCols` (`bm_*`).
@@ -239,6 +260,17 @@ in `outDat.data` (rows = channels, addressed by `outDat.labels`); everything els
 | `moreThan1` | 0/1 | "more than one sniff per trial"; **also the done‑sentinel** (1 = breathing/O15, 0 = cue/thresh) |
 
 O15‑only extras: `CSClist`, `OGdataDir`, `loadFile` (the `*LoadData*.m` used), `preProcScript`.
+
+vipassana‑only extras: `markers` (table of hand‑press event markers + the recording‑start marker,
+`description/sampleRaw/sample/minutes`), `artifactIndex` (the 1‑s EEG evidence trace `inferBlocks_vipassana`
+segments), `blocks` + `blockInference` (inferred period boundaries and the DP's cost/margin diagnostics;
+§6.5), `refChan` (`'Cz'`, the inserted zero‑row reference), `czRezeroed` (`true`: the shared EEG stage's
+`removeNoiseChansVolt` flags the flat Cz row bad and overwrites it trial by trial with a spline interpolation
+of its neighbours, so the main forces `data` row 24 back to exact 0 after `runSharedCore`; `'Cz'` stays in
+`badChans` and `dataLap` keeps its interpolated estimate), `respSkipped` (`0` respiration processed / `2`
+skipped — no usable channel, e.g. `260918_EEG_NWU_CC`) + `respProbe` (the viability‑probe result struct),
+`rspPolarityRSA` (inhale‑locked RR sanity check `deltaRRms / nBreaths / consistent`; always present, and
+`NaN / 0 / false` = not checked because respiration or ECG was skipped).
 
 ### 6.2 Channel taxonomy in `outDat.data` (find rows by label)
 
@@ -301,6 +333,13 @@ Breathing also stores `baseEmotion` (1‑row table of the baseline `order==0` ra
 class object). Empirically a 32‑ch‑EEG Dupi breathing session gives
 `behDat` ≈ `[389 breaths × 34 vars]`; the emotion column set varies with the questions asked.
 
+Other breath‑based tasks build their own `build_behavior_table_*` on the same shared base (§5) with their
+own extra columns instead of ratings — e.g. pacedBreathing's `rateBPM, localPeriodCV, localAmpCV, nSubPeaks`
+(§1); **vipassana**'s adds `task` (the breath's inferred block label), `still` (copied from the block),
+`noseMouth`/`shadowFile`/`warp` as `NA`/`NaN` (no stimulus metadata), and the same `rateBPM, localPeriodCV,
+localAmpCV, nSubPeaks` raggedness measures — only populated when `respSkipped==0` (else `behDat` has the
+columns but zero rows).
+
 ### 6.5 `TTL` conventions (samples @ 500 Hz)
 
 - **O15** — table `[15 × 20]`: `trialStart, buttonPress, confirmSniff, free1 … free17` (NaN‑padded), built by
@@ -317,6 +356,15 @@ class object). Empirically a 32‑ch‑EEG Dupi breathing session gives
   startSample, endSample, durationSec, nBreaths, medRateBPM, medPeriodSec, medAmp, periodCV, ampCV, regularity,
   gapSplit`) and `blockInference` (parameters, raw changepoints, merge history, per‑breath block index) sit
   alongside. Review `blocks_inferred.jpg` in the session figure folder before trusting the labels.
+- **vipassana** — vector of INFERRED block starts, but anchored (loosely) by shaky hand‑press markers rather
+  than marker‑free: a duration‑constrained dynamic‑programme segmentation of an EEG artifact index
+  (`inferBlocks_vipassana`) fits the fixed period sequence `pre, audiobook1, anapana, questionnaire1,
+  vipassana, questionnaire2, metta, questionnaire3, audiobook2, post` (zero‑length `pre`/`post` dropped). The
+  `blocks` table is `label, order (protocol index 0–9), still, startSample, endSample, durationSec,
+  nominalSec, meanEvid, markerDistSec (nearest hand‑press marker, NaN if none within 120 s),
+  boundaryMarginStart`; `blockInference` carries the DP options, the per‑second evidence trace, the cost
+  breakdown, and each boundary's alternative position/margin. Review `blocks_inferred.jpg` in the session
+  figure folder before trusting the labels.
 
 ### 6.6 Breathing‑only structures
 
@@ -389,8 +437,8 @@ class object). Empirically a 32‑ch‑EEG Dupi breathing session gives
 | `pipelines/` | `preprocessAll.m` + the `*PreProc_main.m` entry points (one per task) |
 | `pipelines/makeOutDat/` | raw → intermediate ingestion (`breathing` / `cue` / `thresh` / `emotionalMovie` / `alternating6Blocks`) |
 | `shared/` | the shared signal core: `runSharedCore` (`downsample_data` → `preprocess_eeg` → `preprocess_macros`), `assembleOutDat`, `preprocess_respiration_wholetrace`, `detect_sniffs_from_TTLs`, `refine_onsets_with_phase`, `behDatFromSniffs`, `paramCheck` / `guessFigDir`, EEG/spike/onset helpers; the breath engine `segmentBreaths_zlp` (+ `prepBreathTrace_zlp`, `findInhaleOnsets_zlp`); the breath‑type stage helpers `behDatFromBreaths`, `appendBmFeatureCols`, `runECGStage`, `fillNaNHRV`, `isSessionDone` and the ECG/QC helpers `processECG` / `buildECGz` / `detectBeats` / `paramCheckECG` / `flagBadBreaths`; `findLoadDataScript` (LoadData provenance), `toTargetSamples` (raw → 500 Hz sample indices) |
-| `tasks/<task>/` | each task's `assembleRaw_<task>.m`, `build_behavior_table_<task>.m`, task helpers (breathing: `process_respiration_breathing`, `alignTargetBreathingTraceSimplify`, `plotBreathLengths`, `tidyImport_waveExp_matlab` (writes the processedBehavior CSV the breathing makeOutDat reads); cue: `outMat_to_table`; O15: `detect_ttls_O15`, `assembleOutDat_O15extras`; emotionalMovie: `detect_ttls_emotionalMovieTask`; alternating6Blocks: `alignLogToRaw`, `parse_mindfulBreathing`, `parse_sniffLogicLog`; breathingSeparate: `concatSections`; pacedBreathing: `inferBlocks_pacedBreathing`, `plotBlocks_pacedBreathing`) |
-| `batch/` | reusable QC / maintenance tools (not pipeline steps): `probeMontage` (verify a new LoadData channel map against the data), `probeSessionParams` / `probeECGpolarity` (measure guess parameters), `qc4`–`qc8` audits and figure generators, `qualityCheckOverlays`, `resegmentAll_zlp`, `reconstructPacedBlocks`, `guessParamsFromRaw` (measured guess parameters from extracted raw files), `buildGuessReview.ps1` (guess-QC report from qc8 output; env `ZLP_QC8_OUT`, params `-IntroHtml -NewIds`; the report lives on R: under `Adam\Dupi_processing\guessReview_<date>\`, not in the repo) |
+| `tasks/<task>/` | each task's `assembleRaw_<task>.m`, `build_behavior_table_<task>.m`, task helpers (breathing: `process_respiration_breathing`, `alignTargetBreathingTraceSimplify`, `plotBreathLengths`, `tidyImport_waveExp_matlab` (writes the processedBehavior CSV the breathing makeOutDat reads); cue: `outMat_to_table`; O15: `detect_ttls_O15`, `assembleOutDat_O15extras`; emotionalMovie: `detect_ttls_emotionalMovieTask`; alternating6Blocks: `alignLogToRaw`, `parse_mindfulBreathing`, `parse_sniffLogicLog`; breathingSeparate: `concatSections`; pacedBreathing: `inferBlocks_pacedBreathing`, `plotBlocks_pacedBreathing`; vipassana: `assembleRaw_vipassana`, `artifactIndex_vipassana`, `inferBlocks_vipassana`, `probeRespViability_vipassana`, `checkRspPolarityRSA`, `plotBlocks_vipassana`, `build_behavior_table_vipassana`) |
+| `batch/` | reusable QC / maintenance tools (not pipeline steps): `probeMontage` (verify a new LoadData channel map against the data), `readBrainVision` / `probeMontageBV` (the BrainVision‑source counterparts of the raw reader / `probeMontage`, used by `vipassana`), `probeSessionParams` / `probeECGpolarity` (measure guess parameters), `qc4`–`qc8` audits and figure generators, `qualityCheckOverlays`, `resegmentAll_zlp`, `reconstructPacedBlocks`, `guessParamsFromRaw` (measured guess parameters from extracted raw files), `buildGuessReview.ps1` (guess-QC report from qc8 output; env `ZLP_QC8_OUT`, params `-IntroHtml -NewIds`; the report lives on R: under `Adam\Dupi_processing\guessReview_<date>\`, not in the repo) |
 | `external/` | vendored dependencies: `breathMetrics/` (fork qhyang42 @9791153; unmodified) |
 
 The pace × depth sweep analysis (`respiratorySweepAnalysis/`) now lives in its own repo, `../calibratedHRV`.

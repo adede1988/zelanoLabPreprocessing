@@ -13,7 +13,8 @@ function out = applyParams(task, sel, xlsxPath)
 %     P   = applyParams(task, sessID                  [, xlsxPath]) % Mode B
 %
 %   task in {'breathingTask','cueTask','threshTask','O15','EmotionalMovieTask',
-%            'alternating6Blocks','breathingTasks_separate','pacedBreathing'}
+%            'alternating6Blocks','breathingTasks_separate','pacedBreathing',
+%            'vipassana'}
 %   default xlsxPath = labPaths().adminXlsx, the lab master
 %     (R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx). If that
 %     file is unreachable or lacks the datPre parameter column, falls back - with
@@ -260,6 +261,23 @@ function out = applyParams(task, sel, xlsxPath)
                     selStr, numel(allConds), numel(uc));
             end
             P.conditions = allConds(iu);
+
+        case 'vip'
+            % vipassana (added 2026-09-26): three single-session BrainVision
+            % actiCHamp EEG_vipassana recordings (audiobook / anapana /
+            % questionnaire / vipassana / questionnaire / metta /
+            % questionnaire / audiobook protocol). Blocks are INFERRED from
+            % an EEG activity-evidence index (inferBlocks_vipassana) with the
+            % hand-pressed markers as hints only; there is no makeOutDat (raw
+            % loaded directly, like O15 / pacedBreathing). Respiration may be
+            % unusable in a given session (probeRespViability_vipassana).
+            P = ecgParams(P, row, cHasM, cBeat, false, '1,0,gt,3.5');   % EEG_vipassana: no macros
+            % explicit per-session override switch on the ID (none needed
+            % yet; add a case here if a review of blocks_inferred.jpg calls
+            % for a P.vipOpts tweak - mirrors the P.pacedOpts pattern)
+            switch selStr
+            end
+            P.vipOpts = struct();
     end
 
     out = P;
@@ -456,6 +474,8 @@ function k = canonTask(t)
             k = 'alt6';
         case {'pacedbreathing'}
             k = 'paced';   % pacedBreathing (added 2026-09-15)
+        case {'vipassana'}
+            k = 'vip';     % vipassana (added 2026-09-26)
         otherwise
             % breathingTasks_separate condition rows (D12a; OBE button/mouth
             % 2026-09-22; plain focusedBreathing_button and <cond>_run<N>
@@ -480,6 +500,7 @@ function k = taskKey(task)
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
+        case 'vipassana',          k = 'vip';
         case {'breathingtasks_separate', 'breathingtasksseparate'}, k = 'sep';
         otherwise,                 k = '';
     end
@@ -496,6 +517,7 @@ function s = taskCallerKey(task)
         case 'alt6',      s = 'alternating6Blocks';
         case 'paced',     s = 'pacedBreathing';
         case 'sep',       s = 'breathingTasks_separate';
+        case 'vip',       s = 'vipassana';
         otherwise,        s = asChar(task);
     end
 end

@@ -58,6 +58,9 @@ end
 if pendingReport().pacedBreathing.n > 0     % pacedBreathing has no makeOutDat (raw loaded directly)
     run('pacedBreathingPreProc_main.m');
 end
+if pendingReport().vipassana.n > 0     % vipassana has no makeOutDat (raw loaded directly)
+    run('vipassanaPreProc_main.m');
+end
 
 fprintf('\npreprocessAll: done. Re-run (report only) to confirm the backlog cleared.\n');
 
@@ -66,7 +69,7 @@ fprintf('\npreprocessAll: done. Re-run (report only) to confirm the backlog clea
 
 function rep = pendingReport()
 % Build, per task, the list of raw-extracted sessions not yet marked preprocessed.
-    tasks = {'breathingTask', 'cueTask', 'threshTask', 'O15', 'EmotionalMovieTask', 'alternating6Blocks', 'pacedBreathing'};
+    tasks = {'breathingTask', 'cueTask', 'threshTask', 'O15', 'EmotionalMovieTask', 'alternating6Blocks', 'pacedBreathing', 'vipassana'};
     xlsx  = resolveSheet();
     C     = readcell(xlsx, 'Sheet', 'Sheet1');
 
@@ -183,6 +186,7 @@ function k = taskKey(task)
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
+        case 'vipassana',          k = 'vip';
         otherwise,                 k = '';
     end
 end
@@ -198,6 +202,7 @@ function k = canonTask(t)
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
+        case 'vipassana',          k = 'vip';
         otherwise,                 k = '';
     end
 end

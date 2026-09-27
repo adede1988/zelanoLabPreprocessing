@@ -128,6 +128,21 @@ finals) after the defaults produced implausible rates.
 | 251006_OBE_NWU_RY_1 | focusedBreathing | OBEControl | inherited | inherited | run-on-guess | **no cardiac signal on any ECG lead (≤6.5 bpm both polarities) — HRV NaN, REVIEW** |
 | 260105_OBE_NWU_ZF_1 | sleep | OBEControl | inherited | inherited | run-on-guess | 195 breaths, 46 bpm |
 
+## vipassana (2026-09-26)
+
+Three new BrainVision actiCHamp sessions (design spec sections 3e/3f; CLAUDE.md §1, §3). Sheet rows are
+staged on `C:\Users\Adam\Documents\DataForClaude\vipassana\sheet\dataTracking_staging_260926.xlsx` (the
+master was locked open by another user; rows 620–622 to be merged in when it's free — see that folder's
+`masterMerge_260926.tsv` / `README_sheetMerge.md`). All guessed parameters were **measured directly from
+the recordings** by `batch/probeMontageBV.m` (respiration polarity/viability, ECG polarity, line noise) —
+there is no prior curated `vipassana` row to inherit from.
+
+| Subject ID | Task | Type | sheet row (staging) | guessed columns = values | basis | status | notes |
+|---|---|---|---|---|---|---|---|
+| 260918_EEG_NWU_AS | vipassana | EEG_vipassana | 620 | rspIDX=1, rspFlip=1, hasEEG=TRUE, spikeClean=FALSE, spikeThresh=20, spikeWin=11, hasMacros=FALSE, beatSpec=`1,0,gt,3.5`, isNewStd=TRUE | probeMontageBV measurements (resp clean, ~18 /min in meditation; ECG R‑peaks positive, ~70 bpm). **rspFlip resolved 2026‑09‑26:** a first visual read called the inhale a downward deflection (rspFlip=−1), and the review run of the main then found `checkRspPolarityRSA` inconsistent (deltaRRms = +18.6 ms over 831 breaths). A direct RR‑vs‑respiration‑phase test (probe/rrPhaseTest.m: RR interval binned by the Hilbert phase of the unflipped 0.05–1 Hz trace over the meditation windows) puts the heart‑rate maximum at the trace PEAK in AS (phase 0.20 rad) and in DD (0.59 rad) alike, so the peak is peak‑inspiration and inhale is the rising phase → rspFlip=1 for both sessions (same belt convention) | run-on-guess (D4) | resp saturates at 0 µV at the top of some breaths (documented, not fixed); check `inhaleLockedRR.jpg` (expect RR falling after inhale onset) before promoting to curated |
+| 260918_EEG_NWU_CC | vipassana | EEG_vipassana | 621 | rspIDX=1, rspFlip=1, hasEEG=TRUE, spikeClean=FALSE, spikeThresh=20, spikeWin=11, hasMacros=FALSE, beatSpec=`1,0,lt,-3.5`, isNewStd=TRUE | probeMontageBV measurements (ECG R‑peaks negative, ~67 bpm); rspFlip is a placeholder — respiration fails the viability probe (60‑Hz noise only, autocorr peak 0.21) | run-on-guess (D4) | **no usable respiration — `respSkipped=2`**; FC5 dead, Fp1/Fp2 noisy |
+| 260918_EEG_NWU_DD | vipassana | EEG_vipassana | 622 | rspIDX=1, rspFlip=1, hasEEG=TRUE, spikeClean=FALSE, spikeThresh=20, spikeWin=11, hasMacros=FALSE, beatSpec=`1,0,gt,3.5`, isNewStd=TRUE | probeMontageBV measurements (resp clean, inhale = upward deflection; ECG R‑peaks positive, ~65 bpm) | run-on-guess (D4) | many high‑impedance channels with heavy 60 Hz; double marker press at 40.59/40.60 min |
+
 ## Dupi/OBE breathingTask guess sessions — Part-2 probe pass (2026-08-27)
 
 Instruction: run these with critically-evaluated parameters (measured ECG

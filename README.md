@@ -1,9 +1,9 @@
 # zelanoLabPreprocessing
 
 MATLAB preprocessing pipelines for the Zelano Lab's respiration + scalp‑EEG / intracranial‑EEG
-(+ ECG) experiments. One shared signal‑processing core serves **eight tasks** —
+(+ ECG) experiments. One shared signal‑processing core serves **nine tasks** —
 `breathingTask`, `cueTask`, `threshTask`, `O15`, `pacedBreathing`, `EmotionalMovieTask`,
-`alternating6Blocks`, and `breathingTasks_separate` — differing only in how the raw data
+`alternating6Blocks`, `breathingTasks_separate`, and `vipassana` — differing only in how the raw data
 are laid out and how events (photodiode/TTL) and behavior are parsed.
 
 This repository is a **self‑contained copy of the preprocessing code**: every function the
@@ -66,7 +66,7 @@ The final `.mat` holds one struct (`outDat`, or `chanDat` for breathingTask fina
 | `pipelines/` | the deliverable entry points: `preprocessAll.m` + one `*PreProc_main.m` per task |
 | `pipelines/makeOutDat/` | the raw→intermediate ingestion scripts (breathing / cue / thresh / emotionalMovie / alternating6Blocks) |
 | `shared/` | the task‑shared signal core (`runSharedCore`) + assembly + EEG/spike/onset helpers, the breath engine (`segmentBreaths_zlp`) and the breath‑type stage helpers (per‑breath table, ECG/HRV) |
-| `tasks/breathing/` `tasks/cue/` `tasks/thresh/` `tasks/O15/` `tasks/pacedBreathing/` `tasks/emotionalMovie/` `tasks/alternating6Blocks/` `tasks/breathingSeparate/` | each task's raw loader, behavior‑table builder, and task‑specific helpers |
+| `tasks/breathing/` `tasks/cue/` `tasks/thresh/` `tasks/O15/` `tasks/pacedBreathing/` `tasks/emotionalMovie/` `tasks/alternating6Blocks/` `tasks/breathingSeparate/` `tasks/vipassana/` | each task's raw loader, behavior‑table builder, and task‑specific helpers |
 | `batch/` | reusable QC / maintenance tools (e.g. `probeMontage.m` to verify a new LoadData channel map) — not pipeline steps |
 | `external/breathMetrics/` | the BreathMetrics respiration toolbox (vendored from the lab fork `qhyang42/breathmetrics`, commit `9791153`, 2026‑08‑03; BSD-style academic licence per the upstream `zelanolab/breathmetrics` README/publication — Noto et al. 2018, *Chemical Senses*). Driven, unmodified, by `shared/segmentBreaths_zlp.m`, which computes every breath‑based task's per‑breath features with it. |
 
@@ -110,7 +110,7 @@ psychopy `mindfulBreathing` CSV). The pipelines *write* their own per‑breath C
    setenv('PREPROCESS_RUN','1'); preprocessAll   % run every pending task
    ```
    or run one task's pipeline directly, e.g. `cueTask_makeOutDat` then `cueTaskPreProc_main`.
-   `preprocessAll` runs breathingTask / cueTask / threshTask / O15 / pacedBreathing; run the
+   `preprocessAll` runs breathingTask / cueTask / threshTask / O15 / pacedBreathing / vipassana; run the
    EmotionalMovieTask, alternating6Blocks and breathingTasks_separate pipelines directly.
 
    Sessions whose `paramSource` is `guess` deliberately halt for interactive verification
@@ -123,7 +123,10 @@ psychopy `mindfulBreathing` CSV). The pipelines *write* their own per‑breath C
 
 The newest example is `pacedBreathing` (2026-09-15): a marker-free EEG_breathing recording whose block
 structure is inferred from the breaths themselves (`tasks/pacedBreathing/inferBlocks_pacedBreathing.m`) — see
-`CLAUDE.md` section 1 and 6.5 for what it stores.
+`CLAUDE.md` section 1 and 6.5 for what it stores. `vipassana` (2026-09-26) goes a step further: its raw data
+comes from a BrainVision Recorder, not Neuralynx/Atlas (`batch/readBrainVision.m`, `batch/probeMontageBV.m`),
+and its block structure is inferred from an EEG artifact index rather than from breaths
+(`tasks/vipassana/inferBlocks_vipassana.m`), since one of its three sessions has no usable respiration.
 
 See **[`TUTORIAL_adding_a_task.md`](TUTORIAL_adding_a_task.md)** for a step‑by‑step guide to
 standing up a new task by writing only the task‑specific pieces and reusing the shared core.

@@ -7,7 +7,8 @@ function loadFile = findLoadDataScript(sessDir, task, src)
 %   sessDir  the participant folder, <root>\<id>
 %   task     canonical task name (P.task spelling: 'breathingTask', 'cueTask',
 %            'threshTask', 'O15', 'pacedBreathing', 'alternating6Blocks',
-%            'EmotionalMovieTask', ...) - selects the legacy tie-break below
+%            'EmotionalMovieTask', 'vipassana', ...) - selects the legacy
+%            tie-break below
 %   src      optional struct carrying provenance: the raw file's curDat (or a
 %            raw struct copied from it). A LoadData script records itself by
 %            storing   curDat.loadFile = [mfilename '.m'];   in every raw .mat
@@ -27,7 +28,7 @@ function loadFile = findLoadDataScript(sessDir, task, src)
 %          breathingTask       LoadData_<id>.m (canonical name)
 %          cueTask, threshTask name ends in 'AD.m'
 %          O15                 name contains 'AD'
-%          pacedBreathing / alternating6Blocks / EmotionalMovieTask
+%          pacedBreathing / alternating6Blocks / EmotionalMovieTask / vipassana
 %                              name contains the task name
 %     5. '' with a warning
 %   NB: step 3 names the *_claude.m script for EVERY task of such a folder;
@@ -75,7 +76,7 @@ function loadFile = findLoadDataScript(sessDir, task, src)
             hit = names(endsWith(names, 'AD.m'));
         case 'o15'
             hit = names(contains(names, 'AD'));
-        case {'pacedbreathing', 'alternating6blocks', 'emotionalmovietask'}
+        case {'pacedbreathing', 'alternating6blocks', 'emotionalmovietask', 'vipassana'}
             hit = names(contains(names, char(string(task))));
         otherwise
             hit = {};

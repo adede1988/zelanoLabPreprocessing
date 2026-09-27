@@ -81,6 +81,16 @@ your channels): scalp EEG uses exact 10‑20 names in **rows 1–32**; respirati
 If your task can be loaded straight from a single raw file (like `O15` or `pacedBreathing`), you
 can skip the `makeOutDat` step entirely and do the load here.
 
+**If your raw source isn't Neuralynx/Atlas at all** (e.g. `vipassana`'s BrainVision Recorder / actiCHamp
+export), `assembleRaw_myTask.m` still returns the same struct above — only the loader underneath changes.
+Write the format-specific reader as a `batch/` tool (`vipassana`'s is `batch/readBrainVision.m`) so it can
+also back a `probeMontage`-style verification tool (`batch/probeMontageBV.m`) for checking the channel map
+before extraction, and paste that same reader in as local functions inside each session's
+`LoadData_<id>_claude.m` — the repo holds no per-session scripts, so the loader must stand alone. Carry over
+whatever the new format gives you that Neuralynx sessions don't (`vipassana` keeps the parsed header, all
+event markers, and the inserted reference-channel name in `raw.header` / `raw.markers` / `raw.refChan`) so
+the task's `_main` has it to work with.
+
 The raw file itself comes from the session's LoadData script (`<root>\<id>\*LoadData*.m`; one
 written by Claude is `LoadData_<id>_claude.m`, next to the lab's own). Verify its channel map
 against the data with `batch/probeMontage.m` before extracting, and have it store
