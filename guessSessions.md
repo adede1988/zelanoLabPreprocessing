@@ -143,6 +143,14 @@ there is no prior curated `vipassana` row to inherit from.
 | 260918_EEG_NWU_CC | vipassana | EEG_vipassana | 621 | rspIDX=1, rspFlip=1, hasEEG=TRUE, spikeClean=FALSE, spikeThresh=20, spikeWin=11, hasMacros=FALSE, beatSpec=`1,0,lt,-3.5`, isNewStd=TRUE | probeMontageBV measurements (ECG R‑peaks negative, ~67 bpm); rspFlip is a placeholder — respiration fails the viability probe (60‑Hz noise only, autocorr peak 0.21) | run-on-guess (D4) | **no usable respiration — `respSkipped=2`**; FC5 dead, Fp1/Fp2 noisy |
 | 260918_EEG_NWU_DD | vipassana | EEG_vipassana | 622 | rspIDX=1, rspFlip=1, hasEEG=TRUE, spikeClean=FALSE, spikeThresh=20, spikeWin=11, hasMacros=FALSE, beatSpec=`1,0,gt,3.5`, isNewStd=TRUE | probeMontageBV measurements (resp clean, inhale = upward deflection; ECG R‑peaks positive, ~65 bpm) | run-on-guess (D4) | many high‑impedance channels with heavy 60 Hz; double marker press at 40.59/40.60 min |
 
+Run outcome (2026-09-26 23:41-00:11, home machine, `ZLP_ALLOW_GUESS_RUN=1`, staging sheet via `ZLP_ADMIN_XLSX`; finals on R: under `AllStudyDataVipassana<id>preProc`, verified with `whos -file` + contract checks, `Data Preprocessed = X` staged at K620-K622):
+
+| Subject ID | final | breaths (good) | beats / HR | RSA check | pipeline badChans | blocks (boundary-to-marker) | notes |
+|---|---|---|---|---|---|---|---|
+| 260918_EEG_NWU_AS | 933 MB, `[39 x 1799060]` | 1105 (1086) | 4183 / 69.8 bpm | −23.2 ms, consistent (n=924) | T7 O1 Oz O2 TP10 Cz (the occipital flags are large eyes‑closed alpha tripping the amplitude rule, not noise - leave the disposition to the analysis) | all 8 within 7 s of its markers; margins 45-194 | blink removal on, Laplacian on |
+| 260918_EEG_NWU_CC | 1057 MB, `[39 x 2034830]` | 0 (`respSkipped=2`) | 4436 / 65.4 bpm | n/a | FT9 FC5 TP9 P7 O1 Oz O2 P8 TP10 Cz T8 FT10 | pre 14.7 min, audiobook1 4.0 min (unmarked, low margin 6), anapana from the 18.67 press, vipassana/metta/audiobook2 within 22 s of the other presses | **review `blocks_inferred.jpg`**: the 14.7-min pre and the 4-min audiobook1 are the DP's reading of a busy first 19 min; treat CC audiobook1 with caution |
+| 260918_EEG_NWU_DD | 489 MB, `[38 x 1782170]` | 1156 (1119) | 3935 / 66.2 bpm | −17.4 ms, consistent (n=933) | 22 channels (F7 FT9 FC5 C3 T7 TP9 CP5 Pz O1 Oz O2 P8 TP10 CP6 CP2 Cz T8 FT10 FC6 FC2 F4 F8) → only 10 good, so `preprocess_eeg` took its ≤10-channel branch: **no blink removal, `dataLap = []`** | marked boundaries within 5 s; 11.60 press unused; 40.59/40.60 double press merged | high-impedance dry electrodes with heavy 60 Hz; `artifactIndex` used 8 of 31 rows (23 line-dominated rows dropped) |
+
 ## Dupi/OBE breathingTask guess sessions — Part-2 probe pass (2026-08-27)
 
 Instruction: run these with critically-evaluated parameters (measured ECG
