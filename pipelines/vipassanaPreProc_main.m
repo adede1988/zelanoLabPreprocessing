@@ -9,6 +9,9 @@ addpath(genpath(L.eeglab))
 figPath      = L.figPath;
 EEGLOC       = readtable(L.eegLocCsv);
 set(0, 'defaultfigurewindowstyle', 'normal')
+if batchStartupOptionUsed   % matlab -batch: no figure windows (shared helpers call figure; visibly); files are still saved
+    set(groot, 'DefaultFigureVisible', 'off');
+end
 
 % =====================================================================
 %  vipassana preprocessing -- main pipeline (added 2026-09-26)
@@ -21,9 +24,26 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 %  constraints. Respiration may be unusable in a given session
 %  (probeRespViability_vipassana); when it is, the respiration-derived stages
 %  are skipped and outDat.respSkipped records why.
+%  Line noise (2026-09-27): the actiCHamp dry electrodes carry heavy 60-Hz
+%  pickup that made the shared core's bad-channel detector
+%  (removeNoiseChansVolt, amplitude rules on unfiltered data) flag channels
+%  for line noise rather than bad contact (22 of DD's 32 channels, nearly all
+%  of its first audiobook in badTS). The shared core keeps no notch by design
+%  (Atlas rigs), so assembleRaw_vipassana notches the 32 scalp rows at
+%  60/120/180 Hz at ingestion; outDat.notchHz / notchNote record it. The
+%  block-inference evidence (outDat.artifactIndex) is computed by the loader
+%  on the UN-notched rows first, so the segmentation is unchanged.
+%  Blinks (2026-09-27): eyes were closed throughout, so there are no blinks
+%  to remove - applyParams sets P.blinkRemoval = false for this task and
+%  preprocess_eeg skips blinkRemoveWrapper (outDat.blinkRemoval = 0, no
+%  blinkIndicator row); bad channels, badTS / interpChan and the Laplacian
+%  are unchanged.
 %  TASK-SPECIFIC pieces:
-%    - assembleRaw_vipassana.m           (raw_vipassana.mat, no makeOutDat)
-%    - artifactIndex_vipassana.m         (1-s movement/EMG activity evidence)
+%    - assembleRaw_vipassana.m           (raw_vipassana.mat, no makeOutDat;
+%                                         activity evidence, then the
+%                                         60/120/180-Hz notch of rows 1-32)
+%    - artifactIndex_vipassana.m         (1-s movement/EMG activity evidence,
+%                                         called by the loader)
 %    - inferBlocks_vipassana.m           (protocol-constrained DP segmentation)
 %    - probeRespViability_vipassana.m    (is the resp channel usable?)
 %    - build_behavior_table_vipassana.m  (per-breath + regularity extras)
@@ -84,16 +104,21 @@ for s = 1:numel(sessionIDs)
     outDat.preProcScript = 'vipassanaPreProc_main.m';
     outDat.refChan       = raw.refChan;           % 'Cz' (the inserted zero-row reference)
     outDat.header        = raw.header;            % parsed .vhdr struct (incl. recStart)
+    outDat.notchHz       = raw.notchHz;           % [60 120 180]: scalp rows notched at ingestion
+    outDat.notchNote     = raw.notchNote;         %   (assembleRaw_vipassana; see the header above)
     fsRaw = outDat.fs;                            % = raw.fs_raw (500 Hz for this task); kept for the
                                                    % marker sample-rate conversion below
 
     % ===== TASK-SPECIFIC (vipassana) =====
     % Activity evidence on the RAW scalp EEG, BEFORE the shared core touches
     % it (re-referencing / cleaning would blur the movement contrast the
-    % segmentation depends on). fs is unchanged by the core at this site
-    % (raw fs already = fs_target = 500 Hz), so the window timebase stays
-    % valid after runSharedCore runs.
-    outDat.artifactIndex = artifactIndex_vipassana(outDat.data(1:32, :), outDat.fs);
+    % segmentation depends on) - and before the ingestion notch: the loader
+    % computes it on the un-notched rows (artifactIndex_vipassana) and then
+    % notches them (see assembleRaw_vipassana's header for why; notched
+    % evidence moved DD's audiobook1 by minutes). fs is unchanged by the core
+    % at this site (raw fs already = fs_target = 500 Hz), so the window
+    % timebase stays valid after runSharedCore runs.
+    outDat.artifactIndex = raw.artifactIndex;
 
     % markers -> 500 Hz, Stimulus presses only (drop the 'New Segment' row;
     % its recStart datetime is already kept on outDat.header)

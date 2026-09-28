@@ -272,6 +272,13 @@ function out = applyParams(task, sel, xlsxPath)
             % loaded directly, like O15 / pacedBreathing). Respiration may be
             % unusable in a given session (probeRespViability_vipassana).
             P = ecgParams(P, row, cHasM, cBeat, false, '1,0,gt,3.5');   % EEG_vipassana: no macros
+            % no blink removal (2026-09-27): the participants' eyes were
+            % closed throughout every period, so there are no blinks to
+            % remove - an ICA "blink" component here would be alpha or
+            % slow eye drift. Task-level flag honoured by
+            % shared/preprocess_eeg (absent/true = blink removal runs, the
+            % default for every other task); not a sheet column.
+            P.blinkRemoval = false;
             % explicit per-session override switch on the ID (none needed
             % yet; add a case here if a review of blocks_inferred.jpg calls
             % for a P.vipOpts tweak - mirrors the P.pacedOpts pattern)

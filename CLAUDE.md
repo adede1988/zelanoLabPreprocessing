@@ -33,7 +33,7 @@ Companion documents:
 | `EmotionalMovieTask` | `EmotionalMovieTask` | emotional film clips, **no behavioral file**: `emotionalMovieTask_makeOutDat` parses the photodiode (`detect_ttls_emotionalMovieTask`: 1 / 2 / 3 pulses = neutral / happy / sad) into a **clip table** that is `outDat.TTL` (`clipOnset, clipEnd, nPulses, valence`). The per‑breath table keeps **only in‑clip breaths** (`condition` = valence code 1/2/3; the final clip has no defined end, so its breaths are dropped). ECG/HRV via `runECGStage` (NaN‑HRV fallback, `ecgSkipped`). |
 | `alternating6Blocks` | `alternating6Blocks` | alternating breathing blocks (EEG_breathing) with ratings from the Google‑Drive behavioral files: `alternating6Blocks_makeOutDat` matches the `mindfulBreathing` ratings file (carries the participant ID) and the `sniffLogicLog` (matched by date + start time) and aligns the log to the raw respiration (`alignLogToRaw`) → `outDat.blocks` (`label, order, startSample, endSample`) + block‑start `TTL`. The per‑breath table keeps in‑block breaths (`task` = block label, `condition` = block order) with the block's ratings broadcast + `baseEmotion`. ECG/HRV via `runECGStage`. |
 | `breathingTasks_separate` | one row **per condition recording**, `Task` = a condition name — the one vocabulary is `config/sepConditionInfo.m`: `audioBook`/`audiobook`/`distractedBreathing`, `focusedBreathing`, `sleep`, `sleepWithOdor`, `restingBaseline`, `focusedBreathing_button` (+ `…_button1`/`…_button2`, `…_button_mouth`), and `<condition>_run<N>` | a session = the Subject ID's eligible condition rows (`dataType` = `ephys` only). No `makeOutDat`: each condition's `raw\raw_<condition>\` file (folder rules in `sepConditionInfo`) is loaded directly, run through the shared core + segmentation + ECG **separately**, then concatenated in recording order (`concatSections` → `outDat.sections`, `TTL` = `[start_1 end_1 start_2 end_2 …]`). Per‑breath `task` = section label, `condition` = section index; no ratings / `baseEmotion`. Sheet writes go through `config/writeSheetSep` (every condition row), not `writeParams`/`writePreProcX`. |
-| `vipassana` | `vipassana` | single continuous **BrainVision Recorder (actiCHamp)** session per participant (added 2026‑09‑26 with three `EEG_NWU` sessions AS/CC/DD): raw lives under `<id>\brainProductsDat\` (not Neuralynx/Atlas), and `Cz` — the recording reference — is reinserted as an all‑zero channel. Hand‑press event markers exist but are shaky/incomplete; treated only as hints. Loads raw directly (no `makeOutDat`); the fixed period sequence (`audiobook1`, `anapana`, `questionnaire1`, `vipassana`, `questionnaire2`, `metta`, `questionnaire3`, `audiobook2`, optional `pre`/`post`) is **inferred from an EEG artifact index by a duration‑constrained dynamic programme** (`inferBlocks_vipassana`), stored in `outDat.blocks` + `blockInference` (`TTL` = block starts). Respiration is optional per session: a viability probe (`probeRespViability_vipassana`) gates breath segmentation — when it fails (e.g. CC, no usable respiration channel), `respSkipped=2` and `outDat.respProbe` records why, no `bmObj`. ECG via `runECGStage`. |
+| `vipassana` | `vipassana` | single continuous **BrainVision Recorder (actiCHamp)** session per participant (added 2026‑09‑26 with three `EEG_NWU` sessions AS/CC/DD): raw lives under `<id>\brainProductsDat\` (not Neuralynx/Atlas), and `Cz` — the recording reference — is reinserted as an all‑zero channel. Hand‑press event markers exist but are shaky/incomplete; treated only as hints. Loads raw directly (no `makeOutDat`); the fixed period sequence (`audiobook1`, `anapana`, `questionnaire1`, `vipassana`, `questionnaire2`, `metta`, `questionnaire3`, `audiobook2`, optional `pre`/`post`) is **inferred from an EEG artifact index by a duration‑constrained dynamic programme** (`inferBlocks_vipassana`), stored in `outDat.blocks` + `blockInference` (`TTL` = block starts). Respiration is optional per session: a viability probe (`probeRespViability_vipassana`) gates breath segmentation — when it fails (e.g. CC, no usable respiration channel), `respSkipped=2` and `outDat.respProbe` records why, no `bmObj`. ECG via `runECGStage`. **Line‑noise notch at ingestion** (2026‑09‑27): `assembleRaw_vipassana` notches the 32 scalp rows (ECG/rsp/event untouched; the Cz zero row stays zero) at 60/120/180 Hz (`designfilt` `bandstopiir`, order 2, f±1 Hz, `filtfilt`) and records `outDat.notchHz` / `notchNote` — the actiCHamp dry electrodes carry heavy 60‑Hz pickup and, un‑notched, the shared bad‑channel detector (`removeNoiseChansVolt`, amplitude rules on unfiltered data) flagged 22 of DD's 32 channels and nearly all of its first audiobook in `badTS` for line noise rather than bad contact; the shared core keeps no notch by design (§5), so this task notches before it. The block‑inference evidence (`artifactIndex`) is computed by the loader on the **un‑notched** rows before the notch, so the segmentation is unchanged (on notched evidence DD's audiobook1/anapana boundaries moved by 3.6–5.4 min). **No blink removal** (eyes closed throughout): `applyParams` sets `P.blinkRemoval = false` (§3), so `preprocess_eeg` skips `blinkRemoveWrapper` (`blinkRemoval = 0`, no `blinkIndicator` row). Current finals = the **2026‑09‑27 re‑run** with both changes: `badChans` AS `O1 Oz O2 Cz`, CC `FC5 TP9 P7 O1 Oz O2 TP10 Cz`, DD `Cz` only (was 22 channels, so DD has a `dataLap` again); still‑block `badTS` 2.6 / 6.3 / 0.2 % (was 3.0 / 19.1 / 10.4 %); blocks, breaths, beats and RSA check unchanged; the pre‑notch finals are in `…\AllStudyData\Vipassana\_backup_260927_preNotch\` (numbers: `guessSessions.md`). |
 
 The name mappings live in `config/applyParams.m` (`taskKey` caller → canon, `canonTask` sheet → canon,
 `taskCallerKey` canon → `P.task`) and are mirrored in `pipelines/preprocessAll.m` for every task except
@@ -159,8 +159,13 @@ P   = applyParams(task, sessID)                % Mode B: one session's parameter
 `P` (Mode B) always carries `task, type ('Dupi'|'OBE'|'EEG'), fs_target=500, rspIDX, rspFlip, hasEEG,
 spikeClean, spikeThresh, spikeWin, macroRemove, paramSource, hasMacros` + task extras (breath‑type tasks:
 `beatSpec, getBeats`; cue/thresh/O15: `respThresh, cuedBackBuff, adjWin`; O15 also `pd`, `ttl`;
-EmotionalMovieTask `pd`; pacedBreathing `pacedOpts`; breathingTasks_separate `conditions`). The mains add
-`allowGuessRun` and `figDir` (the session's task figure subfolder).
+EmotionalMovieTask `pd`; pacedBreathing `pacedOpts`; breathingTasks_separate `conditions`; vipassana
+`vipOpts`, `blinkRemoval`). The mains add `allowGuessRun` and `figDir` (the session's task figure subfolder).
+
+Task‑level `P` fields (set in `applyParams`, **not** sheet columns, not written by `writeParams`):
+`blinkRemoval` — optional; absent or `true` = `preprocess_eeg` runs blink removal (every task's default);
+`false` = the task has no blinks to remove, so blink removal is skipped (currently only `vipassana`, eyes
+closed throughout; §5).
 
 **`guess` rows** halt for interactive verification before any save: `paramCheck` (rsp + macro choices),
 `paramCheckECG` (breath‑type ECG beats), and a deliberate onset‑gate `error` so a human inspects the figures,
@@ -197,12 +202,16 @@ condition recording for breathingTasks_separate; never edit per task):**
 1. **`downsample_data(outDat, 500)`** — `resample` to **`fs_target = 500 Hz`**, then per channel a 4th‑order
    IIR **high‑pass 0.03 Hz** and 4th‑order IIR **low‑pass ≈ Nyquist**. **No line‑noise notch** (the
    60/120/180 Hz `iirnotch` was removed in July 2026; downstream analyses handle line noise). Sets `fs=500,
-   origFS, downsampled=1`.
+   origFS, downsampled=1`. A task whose rig needs a notch applies it at ingestion in its own
+   `assembleRaw_<task>` instead (currently only `vipassana`, §1) — the shared core stays notch‑free.
 2. **`preprocess_eeg(outDat, EEGLOC, P)`** *(only if `P.hasEEG`)* — validates the **first 32 channels**
    against `config/eegLocs_standard_coords.csv`, attaches coords, detects + interpolates noisy channels
    (`removeNoiseChansVolt`), removes blinks on the good channels via ICA (`blinkRemoveWrapper`; blink‑IC
    auto‑selection with a manual fallback) when > 10 survive, and computes a Perrin surface Laplacian.
-   Appends QC channels and EEG fields (§6.3).
+   Appends QC channels and EEG fields (§6.3). Blink removal is skipped — the same degrade path as when both
+   blink channels are bad: data unchanged, `blinkRemoval = 0`, no `blinkIndicator` row, bad‑channel
+   handling / `badTS` / `interpChan` / Laplacian as usual — when `P.blinkRemoval` is `false` (task‑level flag,
+   §3; `vipassana` only, eyes closed throughout).
 3. **`preprocess_macros(outDat, P)`** *(only if `P.hasMacros`; always true for cue/thresh/O15)* — finds `macro`
    channels (any number ≥ 2), drops `macroRemove`, **bipolar re‑references adjacent pairs → `macBP1..N`**; if `P.spikeClean`,
    removes spike artifacts via targeted ICA. If there are too few spikes to train the ICA it **falls back to
@@ -227,7 +236,8 @@ condition recording for breathingTasks_separate; never edit per task):**
   otherwise `respSkipped=2`, no `bmObj`) — and vipassana's block boundaries come from an artifact‑index +
   dynamic‑programme step (`artifactIndex_vipassana` on the raw scalp rows, 60‑Hz‑dominated rows left out of
   its channel median → `inferBlocks_vipassana`) whose evidence is computed **before** `runSharedCore`, not
-  after, since it needs the pre‑cleaning EEG; the main re‑zeroes the inserted `Cz` row after the core (§6.1); ECG goes through
+  after, since it needs the pre‑cleaning EEG — and before the task's ingestion notch too: `assembleRaw_vipassana`
+  computes it on the un‑notched rows, then notches (notched evidence moved DD's audiobook1 by minutes); the main re‑zeroes the inserted `Cz` row after the core (§6.1); ECG goes through
   `shared/runECGStage` (movie / alt6 / paced / vipassana: on failure NaN HRV via `fillNaNHRV` + `ecgSkipped`,
   where breathingTask stays strict and errors); sep probes ECG once per session and runs `processECG` per
   section.
@@ -270,7 +280,8 @@ of its neighbours, so the main forces `data` row 24 back to exact 0 after `runSh
 `badChans` and `dataLap` keeps its interpolated estimate), `respSkipped` (`0` respiration processed / `2`
 skipped — no usable channel, e.g. `260918_EEG_NWU_CC`) + `respProbe` (the viability‑probe result struct),
 `rspPolarityRSA` (inhale‑locked RR sanity check `deltaRRms / nBreaths / consistent`; always present, and
-`NaN / 0 / false` = not checked because respiration or ECG was skipped).
+`NaN / 0 / false` = not checked because respiration or ECG was skipped), `notchHz` (`[60 120 180]`) +
+`notchNote` (the ingestion notch of the 32 scalp rows, §1; absent in finals made before 2026‑09‑27).
 
 ### 6.2 Channel taxonomy in `outDat.data` (find rows by label)
 
@@ -281,7 +292,7 @@ skipped — no usable channel, e.g. `260918_EEG_NWU_CC`) + `respProbe` (the viab
 | respiration | `contains('rsp')` | always | raw load (select with `rspIDX`, flip with `rspFlip`) |
 | ECG (≈3 ch) | `contains('ECG')` | breathing‑type tasks | raw load (→ `buildECGz`) |
 | photodiode / events | `contains('event')` | O15, movie task (others vary) | raw load |
-| `blinkIndicator` | `=="blinkIndicator"` | `hasEEG` and > 10 good EEG ch | `preprocess_eeg` |
+| `blinkIndicator` | `=="blinkIndicator"` | `hasEEG`, > 10 good EEG ch and blink removal ran (`blinkRemoval==1`) | `preprocess_eeg` |
 | `badTS`, `interpChan` | exact | `hasEEG` | `preprocess_eeg` (bad‑sample mask, interpolation mask) |
 | `macBP1..N` | `contains('macBP')` | macros run | `preprocess_macros` (bipolar pairs, N = nMacro − 1) |
 | `spikeCleanVec` | `=="spikeCleanVec"` | macros run | `preprocess_macros` (all‑ones ⇒ no spikes removed) |

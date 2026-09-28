@@ -59,8 +59,9 @@ function T = artifactIndex_vipassana(eeg, fs, opts)
 %     are lowered to 0.8*(fs/2) with a warning.
 %
 %   Inputs
-%     eeg  : [nChan x nSamp] RAW scalp EEG (before any cleaning / re-reference,
-%            i.e. outDat.data(1:32,:) right after assembleOutDat), in uV.
+%     eeg  : [nChan x nSamp] RAW scalp EEG (before any cleaning / re-reference
+%            / notch, i.e. rows 1-32 of the extracted raw file as loaded by
+%            assembleRaw_vipassana, before its ingestion notch), in uV.
 %            Rows with std == 0 (the inserted Cz reference) are dropped.
 %     fs   : sampling rate (Hz) of eeg; the window is round(fs) samples, so
 %            any fs works (500 Hz for these recordings).
@@ -104,7 +105,12 @@ function T = artifactIndex_vipassana(eeg, fs, opts)
 %       artBase); channels where it dominates are left out of the median
 %       (step 2b), because their line level drifts over the recording and
 %       masks the EMG contrast. No notch is applied (a 60/120-Hz notch was
-%       tested in review and lowered AS's late-boundary margins).
+%       tested in review and lowered AS's late-boundary margins). Since
+%       2026-09-27 the task notches the scalp rows at ingestion
+%       (assembleRaw_vipassana), so the loader calls this function on the
+%       UN-notched rows BEFORE that notch: on notched input DD's line-
+%       dominated rows re-enter the median and its audiobook1 / anapana
+%       boundaries move by minutes (see assembleRaw_vipassana's header).
 %     - The first / last ~2 s carry filter edge transients; the robust
 %       statistics and the 5-s median make them harmless for segmentation.
 

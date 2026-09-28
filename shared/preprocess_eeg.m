@@ -38,11 +38,27 @@ function outDat = preprocess_eeg(outDat, standardEEGlocs, P)
     chanIDX = setdiff(1:32, badChans);% includes 1 & 32 even if detected bad
 
 
+    % Optional task-level flag P.blinkRemoval (set by applyParams; absent or
+    % true = blink removal runs, the default for every task). false = the
+    % task has no blinks to remove (vipassana: eyes closed throughout); it
+    % takes the SAME degrade path as "both blink channels bad" below, so bad-
+    % channel handling, the interpolated copy for the Laplacian, dataLap,
+    % badTS / interpChan and outDat.blinkRemoval = 0 are exactly as there.
+    skipBlink = isstruct(P) && isfield(P, 'blinkRemoval') && ...
+        ~isempty(P.blinkRemoval) && ~P.blinkRemoval;
+
     if length(chanIDX) > 10
     % 4) Blink removal on good channels. If BOTH candidate blink channels are
     % bad (blinkRemoveWrapper's own criteria) blink removal is impossible for
     % this session: degrade to blinkRemoval=0 (the already-defined state) and
     % keep the rest of the EEG stage rather than losing the session - REVIEW
+    if skipBlink
+        fprintf('%s: P.blinkRemoval = false (task setting) - blink removal not run\n', ...
+            outDat.sessID);
+        out = outDat.data(1:32, :);
+        badChan2 = [];
+        blinkOK = false;
+    else
     try
         [out, badChan2, blinkIndicator] = blinkRemoveWrapper(outDat,...
                                                     chanIDX,...
@@ -58,6 +74,7 @@ function outDat = preprocess_eeg(outDat, standardEEGlocs, P)
         else
             rethrow(MEblink);
         end
+    end
     end
 
     tmp = chanIDX(badChan2);
