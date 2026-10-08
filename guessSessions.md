@@ -168,6 +168,39 @@ to v1; only the EEG stage changed. Still-block badTS = fraction of each still bl
 
 `dataLap` is present again for DD but is still subject to the CLAUDE.md §6.3 known issue (off-sphere coordinates).
 
+## respiratorySweep + EmotionalMovieTask (2026-10-08)
+
+First sessions of the new respiration-sweep experiment (CLAUDE.md §1). Atlas data copied from the lab's external
+drive (`H:\breathingEEG`) to `R:\…\AllStudyData\EEGbreathing\<id>\AtlasData\`; behavioral files in
+`<id>\behavioralData\`; raw files written by `LoadData_<id>_claude.m` (event table in `curDat.TTL`). Master sheet
+rows 645–648 (appended 2026-10-08, backup `Admin\Data\dataTracking_backup_261008_1459.xlsx`). Guessed parameters
+were **measured**: channel map by `batch/probeMontage.m` (2026 rig: EEG CSC33–64, ECG CSC25–27, rsp CSC31, CSC32 =
+inverted copy of CSC31, event CSC269), respiration polarity by the SniffLogic log alignment (log pressure is
+inhale-positive; corr sign +1 on every log), ECG polarity from the probe traces (negative R on lead 1).
+
+| Subject ID | Task | Type | sheet row | guessed columns = values | basis | status | notes |
+|---|---|---|---|---|---|---|---|
+| 261006_EEG_NWU_RC | respiratorySweep | EEG_breathing | 645 | rspIDX=1, rspFlip=1, hasEEG=TRUE, spikeClean=FALSE, spikeThresh=20, spikeWin=11, hasMacros=FALSE, beatSpec=`1,0,lt,-3.5`, isNewStd=TRUE | probeMontage + log alignment (r 0.93 / 0.89, +1) | run-on-guess (D4) | 2 SniffLogic logs (tracing restarted; the aborted first block start is excluded); stopwatch FB 1:22:15, AB 1:29:27, FB 1:37:34, AB 1:44:04 |
+| 261006_EEG_NWU_RC | EmotionalMovieTask | EEG_breathing | 646 | same | same | run-on-guess (D4) | 180/180 clips matched to PsychoPy (zthresh −4); ~15 s flat respiration near 19 min |
+| 261006_EEG_NWU_IS | respiratorySweep | EEG_breathing | 647 | same | probeMontage + log alignment (r 0.90, +1) | run-on-guess (D4) | stopwatch AB 1:01:00, FB 1:08:20 (eyes closed), AB 1:15:10, FB 1:21:57; CSC37 (FT9) dead — the notes call it "scalp #6, FC5" |
+| 261006_EEG_NWU_IS | EmotionalMovieTask | EEG_breathing | 648 | same | same | run-on-guess (D4) | 180/180 clips matched to PsychoPy (zthresh −3) |
+
+Run outcome (2026-10-08 15:46–16:24, lab desktop, `ZLP_ALLOW_GUESS_RUN=1`, branch `respiratorySweep-261008`; finals
+verified by `qcNew.m`: fs 500, `moreThan1`, `manOnset`, `bmObj`/`bmFeatures`, rsp findable; `Data Preprocessed = X`).
+QC page: https://claude.ai/artifact/JaAv8wnnYN6FB8x976FcjN (figures also in `R:\…\Adam\Dupi_processing\<id>\<task>\`).
+
+| Subject ID | Task | final | breaths (good) | in blocks / clips | beats / HR | badChans | badTS | notes |
+|---|---|---|---|---|---|---|---|---|
+| 261006_EEG_NWU_RC | respiratorySweep | 1.85 GB, `[43 x 3343616]` | 1277 (1102) | 869 in 23 blocks | 6102 / 54.7 bpm | F7 FC5 T7 FC6 F8 | 13.8 % | slow paces over-segmented (b05 target 6 → median 10.9 /min, b06 4 → 6.2); FB post2 median 29.7 /min (notes: nodding off, head moving) |
+| 261006_EEG_NWU_IS | respiratorySweep | 1.49 GB, `[43 x 2687104]` | 1148 (1053) | 892 in 23 blocks | 5035 / 56.2 bpm | FT9 T7 TP9 TP10 | 6.8 % | b06 (target 4) median 9.0 /min; later 4 /min blocks followed (4.1) |
+| 261006_EEG_NWU_RC | EmotionalMovieTask | 0.55 GB, `[42 x 1002528]` | 337 (317) | 179 bounded clips | 1650 / 49.4 bpm | F7 FT9 FC5 F8 | 15.8 % | |
+| 261006_EEG_NWU_IS | EmotionalMovieTask | 0.54 GB, `[42 x 971758]` | 548 (539) | 179 bounded clips | 1823 / 56.3 bpm | FT9 T7 TP9 | 2.1 % | |
+
+Not processed: `261007_EEG_NWU_AL` (rows 649–650; organized on R:, session notes not filed yet — the stopwatch block
+times come from them). Rows 651–658: four older sessions found only on the external drive (`260828_EEG_NWU_CC`,
+`260901_EEG_NWU_ES`, `260902_EEG_NWU_YW`, `260908_EEG_NWU_MC`), copied to R:, first recording's task not identified
+(Task `unidentified`), movie recording listed, nothing extracted.
+
 ## Dupi/OBE breathingTask guess sessions — Part-2 probe pass (2026-08-27)
 
 Instruction: run these with critically-evaluated parameters (measured ECG
