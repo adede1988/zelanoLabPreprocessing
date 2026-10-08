@@ -142,6 +142,9 @@ function out = applyParams(task, sel, xlsxPath)
             cfg.sessionIDs{r} = id;
 
             rt = rootForRow(rows{r, cPre}, rows{r, cType}, L);
+            if strcmp(tkey, 'adMed') && isBlank(rows{r, cPre})
+                rt = L.rootADmed;   % blank datPre: the study folder (Type EEG_meditation would map to EEGbreathing)
+            end
             cfg.root{r} = rt;
 
             cfg.rspIDX(r)  = num_or(rows{r, cRsp}, 1);

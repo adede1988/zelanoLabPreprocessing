@@ -65,7 +65,9 @@ function outDat = build_behavior_table_ADmeditation(outDat)
     % ---- button presses relative to each breath ----
     pr = outDat.buttonPresses;
     pS = sort(pr.sample(pr.inAnalysisWindow & isfinite(pr.sample)));
-    nextOn = [idx(2:end); size(outDat.data, 2) + 1];
+    % a breath's window runs to the next inhale onset; the last breath's ends
+    % at its own end (onset + length), not at the end of the recording
+    nextOn = [idx(2:end); min(size(outDat.data, 2) + 1, idx(end) + round(behDat.length(end) * fs))];
     behDat.pressInBreath = zeros(n, 1);
     behDat.secSincePress = nan(n, 1);
     behDat.secToPress    = nan(n, 1);

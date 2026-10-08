@@ -40,20 +40,23 @@
 
 %% path specification and fieldtrip start
 clear
-if exist('E:\GitHub\fieldtrip-20230118', 'dir')
-    addpath('E:\GitHub\fieldtrip-20230118')   % lab desktop
-else
-    addpath('G:\My Drive\GitHub\fieldtrip-20230118')
-end
+ftCand = {'E:\GitHub\fieldtrip-20230118', 'G:\My Drive\GitHub\fieldtrip-20230118', ...   % the lab loaders' FieldTrip
+          'E:\fieldtrip-20260518', 'C:\Users\Adam\Documents\fieldtrip-20260518'};       % labPaths().fieldtrip copies
+ftDir = ftCand(cellfun(@(p) exist(fullfile(p, 'ft_defaults.m'), 'file') == 2, ftCand));
+assert(~isempty(ftDir), 'LoadData_ADmeditation: no FieldTrip found (tried %s)', strjoin(ftCand, ', '));
+addpath(ftDir{1})
 addpath('R:\Neurology\Zelano_Lab\Lab_Common\Matlab_Code')   % ReadNCS
 ft_defaults
 
 %% settings (edit as needed)
 rootDir = fileparts(mfilename('fullpath'));                 % = AD_repeatRecordings
 if isempty(rootDir), rootDir = 'R:\Neurology\Zelano_Lab\Lab_Common\AllStudyData\AD_repeatRecordings'; end
-lc = regexp(rootDir, '^(.*Lab_Common)', 'tokens', 'once');
+lc = regexp(rootDir, '^(.*Lab_Common)(.*)$', 'tokens', 'once');
 assert(~isempty(lc), 'LoadData_ADmeditation: %s is not under Lab_Common', rootDir);
 sheetPath = fullfile(lc{1}, 'Admin', 'Data', 'dataTracking_AD_meditation.xlsx');
+% datPre in the sheet uses the canonical Lab_Common prefix (applyParams rebases
+% it onto each machine's labCommon), whatever drive / UNC path this ran from
+datPreCanon = ['R:\Neurology\Zelano_Lab\Lab_Common' lc{2} filesep];
 if ~isempty(getenv('ZLP_ADMED_XLSX')), sheetPath = getenv('ZLP_ADMED_XLSX'); end   % staging copy (as labPaths)
 rawDir = fullfile(rootDir, 'raw');
 minSegSec = 60;            % shorter acquisition segments are stubs, not data
@@ -84,14 +87,34 @@ d = dir(rootDir);
 d = d([d.isdir] & ~cellfun('isempty', regexp({d.name}, '^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$', 'once')));
 fprintf('%d recording folders in %s\n', numel(d), rootDir);
 
+% session IDs: <yymmdd>_ADmed_<HHmm>; folders started in the same minute (an
+% aborted start + restart) would collide, so those get the seconds as well
+stamps = datetime({d.name}, 'InputFormat', 'yyyy-MM-dd_HH-mm-ss');
+ids = cellstr(string(char(stamps, 'yyMMdd')) + "_ADmed_" + string(char(stamps, 'HHmm')));
+[~, ~, g] = unique(ids);
+dup = ismember(g, find(accumarray(g(:), 1) > 1));
+ids(dup) = cellstr(string(char(stamps(dup), 'yyMMdd')) + "_ADmed_" + string(char(stamps(dup), 'HHmmss')));
+assert(numel(unique(ids)) == numel(ids), 'LoadData_ADmeditation: session IDs not unique');
+
 warning('off', 'all')
 for i = 1:numel(d)
     atlas = d(i).name;
-    stamp = datetime(atlas, 'InputFormat', 'yyyy-MM-dd_HH-mm-ss');
-    sessID = sprintf('%s_ADmed_%s', char(stamp, 'yyMMdd'), char(stamp, 'HHmm'));
+    stamp = stamps(i);
+    sessID = ids{i};
     rawFile = fullfile(rawDir, [sessID '_raw.mat']);
+    % imported = raw file AND its sheet row says Raw Data Extracted = X; a raw
+    % file without the row (the sheet write failed) only gets its row written
     if exist(rawFile, 'file') && ~any(strcmpi(reimport, sessID))
-        fprintf('%s (%s): already imported\n', sessID, atlas);
+        if sheetRowExtracted(sheetPath, sessID)
+            fprintf('%s (%s): already imported\n', sessID, atlas);
+        else
+            m = matfile(rawFile); cd0 = m.curDat;   % rare repair path: one full read of the raw file
+            durMin = size(cd0.rawData.trial{1}, 2) / cd0.rawData.fsample / 60;
+            updateSheetRow(sheetPath, hdrNames, rawRow(sessID, atlas, stamp, datPreCanon, ...
+                strjoin(cellfun(@segName, cellstr(cd0.segments.suffix), 'uniformoutput', false), '+'), durMin), true);
+            clear m cd0
+            fprintf('%s (%s): raw file present, sheet row written\n', sessID, atlas);
+        end
         continue
     end
     recDir = fullfile(rootDir, atlas);
@@ -108,14 +131,11 @@ for i = 1:numel(d)
     end
     segInfo = strjoin(arrayfun(@(s) sprintf('%s:%.1fs', segName(suf{s}), segSec(s)), 1:numel(f31), 'uniformoutput', false), ' ');
     keep = segSec >= minSegSec;
-    % sheet cells for this recording: {column name, value} (column names have spaces)
-    row = {'Subject ID', sessID; 'Task', 'ADmeditation'; 'Type', 'EEG_meditation'; ...
-           'dataType', 'ephys'; 'Atlas Folder', atlas; 'Recording Date', char(stamp, 'yyyy-MM-dd'); ...
-           'Start Time', char(stamp, 'HH:mm:ss'); 'datPre', [rootDir filesep]};
     if ~any(keep)
         fprintf('%s (%s): EMPTY recording (%s) - not extracted\n', sessID, atlas, segInfo);
-        row = [row; {'Segments', segInfo; 'Raw Duration (min)', round(sum(segSec) / 60, 2); ...
-               'Notes', sprintf('empty recording (no acquisition segment >= %d s: %s) - not extracted', minSegSec, segInfo)}]; %#ok<AGROW>
+        row = [idRow(sessID, atlas, stamp, datPreCanon); ...
+               {'Segments', segInfo; 'Raw Duration (min)', round(sum(segSec) / 60, 2); ...
+                'Notes', sprintf('empty recording (no acquisition segment >= %d s: %s) - not extracted', minSegSec, segInfo)}];
         updateSheetRow(sheetPath, hdrNames, row, false);
         continue
     end
@@ -168,14 +188,16 @@ for i = 1:numel(d)
     curDat.recStart    = char(stamp, 'yyyy-MM-dd HH:mm:ss');
     curDat.loadFile    = [mfilename '.m'];
     curDat.segmentsSeen = segInfo;
-    save(rawFile, 'curDat', '-v7.3')
+    % save under a temporary name and rename once complete, so an interrupted
+    % save never leaves a truncated file that later counts as imported
+    tmpFile = fullfile(rawDir, [sessID '_raw_partial.mat']);
+    save(tmpFile, 'curDat', '-v7.3')
+    movefile(tmpFile, rawFile, 'f');
     durMin = size(rawdata.trial{1}, 2) / rawdata.fsample / 60;
     clear rawdata curDat
 
-    row = [row; {'Segments', strjoin(cellfun(@segName, segList, 'uniformoutput', false), '+'); ...
-           'Raw Duration (min)', round(durMin, 2); 'Raw Data Extracted', 'X'; ...
-           'Extraction Date', char(datetime('now'), 'yyyy-MM-dd')}]; %#ok<AGROW>
-    updateSheetRow(sheetPath, hdrNames, row, true);
+    updateSheetRow(sheetPath, hdrNames, rawRow(sessID, atlas, stamp, datPreCanon, ...
+        strjoin(cellfun(@segName, segList, 'uniformoutput', false), '+'), durMin), true);
     fprintf('   saved %s (%.1f min)\n', rawFile, durMin);
 end
 warning('on', 'all')
@@ -184,6 +206,37 @@ disp('LoadData_ADmeditation_claude: done')
 %% ---------------- local functions ----------------
 function s = segName(suf)
     if isempty(suf), s = '(base)'; else, s = suf; end
+end
+
+function row = idRow(sessID, atlas, stamp, datPre)
+% identity cells of a recording's sheet row: {column name, value; ...}
+    row = {'Subject ID', sessID; 'Task', 'ADmeditation'; 'Type', 'EEG_meditation'; ...
+           'dataType', 'ephys'; 'Atlas Folder', atlas; 'Recording Date', char(stamp, 'yyyy-MM-dd'); ...
+           'Start Time', char(stamp, 'HH:mm:ss'); 'datPre', datPre};
+end
+
+function row = rawRow(sessID, atlas, stamp, datPre, segStr, durMin)
+% sheet cells of an extracted recording (clears any earlier "empty" note)
+    row = [idRow(sessID, atlas, stamp, datPre); ...
+           {'Segments', segStr; 'Raw Duration (min)', round(durMin, 2); 'Raw Data Extracted', 'X'; ...
+            'Extraction Date', char(datetime('now'), 'yyyy-MM-dd'); 'Notes', ''}];
+end
+
+function tf = sheetRowExtracted(sheetPath, sessID)
+% true when the sheet has a row for sessID with Raw Data Extracted = X
+    tf = false;
+    C = readcell(sheetPath, 'Sheet', 'Sheet1');
+    hdr = C(2, :);
+    isH = @(n) cellfun(@(v) (ischar(v) || isstring(v)) && strcmpi(strtrim(char(v)), n), hdr);
+    cSub = find(isH('Subject ID'), 1); cRaw = find(isH('Raw Data Extracted'), 1);
+    for k = 3:size(C, 1)
+        v = C{k, cSub};
+        if (ischar(v) || isstring(v)) && strcmpi(strtrim(char(v)), sessID)
+            w = C{k, cRaw};
+            tf = (ischar(w) || isstring(w)) && strcmpi(strtrim(char(w)), 'X');
+            return
+        end
+    end
 end
 
 function sec = ncsDurationSec(fn)
