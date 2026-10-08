@@ -79,7 +79,10 @@ your channels): scalp EEG uses exact 10‑20 names in **rows 1–32**; respirati
 `ECG`.
 
 If your task can be loaded straight from a single raw file (like `O15` or `pacedBreathing`), you
-can skip the `makeOutDat` step entirely and do the load here.
+can skip the `makeOutDat` step entirely and do the load here. If the recording has no event marks but a
+behavioral log carries the events (`respiratorySweep`), let the session's LoadData script build the event
+table and store it in the raw file (`curDat.TTL`, see `tasks/respiratorySweep/buildSweepTTL.m`) - the raw file
+then reads as if the recording had been event-marked, and `assembleRaw_myTask` just passes it on.
 
 **If your raw source isn't Neuralynx/Atlas at all** (e.g. `vipassana`'s BrainVision Recorder / actiCHamp
 export), `assembleRaw_myTask.m` still returns the same struct above — only the loader underneath changes.
