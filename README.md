@@ -33,7 +33,7 @@ The final `.mat` holds one struct (`outDat`, or `chanDat` for breathingTask fina
   string**, never by fixed position — except the 32‑channel scalp‑EEG montage, which occupies
   rows 1–32 when `hasEEG`).
 - Derived channels appended by the pipeline: bipolar macro pairs `macBP1..N`, `blinkIndicator`,
-  `badTS`, `interpChan`, `spikeCleanVec`, `targTrace` (breathingTask) and `RRint` (breath‑based
+  `badTS`, `interpChan`, `spikeCleanVec`, `targTrace` (breathingTask, respiratorySweep) and `RRint` (breath‑based
   tasks with ECG).
 - `behDat` — a per‑sniff (cue/thresh/O15) or per‑breath (breath‑based tasks) **table**; EEG coords
   (`eegLocs`), surface Laplacian (`dataLap`), and breath extras (`bmObj`, `bmFeatures`,

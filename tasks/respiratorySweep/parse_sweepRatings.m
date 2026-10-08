@@ -99,16 +99,23 @@ function ratings = parse_sweepRatings(csvPaths)
         ratings = [ratings; R]; %#ok<AGROW>
     end
 
-    % repeated labels across runs -> numbered (file order = chronological)
+    % a label already taken by an earlier run gets the next free numeric suffix
+    % (file order = chronological; within-run repeats were numbered above)
     if height(ratings) > 0
         keyRun = ratings.file + "|" + ratings.set;
         [uk, ia] = unique(keyRun, 'stable');
         labs = ratings.set(ia);
+        taken = strings(0, 1);
         for k = 1:numel(uk)
-            prev = sum(labs(1:k-1) == labs(k));
-            if prev > 0
-                ratings.set(keyRun == uk(k)) = labs(k) + "_" + (prev + 1);
+            lab = labs(k);
+            if any(taken == lab)
+                base = regexprep(lab, '_\d+$', '');
+                n = 2;
+                while any(taken == base + "_" + n), n = n + 1; end
+                lab = base + "_" + n;
+                ratings.set(keyRun == uk(k)) = lab;
             end
+            taken(end+1, 1) = lab; %#ok<AGROW>
         end
     end
     sets = unique(ratings.set, 'stable');

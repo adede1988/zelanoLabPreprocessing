@@ -28,7 +28,7 @@ datPrei    = cfg.datPrei;
 % ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
 onlyEnv = strtrim(getenv('ZLP_MAKEOUTDAT_ONLY'));
 onlyList = {};
-if ~isempty(onlyEnv), onlyList = strtrim(strsplit(onlyEnv, ',')); onlyList = onlyList(~cellfun(, onlyList)); end
+if ~isempty(onlyEnv), onlyList = strtrim(strsplit(onlyEnv, ',')); onlyList = onlyList(~cellfun(@isempty, onlyList)); end
 
 for sessi = 1:length(sessionIDs)
     if ~isempty(onlyList) && ~any(strcmpi(onlyList, sessionIDs{sessi}))

@@ -295,7 +295,8 @@ skipped — no usable channel, e.g. `260918_EEG_NWU_CC`) + `respProbe` (the viab
 
 respiratorySweep‑only extras: `blocks` (the event table at 500 Hz, §6.5), `TTLinfo` (how the raw file's event
 table was built: per‑log alignment `logAlign` — file, `lagSec`, `r` / `rLocal`, drift, polarity, raw coverage —,
-`aborted` block starts, the `stopwatch` spec, `noteCheck` = note times vs log‑derived times, `rspFlip`
+`aborted` block starts, `skippedLogs` (event‑less logs, not aligned), `flags` (checks that need a look), the
+`stopwatch` spec, `noteCheck` = note times vs log‑derived times, `rspFlip`
 measured from the log, `alignedChannel`), `ratings` (long table of the PsychoPy state ratings: `set`
 `baseline` / `postSweep`, `file, Q_short, type, question, rsp, t`), `baseEmotion` / `postSweepEmotion`
 (one‑row tables in the alternating6Blocks layout), plus the O15‑style provenance `CSClist, OGdataDir, loadFile,
@@ -379,7 +380,8 @@ own extra columns instead of ratings — e.g. pacedBreathing's `rateBPM, localPe
 localAmpCV, nSubPeaks` raggedness measures — only populated when `respSkipped==0` (else `behDat` has the
 columns but zero rows). **respiratorySweep** keeps **every** breath of the recording (rests / instructions /
 ratings included; `condition` = block order, 0 between blocks) and adds `task` (block label or `none`),
-`blockType` (`audiobook` / `sweep` / `focusedBreathing` / `none`), `phase` (`pre` / `sweep` / `post` / `none`),
+`blockType` (`audiobook` / `sweep` / `focusedBreathing` / `other` / `none`), `phase` (`pre` / `sweep` / `mid` / `post` /
+`none`),
 `inBlock`, `cpm`, `depth`, `sweepNum` (NaN off‑sweep), `noseMouth`/`shadowFile`/`warp` as `NA`/`NaN`, and the
 pacedBreathing `rateBPM, localPeriodCV, localAmpCV, nSubPeaks` (local windows never straddle a block edge);
 ratings are not broadcast per breath (only a baseline and a post‑sweep set exist) — see `ratings` /
@@ -413,7 +415,9 @@ ratings are not broadcast per breath (only a baseline and a post‑sweep set exi
 - **respiratorySweep** — vector of block starts; the blocks are **recorded, not inferred** (SniffLogic log
   events aligned to the raw respiration, plus stopwatch blocks hard‑coded from the session notes). The
   `blocks` table: `order, label` (`audiobook_pre`, `Sweep_b<NN>_cpm<rate>_depth<scale>` as the log names it,
-  `focusedBreathing_post<k>`, `audiobook_post<k>`), `blockType, phase, sweepNum, blockIdx` (log block number),
+  `focusedBreathing_post<k>`, `audiobook_post<k>`; any other logged block keeps its log name), `blockType`
+  (`audiobook` / `sweep` / `focusedBreathing` / `other`), `phase` (`pre` / `sweep` / `mid` / `post`, by time relative to
+  the sweep), `sweepNum, blockIdx` (log block number),
   `cpm, depth, cndNum, targetP2T` (Pa), `startSample, endSample` (inclusive), `startSec, endSec, durationSec`
   (raw time), `source` (`sniffLogicLog` / `notes_stopwatch`), `logFile`. QC: `<id>_sweepTTL.png` (written by the
   LoadData script) + `blocks_TTL.jpg` / `sweepBlocks_zoom.jpg` / `breathOverlay.jpg` in the session's

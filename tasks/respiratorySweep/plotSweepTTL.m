@@ -16,6 +16,7 @@ function plotSweepTTL(rsp, fs, TTL, logTrace, info, sessID, figDir)
 
     if ~isfolder(figDir), mkdir(figDir); end
     rsp = double(rsp(:)');
+    if any(~isfinite(rsp)), rsp = fillmissing(rsp, 'linear', 'EndValues', 'nearest'); end
     fig = figure('Visible', 'off', 'Position', [20 20 1900 1200], 'Color', 'w');
 
     % ---------------- whole recording ----------------

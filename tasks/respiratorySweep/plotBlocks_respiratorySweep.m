@@ -18,6 +18,11 @@ function plotBlocks_respiratorySweep(outDat, rspDat)
 %                          targTrace channel), both z-scored in the window;
 %                          the title gives the block's median breath rate
 %                          against its target pace
+%     breathOverlay.jpg    60 s from the middle of the first audiobook, of each
+%                          sweep block of the first pass and of the first
+%                          post-sweep focused-breathing and audiobook blocks,
+%                          with the inhale onsets / peaks / exhale troughs of
+%                          bmObj marked (breath-segmentation check)
 
     B = outDat.blocks;
     fs = outDat.fs;
