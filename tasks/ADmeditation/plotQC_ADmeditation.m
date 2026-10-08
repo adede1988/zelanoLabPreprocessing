@@ -12,7 +12,8 @@ function plotQC_ADmeditation(outDat, rspDat)
 %     - a 10-s ECG window (the beatSpec lead, z-scored) with the detected beats
 %     - the event channel (10-Hz low-passed) around every press in the
 %       analysis window, aligned on the detected onset (0 s): the press step
-%       should rise at 0 and the release fall ~5 s later
+%       should start at 0 and the opposite (release) step ~5 s later
+%       (negative-first on this rig's extracted raw event channel)
 %   Review it before promoting the session's parameters to curated.
 
     fs = outDat.fs;

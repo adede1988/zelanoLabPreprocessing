@@ -311,7 +311,9 @@ function out = applyParams(task, sel, xlsxPath)
             % their own sheet (labPaths().adMedXlsx). One continuous recording
             % per session, no behavioral file; the only marker is a button on
             % the event channel pressed at a "good" meditative state (a ~5-s
-            % pulse, AC-coupled: +step at the press, -step at the release).
+            % AC-coupled pulse: a step at the press, the opposite step at the
+            % release; negative-first in the extracted raw - the detector takes
+            % the polarity from the data, see detectButtonPresses_ADmeditation).
             % No makeOutDat (raw loaded directly, like pacedBreathing). Every
             % recording is trimmed: the first 3 min and the last 1 min are
             % dropped (user, 2026-10-08) before any processing.
