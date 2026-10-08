@@ -519,6 +519,8 @@ function k = canonTask(t)
             k = 'paced';
         case {'vipassana'}
             k = 'vip';
+        case {'respiratorysweep'}
+            k = 'sweep';
         otherwise
             k = '';
     end
@@ -536,6 +538,7 @@ function k = taskKey(task)
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
         case 'vipassana',          k = 'vip';
+        case 'respiratorysweep',   k = 'sweep';
         otherwise,                 k = '';
     end
 end

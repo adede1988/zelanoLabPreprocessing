@@ -156,6 +156,7 @@ function k = taskKey(task)   % P.task -> key
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
         case 'vipassana',          k = 'vip';
+        case 'respiratorysweep',   k = 'sweep';
         otherwise,                 k = '';
     end
 end
@@ -183,6 +184,8 @@ function k = canonTask(t)    % sheet Task cell -> key
             k = 'paced';
         case 'vipassana'
             k = 'vip';
+        case 'respiratorysweep'
+            k = 'sweep';
         otherwise
             k = '';
     end

@@ -25,6 +25,11 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
 %     .driftPPM    linear drift (raw seconds per log second - 1) * 1e6
 %     .useDrift    whether the linear term is applied
 %     .logToRaw500 @(tLog) sample index at 500 Hz in the raw recording
+%     .t0Log, .mapIntercept, .mapSlope   the same map as plain numbers (safe to
+%                  save): raw time (s, 0 = first raw sample) of log time tLog =
+%                  mapIntercept + (1 + mapSlope) * (tLog - t0Log); mapSlope = 0
+%                  when no drift term is applied (shared since 2026-10-08:
+%                  alternating6Blocks + respiratorySweep)
 %   Fails loudly when |r| < 0.6 or a second peak reaches 90% of the max
 %   at least 5 s away (ambiguity).
 
@@ -131,6 +136,14 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
         A.logToRaw500 = @(tLog) round((cf1(2) + (tLog - t0) + cf1(1) .* (tLog - t0)) * 500);
     else
         A.logToRaw500 = @(tLog) round((lagSec + (tLog - t0)) * 500);
+    end
+    A.t0Log = t0;
+    if useDrift
+        A.mapIntercept = cf1(2);
+        A.mapSlope     = cf1(1);
+    else
+        A.mapIntercept = lagSec;
+        A.mapSlope     = 0;
     end
 
     % ---- alignment figure ----

@@ -28,8 +28,8 @@ function loadFile = findLoadDataScript(sessDir, task, src)
 %          breathingTask       LoadData_<id>.m (canonical name)
 %          cueTask, threshTask name ends in 'AD.m'
 %          O15                 name contains 'AD'
-%          pacedBreathing / alternating6Blocks / EmotionalMovieTask / vipassana
-%                              name contains the task name
+%          pacedBreathing / alternating6Blocks / EmotionalMovieTask / vipassana /
+%          respiratorySweep    name contains the task name
 %     5. '' with a warning
 %   NB: step 3 names the *_claude.m script for EVERY task of such a folder;
 %   a raw file extracted by an older script is attributed correctly only when
@@ -76,7 +76,7 @@ function loadFile = findLoadDataScript(sessDir, task, src)
             hit = names(endsWith(names, 'AD.m'));
         case 'o15'
             hit = names(contains(names, 'AD'));
-        case {'pacedbreathing', 'alternating6blocks', 'emotionalmovietask', 'vipassana'}
+        case {'pacedbreathing', 'alternating6blocks', 'emotionalmovietask', 'vipassana', 'respiratorysweep'}
             hit = names(contains(names, char(string(task))));
         otherwise
             hit = {};

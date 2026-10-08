@@ -14,7 +14,7 @@ function out = applyParams(task, sel, xlsxPath)
 %
 %   task in {'breathingTask','cueTask','threshTask','O15','EmotionalMovieTask',
 %            'alternating6Blocks','breathingTasks_separate','pacedBreathing',
-%            'vipassana'}
+%            'vipassana','respiratorySweep'}
 %   default xlsxPath = labPaths().adminXlsx, the lab master
 %     (R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx). If that
 %     file is unreachable or lacks the datPre parameter column, falls back - with
@@ -238,6 +238,16 @@ function out = applyParams(task, sel, xlsxPath)
             % merge tolerances ...). Override per session here if a review of
             % the blocks_inferred figure calls for it (explicit switch on ID).
             P.pacedOpts = struct();
+
+        case 'sweep'
+            % respiratorySweep (added 2026-10-08): breathing-type processing of
+            % one continuous EEG_breathing recording (audiobook, 18 paced blocks
+            % = 3 depth passes x 6 paces, then stopwatch-timed focused-breathing
+            % / audiobook blocks). The Atlas recording has no event marks: the
+            % session's LoadData script builds the event table from the
+            % SniffLogic log(s) + the session notes (buildSweepTTL) and stores
+            % it in the raw file; there is no makeOutDat (raw loaded directly).
+            P = ecgParams(P, row, cHasM, cBeat, false, '1,0,gt,3.5');   % EEG_breathing: no macros
 
         case 'sep'
             % breathingTasks_separate (Tasks_260824.md Task 9 / D12): the
@@ -483,6 +493,8 @@ function k = canonTask(t)
             k = 'paced';   % pacedBreathing (added 2026-09-15)
         case {'vipassana'}
             k = 'vip';     % vipassana (added 2026-09-26)
+        case {'respiratorysweep'}
+            k = 'sweep';   % respiratorySweep (added 2026-10-08)
         otherwise
             % breathingTasks_separate condition rows (D12a; OBE button/mouth
             % 2026-09-22; plain focusedBreathing_button and <cond>_run<N>
@@ -508,6 +520,7 @@ function k = taskKey(task)
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
         case 'vipassana',          k = 'vip';
+        case 'respiratorysweep',   k = 'sweep';
         case {'breathingtasks_separate', 'breathingtasksseparate'}, k = 'sep';
         otherwise,                 k = '';
     end
@@ -525,6 +538,7 @@ function s = taskCallerKey(task)
         case 'paced',     s = 'pacedBreathing';
         case 'sep',       s = 'breathingTasks_separate';
         case 'vip',       s = 'vipassana';
+        case 'sweep',     s = 'respiratorySweep';
         otherwise,        s = asChar(task);
     end
 end
