@@ -19,7 +19,9 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
 %
 %   Returns A with:
 %     .lagSec      log time t maps to raw time t + lagSec (+ drift term)
-%     .r           peak normalized correlation (|r|)
+%     .r           peak normalized correlation (|r|, normalized by the whole traces)
+%     .rLocal      |r| over the log/raw overlap at that lag - the quality gate
+%                  (a short log in a long recording has a low .r but a high .rLocal)
 %     .corrSign    +1/-1 sign of the peak
 %     .rspFlip     inferred flip so that inhale is positive
 %     .driftPPM    linear drift (raw seconds per log second - 1) * 1e6
@@ -30,8 +32,8 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
 %                  mapIntercept + (1 + mapSlope) * (tLog - t0Log); mapSlope = 0
 %                  when no drift term is applied (shared since 2026-10-08:
 %                  alternating6Blocks + respiratorySweep)
-%   Fails loudly when |r| < 0.6 or a second peak reaches 90% of the max
-%   at least 5 s away (ambiguity).
+%   Fails loudly when the overlap |r| < 0.40 (REVIEW flag below 0.60) or a
+%   second peak reaches 90% of the max at least 5 s away (ambiguity).
 
     FS = 20;
 
@@ -58,18 +60,30 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
     % ambiguity: another comparable peak far from the main one
     far = abs(lags - lagSamp) > 5 * FS;
     pk2 = max(abs(xc(far)));
-    fprintf('%s: peak |r| = %.3f (sign %+d) at lag %.2f s; runner-up %.3f\n', ...
-        sessID, pk, corrSign, lagSamp / FS, pk2);
-    assert(pk >= 0.40, 'alignLogToRaw:weakPeak', ...
-        '%s: alignment peak |r|=%.3f < 0.40 - stop and inspect', sessID, pk);
+
+    % match quality over the OVERLAP at the peak lag (pR(n + lag) ~ pL(n)). The
+    % normalized xcorr above divides by the energy of the WHOLE raw trace, so a
+    % log that covers only part of a long recording (e.g. a 15-min first run
+    % before a restart) peaks low even when it matches perfectly; the gate uses
+    % this overlap |r| (equal to the global peak when the log spans the
+    % recording, as in alternating6Blocks). Added 2026-10-08 (respiratorySweep).
+    iL = (1:numel(pL))';
+    iR = iL + lagSamp;
+    okO = iR >= 1 & iR <= numel(pR);
+    cc = corrcoef(pL(iL(okO)), pR(iR(okO)));
+    rLocal = abs(cc(1, 2));
+    fprintf('%s: peak |r| = %.3f (sign %+d) at lag %.2f s; runner-up %.3f; overlap |r| %.3f over %.1f min\n', ...
+        sessID, pk, corrSign, lagSamp / FS, pk2, rLocal, sum(okO) / FS / 60);
+    assert(rLocal >= 0.40, 'alignLogToRaw:weakPeak', ...
+        '%s: alignment overlap |r|=%.3f < 0.40 (global peak %.3f) - stop and inspect', sessID, rLocal, pk);
     assert(pk2 < 0.9 * pk, 'alignLogToRaw:ambiguous', ...
         '%s: second correlation peak at %.0f%% of max - ambiguous alignment', ...
         sessID, 100 * pk2 / pk);
     % 0.40-0.60: unique but weak peak (NaN-gap recordings) - proceed, flag REVIEW
-    reviewNeeded = pk < 0.6;
+    reviewNeeded = rLocal < 0.6;
     if reviewNeeded
         warning('alignLogToRaw:weakPeak', ...
-            '%s: alignment peak |r|=%.3f in [0.40,0.60) - accepted with REVIEW flag', sessID, pk);
+            '%s: alignment overlap |r|=%.3f in [0.40,0.60) - accepted with REVIEW flag', sessID, rLocal);
     end
 
     lagSec = lagSamp / FS;
@@ -126,6 +140,7 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
     A = struct();
     A.lagSec = lagSec;
     A.r = pk;
+    A.rLocal = rLocal;
     A.reviewNeeded = reviewNeeded;
     A.corrSign = corrSign;
     A.rspFlip = corrSign;     % log pressure inhale-POSITIVE convention (see header)

@@ -71,7 +71,7 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
     % ---------------- parse + align every log ----------------
     nLog = numel(logPaths);
     logs = cell(nLog, 1);
-    al = struct('file', {}, 'lagSec', {}, 'r', {}, 'reviewNeeded', {}, 'corrSign', {}, ...
+    al = struct('file', {}, 'lagSec', {}, 'r', {}, 'rLocal', {}, 'reviewNeeded', {}, 'corrSign', {}, ...
                 'rspFlip', {}, 'driftPPM', {}, 'useDrift', {}, 't0Log', {}, 'mapIntercept', {}, ...
                 'mapSlope', {}, 'rawStartSec', {}, 'rawEndSec', {}, 'nBlocks', {}, 'hasAudio', {});
     for k = 1:nLog
@@ -81,14 +81,14 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
         Lg.rawSec = @(tl) A.mapIntercept + (1 + A.mapSlope) .* (tl - A.t0Log);
         logs{k} = Lg;
         al(k).file = [fn ext];
-        al(k).lagSec = A.lagSec; al(k).r = A.r; al(k).reviewNeeded = A.reviewNeeded;
+        al(k).lagSec = A.lagSec; al(k).r = A.r; al(k).rLocal = A.rLocal; al(k).reviewNeeded = A.reviewNeeded;
         al(k).corrSign = A.corrSign; al(k).rspFlip = A.rspFlip;
         al(k).driftPPM = A.driftPPM; al(k).useDrift = A.useDrift;
         al(k).t0Log = A.t0Log; al(k).mapIntercept = A.mapIntercept; al(k).mapSlope = A.mapSlope;
         al(k).rawStartSec = Lg.rawSec(Lg.t(1)); al(k).rawEndSec = Lg.rawSec(Lg.t(end));
         al(k).nBlocks = height(Lg.blocks); al(k).hasAudio = ~isempty(Lg.audio);
-        fprintf('%s log%d %s: |r| %.2f, lag %.2f s, drift %.1f ppm (applied %d), covers raw %.1f-%.1f min\n', ...
-            sessID, k, al(k).file, A.r, A.lagSec, A.driftPPM, A.useDrift, al(k).rawStartSec / 60, al(k).rawEndSec / 60);
+        fprintf('%s log%d %s: overlap |r| %.2f, lag %.2f s, drift %.1f ppm (applied %d), covers raw %.1f-%.1f min\n', ...
+            sessID, k, al(k).file, A.rLocal, A.lagSec, A.driftPPM, A.useDrift, al(k).rawStartSec / 60, al(k).rawEndSec / 60);
         assert(al(k).rawStartSec > -60 && al(k).rawEndSec < durRaw + 60, 'buildSweepTTL:outside', ...
             '%s: log %s maps to raw %.1f-%.1f s, outside the %.1f-s recording - alignment is wrong', ...
             sessID, al(k).file, al(k).rawStartSec, al(k).rawEndSec, durRaw);
@@ -355,8 +355,8 @@ function plotSweepTTL(rsp, fs, TTL, logTrace, info, sessID, figDir)
     L = {};
     for k = 1:numel(info.logAlign)
         a = info.logAlign(k);
-        L{end+1} = sprintf('log%d %s: |r| %.2f, lag %.3f s, drift %.1f ppm (applied %d), polarity %+d, raw %.2f-%.2f min, %d block starts, audiobook %d', ...
-            k, a.file, a.r, a.lagSec, a.driftPPM, a.useDrift, a.rspFlip, a.rawStartSec / 60, a.rawEndSec / 60, a.nBlocks, a.hasAudio); %#ok<AGROW>
+        L{end+1} = sprintf('log%d %s: overlap |r| %.2f (global %.2f), lag %.3f s, drift %.1f ppm (applied %d), polarity %+d, raw %.2f-%.2f min, %d block starts, audiobook %d', ...
+            k, a.file, a.rLocal, a.r, a.lagSec, a.driftPPM, a.useDrift, a.rspFlip, a.rawStartSec / 60, a.rawEndSec / 60, a.nBlocks, a.hasAudio); %#ok<AGROW>
     end
     if height(info.aborted) > 0
         for k = 1:height(info.aborted)

@@ -25,7 +25,15 @@ sessionIDs = cfg.sessionIDs;
 datPre     = cfg.datPre;
 datPrei    = cfg.datPrei;
 
+% ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
+onlyEnv = getenv('ZLP_MAKEOUTDAT_ONLY');
+onlyList = {};
+if ~isempty(onlyEnv), onlyList = strtrim(strsplit(onlyEnv, ',')); end
+
 for sessi = 1:length(sessionIDs)
+    if ~isempty(onlyList) && ~any(strcmp(onlyList, sessionIDs{sessi}))
+        continue
+    end
     disp(['Working on: ' sessionIDs{sessi}])
     try
 
