@@ -318,8 +318,12 @@ function out = applyParams(task, sel, xlsxPath)
             % Parameters (measured 2026-10-08 on all 14 non-empty recordings:
             % batch/probeMontage + the AD probes in E:\claudeWork\adMed1008):
             %  - rsp = CSC31 (rsp1; CSC32 = rsp2 is its inverted duplicate),
-            %    inhale DOWN as recorded -> rspFlip -1 (inhale-locked RR dips
-            %    51-88 ms with -1 and ~0 with +1 in every session);
+            %    inhale UP as recorded -> rspFlip +1, the lab's polarity for
+            %    CSC31 on this rig (SniffLogic nasal pressure, inhale-positive;
+            %    every 2026 EEG_breathing session, user-confirmed for these
+            %    recordings 2026-10-08). NB an inhale-locked RR window test
+            %    suggested -1: it is timing-sensitive (processECG stamps each
+            %    RR interval at its FIRST beat) and is not a polarity test here;
             %  - ECG: lead 1 (CSC25) changes polarity between sessions, lead 3
             %    (CSC27) has a negative R wave in every session and gives the
             %    right rate in all 14 -> beatSpec '3,0,lt,-3.5';
@@ -331,7 +335,6 @@ function out = applyParams(task, sel, xlsxPath)
             %    false).
             % The recording setup is the same in every session, so these
             % blank-cell defaults serve them all (sheet cells override).
-            P.rspFlip  = num_or(row{cFlip}, -1);
             P = ecgParams(P, row, cHasM, cBeat, false, '3,0,lt,-3.5');  % EEG rig: no macros
             P.spikeClean   = bool_or(row{cSpkC}, false);               % no macros to spike-clean
             P.blinkRemoval = false;                                    % task-level, not a sheet column

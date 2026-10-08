@@ -30,7 +30,7 @@
 % CSC25/26/27  - ECG1/2/3 (CSC26 is unconnected on this setup; kept for the
 %                standard layout - the pipeline's beatSpec uses ECG3 = CSC27,
 %                whose R wave is negative in every session)
-% CSC31        - respiration (rsp1; inhale DOWN as recorded -> rspFlip -1)
+% CSC31        - respiration (rsp1; inhale UP as recorded -> rspFlip +1, as every 2026 EEG_breathing session)
 % CSC32        - rsp2, inverted duplicate of CSC31
 % CSC269       - event: the "good meditative state" button (a ~5-s pulse,
 %                AC-coupled, under heavy 60-Hz pickup; detected in the pipeline)
