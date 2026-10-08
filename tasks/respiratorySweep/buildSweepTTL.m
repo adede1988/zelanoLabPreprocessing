@@ -23,8 +23,9 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
 %                log is aligned to (CSC31 = rsp1 on the 2026 EEG rig)
 %     fsRaw      raw sampling rate (Hz); raw sample k is at (k-1)/fsRaw s
 %     sessID     session ID (figure names / messages)
-%     logPaths   cellstr of the session's SniffLogic logs, any order; logs with
-%                no events (aborted starts) are aligned and reported, not used
+%     logPaths   cellstr of the session's SniffLogic logs, any order. A log with
+%                no events at all (an aborted start) is skipped - not aligned,
+%                listed in info.skippedLogs
 %     stopwatch  n x 2 cell {label, 'h:mm:ss' Atlas recording time} ({} = none);
 %                labels must start with 'focusedBreathing' or 'audiobook'
 %     noteChecks m x 2 or m x 3 cell {key, 'h:mm:ss'[, 'start'|'end']}: approximate
@@ -34,20 +35,28 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
 %                e.g. 'audiobook_pre', 'Sweep_b13'); {} = none
 %     figDir     QC figure folder (created if missing)
 %     opts       optional struct: .expectSweepBlocks (18), .stopwatchSec (360),
-%                .noteTolSec (120: |note - log| above this is an error)
+%                .noteTolSec (120: any |note - log| above this is an error),
+%                .noteMedianTolSec (30: with >= 2 checks, |median(note - log)|
+%                above this is an error - a systematic clock offset)
 %
 %   Outputs
 %     TTL       table, one row per block in recording order:
 %               order, label, blockType ('audiobook' | 'sweep' |
-%               'focusedBreathing'), phase ('pre' | 'sweep' | 'post'),
-%               sweepNum (1-3, NaN off-sweep), blockIdx (log block number),
-%               cpm, depth, cndNum, targetP2T, startSample, endSample (raw
-%               samples, 1-based, inclusive), startSec, endSec, durationSec
-%               (raw time, 0 = first sample), source ('sniffLogicLog' |
-%               'notes_stopwatch'), logFile
-%     info      struct: per-log alignment (logAlign), aborted blocks, the
-%               stopwatch spec, noteCheck table, rspFlip (log-derived polarity
-%               of rsp: +1 = inhale up), fsRaw, nSamples, created
+%               'focusedBreathing' | 'other'), phase ('pre' / 'sweep' / 'mid' /
+%               'post': before the first sweep block, a sweep block, between,
+%               after the last), sweepNum (pass 1-3, NaN off-sweep), blockIdx
+%               (log block number), cpm, depth, cndNum (as logged, not unique),
+%               targetP2T, startSample, endSample (raw samples, 1-based,
+%               inclusive), startSec, endSec, durationSec (raw time, 0 = first
+%               sample), source ('sniffLogicLog' | 'notes_stopwatch'), logFile
+%               Labels: the log's block names (Sweep_b<NN>_cpm<rate>_depth<scale>,
+%               or any other logged name), 'audiobook_<phase>' for the logged
+%               audiobook listen, the given labels for stopwatch blocks.
+%     info      struct: per-log alignment (logAlign), skippedLogs, aborted
+%               blocks, the stopwatch spec, noteCheck table, flags (every check
+%               that needs a look - also printed, so they survive warning('off')),
+%               rspFlip (log-derived polarity of rsp: +1 = inhale up), fsRaw,
+%               nSamples, created
 %     logTrace  struct: fs (50), pressure / target (single, NaN where no log /
 %               no target), on the raw clock (sample 1 = raw time 0)
 
@@ -55,10 +64,12 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
     if ~isfield(opts, 'expectSweepBlocks'), opts.expectSweepBlocks = 18; end
     if ~isfield(opts, 'stopwatchSec'),      opts.stopwatchSec = 360; end
     if ~isfield(opts, 'noteTolSec'),        opts.noteTolSec = 120; end
+    if ~isfield(opts, 'noteMedianTolSec'),  opts.noteMedianTolSec = 30; end
     if isempty(stopwatch),  stopwatch = cell(0, 2); end
     if isempty(noteChecks), noteChecks = cell(0, 2); end
     if ischar(logPaths) || isstring(logPaths), logPaths = cellstr(logPaths); end
     if ~isfolder(figDir), mkdir(figDir); end
+    flags = strings(0, 1);
 
     rsp = double(rsp(:)');
     if any(~isfinite(rsp))            % Neuralynx reads can carry NaN at gaps
@@ -68,18 +79,24 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
     durRaw = (N - 1) / fsRaw;
     toSamp = @(sec) round(sec * fsRaw) + 1;
 
-    % ---------------- parse + align every log ----------------
-    nLog = numel(logPaths);
-    logs = cell(nLog, 1);
+    % ---------------- parse + align every log with events ----------------
+    logs = {};
+    skipped = strings(0, 1);
     al = struct('file', {}, 'lagSec', {}, 'r', {}, 'rLocal', {}, 'reviewNeeded', {}, 'corrSign', {}, ...
                 'rspFlip', {}, 'driftPPM', {}, 'useDrift', {}, 't0Log', {}, 'mapIntercept', {}, ...
                 'mapSlope', {}, 'rawStartSec', {}, 'rawEndSec', {}, 'nBlocks', {}, 'hasAudio', {});
-    for k = 1:nLog
-        Lg = parse_sweepLog(logPaths{k});
-        [~, fn, ext] = fileparts(logPaths{k});
+    for kk = 1:numel(logPaths)
+        Lg = parse_sweepLog(logPaths{kk});
+        [~, fn, ext] = fileparts(logPaths{kk});
+        if isempty(Lg.audio) && height(Lg.blocks) == 0
+            fprintf('%s: %s has no events (%.1f s of pressure) - skipped, not aligned\n', sessID, [fn ext], Lg.t(end) - Lg.t(1));
+            skipped(end+1, 1) = string([fn ext]); %#ok<AGROW>
+            continue
+        end
+        k = numel(logs) + 1;
         A = alignLogToRaw(struct('t', Lg.t, 'p', Lg.p), rsp, fsRaw, sprintf('%s_log%d', sessID, k), figDir);
         Lg.rawSec = @(tl) A.mapIntercept + (1 + A.mapSlope) .* (tl - A.t0Log);
-        logs{k} = Lg;
+        logs{k} = Lg; %#ok<AGROW>
         al(k).file = [fn ext];
         al(k).lagSec = A.lagSec; al(k).r = A.r; al(k).rLocal = A.rLocal; al(k).reviewNeeded = A.reviewNeeded;
         al(k).corrSign = A.corrSign; al(k).rspFlip = A.rspFlip;
@@ -89,10 +106,14 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
         al(k).nBlocks = height(Lg.blocks); al(k).hasAudio = ~isempty(Lg.audio);
         fprintf('%s log%d %s: overlap |r| %.2f, lag %.2f s, drift %.1f ppm (applied %d), covers raw %.1f-%.1f min\n', ...
             sessID, k, al(k).file, A.rLocal, A.lagSec, A.driftPPM, A.useDrift, al(k).rawStartSec / 60, al(k).rawEndSec / 60);
+        if A.reviewNeeded
+            flags(end+1, 1) = sprintf('log%d alignment overlap |r| %.2f < 0.60 (REVIEW)', k, A.rLocal); %#ok<AGROW>
+        end
         assert(al(k).rawStartSec > -60 && al(k).rawEndSec < durRaw + 60, 'buildSweepTTL:outside', ...
             '%s: log %s maps to raw %.1f-%.1f s, outside the %.1f-s recording - alignment is wrong', ...
             sessID, al(k).file, al(k).rawStartSec, al(k).rawEndSec, durRaw);
     end
+    assert(~isempty(logs), 'buildSweepTTL:noLogs', '%s: no SniffLogic log with events', sessID);
     flips = unique([al.rspFlip]);
     assert(isscalar(flips), 'buildSweepTTL:polarity', ...
         '%s: the logs disagree on the respiration polarity (%s) - inspect the alignment figures', sessID, mat2str([al.rspFlip]));
@@ -101,12 +122,12 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
     R = emptyRows();
     nAudio = 0;
     aborted = table();
-    for k = 1:nLog
+    for k = 1:numel(logs)
         Lg = logs{k};
         if ~isempty(Lg.audio)
             nAudio = nAudio + 1;
             r = rowTemplate();
-            r.label = "audiobook_pre"; r.blockType = "audiobook"; r.phase = "pre";
+            r.label = "audiobook_log"; r.blockType = "audiobook";     % renamed by phase below
             r.startSec = Lg.rawSec(Lg.audio(1)); r.endSec = Lg.rawSec(Lg.audio(2));
             r.source = "sniffLogicLog"; r.logFile = string(al(k).file);
             R = [R; struct2table(r)]; %#ok<AGROW>
@@ -121,7 +142,16 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
                 continue
             end
             r = rowTemplate();
-            r.label = B.name(b); r.blockType = "sweep"; r.phase = "sweep";
+            r.label = B.name(b);
+            if B.isSweep(b)
+                r.blockType = "sweep";
+            elseif contains(lower(B.name(b)), "focus")
+                r.blockType = "focusedBreathing";
+            elseif contains(lower(B.name(b)), "audio")
+                r.blockType = "audiobook";
+            else
+                r.blockType = "other";
+            end
             r.blockIdx = B.blockIdx(b); r.cpm = B.cpm(b); r.depth = B.depth(b);
             r.cndNum = B.cndNum(b); r.targetP2T = B.targetP2T(b);
             r.startSec = Lg.rawSec(B.tStart(b)); r.endSec = Lg.rawSec(B.tEnd(b));
@@ -129,9 +159,8 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
             R = [R; struct2table(r)]; %#ok<AGROW>
         end
     end
-    assert(nAudio <= 1, 'buildSweepTTL:audio', '%s: %d logs contain an audiobook - expected one', sessID, nAudio);
     if nAudio == 0
-        warning('buildSweepTTL:noAudio', '%s: no audiobook events in any log', sessID);
+        flags(end+1, 1) = "no audiobook listen events in any log";
     end
     isSw = R.blockType == "sweep";
     bi = sort(R.blockIdx(isSw));
@@ -151,7 +180,7 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
     for s = 1:size(stopwatch, 1)
         lab = string(stopwatch{s, 1});
         r = rowTemplate();
-        r.label = lab; r.phase = "post";
+        r.label = lab;
         if startsWith(lab, "focusedBreathing")
             r.blockType = "focusedBreathing";
         elseif startsWith(lab, "audiobook")
@@ -164,7 +193,24 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
         r.source = "notes_stopwatch"; r.logFile = "";
         R = [R; struct2table(r)]; %#ok<AGROW>
     end
-    assert(numel(unique(R.label)) == height(R), 'buildSweepTTL:dupLabel', '%s: duplicate block labels', sessID);
+
+    % ---------------- phases (by time relative to the sweep) ----------------
+    swStart = min(R.startSec(isSw)); swEnd = max(R.endSec(R.blockType == "sweep"));
+    for i = 1:height(R)
+        if R.blockType(i) == "sweep"
+            R.phase(i) = "sweep";
+        elseif R.endSec(i) <= swStart
+            R.phase(i) = "pre";
+        elseif R.startSec(i) >= swEnd
+            R.phase(i) = "post";
+        else
+            R.phase(i) = "mid";
+        end
+    end
+    isLogAudio = R.label == "audiobook_log";
+    R.label(isLogAudio) = "audiobook_" + R.phase(isLogAudio);
+    assert(numel(unique(R.label)) == height(R), 'buildSweepTTL:dupLabel', '%s: duplicate block labels %s', sessID, ...
+        strjoin(R.label, ', '));
 
     % ---------------- samples, order, checks ----------------
     R.startSample = toSamp(R.startSec);
@@ -180,13 +226,10 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
         strjoin(R.label(ov) + " / " + R.label(ov + 1), '; '));
     swDur = R.durationSec(R.blockType == "sweep");
     if any(abs(swDur - median(swDur)) > 2)
-        warning('buildSweepTTL:sweepDur', '%s: sweep block durations vary: %s s', sessID, mat2str(round(swDur', 1)));
+        flags(end+1, 1) = "sweep block durations vary: " + mat2str(round(swDur', 1)) + " s";
     end
-    if any(R.source == "notes_stopwatch") && any(R.blockType == "sweep")
-        lastSweepEnd = max(R.endSec(R.blockType == "sweep"));
-        if any(R.startSec(R.source == "notes_stopwatch") < lastSweepEnd)
-            warning('buildSweepTTL:stopwatchOrder', '%s: a stopwatch block starts before the last sweep block ends', sessID);
-        end
+    if any(R.source == "notes_stopwatch" & R.phase ~= "post")
+        flags(end+1, 1) = "a stopwatch block starts before the last sweep block ends";
     end
 
     TTL = R(:, {'order', 'label', 'blockType', 'phase', 'sweepNum', 'blockIdx', 'cpm', 'depth', ...
@@ -208,20 +251,26 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
         noteCheck(end+1, :) = {key, edge, string(noteChecks{c, 2}), ns, ls, ns - ls}; %#ok<AGROW>
     end
     if height(noteCheck) > 0
-        fprintf('%s note-time check (note - log-derived start, s):\n', sessID);
+        fprintf('%s note-time check (note - log-derived time, s):\n', sessID);
         disp(noteCheck)
         bad = abs(noteCheck.diffSec) > opts.noteTolSec;
         assert(~any(bad), 'buildSweepTTL:noteClock', ...
             ['%s: note times differ from the log-derived times by more than %d s (%s) - the notes'' ' ...
              'clock may not be the raw recording clock; stopwatch blocks would be misplaced'], ...
             sessID, opts.noteTolSec, strjoin(noteCheck.key(bad), ', '));
+        if height(noteCheck) >= 2
+            md = median(noteCheck.diffSec);
+            assert(abs(md) <= opts.noteMedianTolSec, 'buildSweepTTL:noteOffset', ...
+                ['%s: the note times are offset from the log-derived times by a median %+.0f s - a systematic ' ...
+                 'clock difference would misplace the stopwatch blocks'], sessID, md);
+        end
     end
 
     % ---------------- log trace on the raw clock (50 Hz) ----------------
     fsT = 50;
     tg = (0:1/fsT:durRaw)';
     pres = nan(size(tg)); targ = nan(size(tg));
-    for k = 1:nLog
+    for k = 1:numel(logs)
         Lg = logs{k};
         rs = Lg.rawSec(Lg.t);
         in = tg >= rs(1) & tg <= rs(end);
@@ -251,17 +300,22 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
     info.fsRaw = fsRaw;
     info.nSamples = N;
     info.logAlign = al;
+    info.skippedLogs = skipped;
     info.rspFlip = flips;
     info.aborted = aborted;
     info.stopwatch = cell2table(stopwatch, 'VariableNames', {'label', 'noteTime'});
     info.stopwatchSec = opts.stopwatchSec;
     info.noteCheck = noteCheck;
+    info.flags = flags;
     info.created = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
     info.function = 'buildSweepTTL';
 
-    fprintf('%s: %d blocks (%d audiobook / %d sweep / %d focusedBreathing), rspFlip %+d, %d aborted block start(s)\n', ...
+    fprintf('%s: %d blocks (%d audiobook / %d sweep / %d focusedBreathing / %d other), rspFlip %+d, %d aborted block start(s), %d skipped log(s)\n', ...
         sessID, height(TTL), sum(TTL.blockType == "audiobook"), sum(TTL.blockType == "sweep"), ...
-        sum(TTL.blockType == "focusedBreathing"), flips, height(aborted));
+        sum(TTL.blockType == "focusedBreathing"), sum(TTL.blockType == "other"), flips, height(aborted), numel(skipped));
+    for f = 1:numel(flags)
+        fprintf('%s CHECK: %s\n', sessID, flags(f));   % printed, not warning(): loaders run with warnings off
+    end
 
     writetable(TTL, fullfile(figDir, [sessID '_sweepTTL.csv']));
     plotSweepTTL(rsp .* flips, fsRaw, TTL, logTrace, info, sessID, figDir);

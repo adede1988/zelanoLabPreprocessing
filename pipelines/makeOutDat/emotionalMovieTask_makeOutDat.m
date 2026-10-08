@@ -26,12 +26,12 @@ datPre     = cfg.datPre;
 datPrei    = cfg.datPrei;
 
 % ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
-onlyEnv = getenv('ZLP_MAKEOUTDAT_ONLY');
+onlyEnv = strtrim(getenv('ZLP_MAKEOUTDAT_ONLY'));
 onlyList = {};
-if ~isempty(onlyEnv), onlyList = strtrim(strsplit(onlyEnv, ',')); end
+if ~isempty(onlyEnv), onlyList = strtrim(strsplit(onlyEnv, ',')); onlyList = onlyList(~cellfun(, onlyList)); end
 
 for sessi = 1:length(sessionIDs)
-    if ~isempty(onlyList) && ~any(strcmp(onlyList, sessionIDs{sessi}))
+    if ~isempty(onlyList) && ~any(strcmpi(onlyList, sessionIDs{sessi}))
         continue
     end
     disp(['Working on: ' sessionIDs{sessi}])
@@ -87,6 +87,22 @@ for sessi = 1:length(sessionIDs)
     % ---- photodiode -> clip table (fs_target sample space) ----
     P = applyParams('emotionalMovieTask', sessionIDs{sessi});
     outDat.TTL = detect_ttls_emotionalMovieTask(outDat, P, fullfile(figPath, sessionIDs{sessi}));
+    % PsychoPy cross-check (2026-10-08): when the session's PsychoPy clip log is
+    % in <id>\behavioralData\, keep only photodiode clips that match a played clip
+    % (valence from the log, threshold chosen by agreement) - see
+    % matchClipsToPsychoPy. Sessions without the log keep the photodiode table.
+    pp = dir(fullfile(datPre{datPrei(sessi)}, sessionIDs{sessi}, 'behavioralData', ...
+        [sessionIDs{sessi} '_emotionalMovieTask_*.csv']));
+    if ~isempty(pp)
+        [~, ib] = max([pp.bytes]);           % an aborted start leaves a near-empty csv
+        [outDat.TTL, outDat.clipCheck] = matchClipsToPsychoPy(outDat, P, ...
+            fullfile(pp(ib).folder, pp(ib).name), fullfile(figPath, sessionIDs{sessi}));
+        % the movieClipTTLs figure shows the last threshold tried: redraw it at the chosen one
+        Pc = P; Pc.pd.zthresh = outDat.clipCheck.zthresh;
+        detect_ttls_emotionalMovieTask(outDat, Pc, fullfile(figPath, sessionIDs{sessi}));
+    else
+        disp('   no PsychoPy clip log in behavioralData - photodiode clip table not cross-checked')
+    end
     fprintf('   %d clips: %d neutral / %d happy / %d sad\n', height(outDat.TTL), ...
         sum(outDat.TTL.valence == "neutral"), sum(outDat.TTL.valence == "happy"), ...
         sum(outDat.TTL.valence == "sad"));

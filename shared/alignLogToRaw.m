@@ -26,7 +26,9 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
 %     .rspFlip     inferred flip so that inhale is positive
 %     .driftPPM    linear drift (raw seconds per log second - 1) * 1e6
 %     .useDrift    whether the linear term is applied
-%     .logToRaw500 @(tLog) sample index at 500 Hz in the raw recording
+%     .logToRaw500 @(tLog) sample index at 500 Hz in the raw recording, computed
+%                  as round(rawSeconds * 500), i.e. 0-based (the alternating6Blocks
+%                  convention; one 2-ms sample early as a 1-based index)
 %     .t0Log, .mapIntercept, .mapSlope   the same map as plain numbers (safe to
 %                  save): raw time (s, 0 = first raw sample) of log time tLog =
 %                  mapIntercept + (1 + mapSlope) * (tLog - t0Log); mapSlope = 0
@@ -74,6 +76,10 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
     rLocal = abs(cc(1, 2));
     fprintf('%s: peak |r| = %.3f (sign %+d) at lag %.2f s; runner-up %.3f; overlap |r| %.3f over %.1f min\n', ...
         sessID, pk, corrSign, lagSamp / FS, pk2, rLocal, sum(okO) / FS / 60);
+    % the overlap |r| is only meaningful when the log lies (almost) entirely inside
+    % the recording - a sliver of overlap at an edge can correlate by chance
+    assert(sum(okO) >= 0.8 * numel(pL), 'alignLogToRaw:coverage', ...
+        '%s: only %.0f%% of the log overlaps the recording at the peak lag - stop and inspect', sessID, 100 * sum(okO) / numel(pL));
     assert(rLocal >= 0.40, 'alignLogToRaw:weakPeak', ...
         '%s: alignment overlap |r|=%.3f < 0.40 (global peak %.3f) - stop and inspect', sessID, rLocal, pk);
     assert(pk2 < 0.9 * pk, 'alignLogToRaw:ambiguous', ...
@@ -133,6 +139,12 @@ function A = alignLogToRaw(log, rsp, fsRaw, sessID, figDir)
         driftTotal = cf(1) * (tGrid(end) - tGrid(1));
         driftPPM = cf(1) * 1e6;
         useDrift = abs(driftTotal) > 1/500;
+        % the window lags are 20-Hz estimates (50-ms steps); keep their SLOPE but
+        % anchor the line on the refined 100-Hz whole-log lag at the windows'
+        % centroid (the point the least-squares line passes through), so the
+        % applied map keeps the refined lag's precision (2026-10-08)
+        xm = mean(centers - t0Log);
+        cf(2) = lagSec - cf(1) * xm;
         fprintf('%s: drift %.1f ppm (%.3f s over recording) -> linear map %s\n', ...
             sessID, driftPPM, driftTotal, string(useDrift));
     end

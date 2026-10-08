@@ -17,6 +17,9 @@ function L = parse_sweepLog(csvPath)
 %   target_pa is filled only while a pacing block runs (the target trace the
 %   participant traced). A block_start without its block_end is an aborted
 %   block (e.g. a restarted run) and is returned with complete = false.
+%   Any other block name (e.g. the focused-breathing / audiobook blocks once the
+%   protocol logs them) is kept with isSweep = false and NaN pace fields; the
+%   block's 'block' column number is its blockIdx in that case.
 %
 %   Returns struct L with
 %     .file         csvPath
@@ -25,8 +28,9 @@ function L = parse_sweepLog(csvPath)
 %     .tTarget, .target   rows that carry target_pa (s, Pa)
 %     .audio        [tStart tEnd] of the audiobook, [] when the log has none
 %     .blocks       table, one row per block_start in log order:
-%                   name, blockIdx, cpm, depth, cndNum, targetP2T, center,
-%                   gain, tStart, tEnd (NaN if aborted), complete
+%                   name, isSweep, blockIdx, cpm, depth, cndNum (as logged; not
+%                   unique - b06 and b07 both log 7), targetP2T, center, gain,
+%                   tStart, tEnd (NaN if aborted), complete
 %     .events       table t, block, event of every event row (provenance)
 
     % the event column is sparse text and target_pa / block are mostly empty:
@@ -78,7 +82,7 @@ function L = parse_sweepLog(csvPath)
     isEnd   = startsWith(ev, "block_end ");
     sIdx = find(isStart);
     n = numel(sIdx);
-    name = strings(n, 1); blockIdx = nan(n, 1); cpm = nan(n, 1); depth = nan(n, 1);
+    name = strings(n, 1); blockIdx = nan(n, 1); cpm = nan(n, 1); depth = nan(n, 1); isSweep = false(n, 1);
     cndNum = nan(n, 1); targetP2T = nan(n, 1); center = nan(n, 1); gain = nan(n, 1);
     tStart = nan(n, 1); tEnd = nan(n, 1); complete = false(n, 1);
     endNames = extractAfter(ev(isEnd), "block_end ");
@@ -90,11 +94,14 @@ function L = parse_sweepLog(csvPath)
         name(k) = string(tok{1});
         kv = tok{2};
         nm = regexp(tok{1}, '_b(\d+)_cpm([\d.]+)_depth([\d.]+)$', 'tokens', 'once');
-        assert(~isempty(nm), 'parse_sweepLog:blockName', ...
-            '%s: block name "%s" does not match <prefix>_b<NN>_cpm<rate>_depth<scale>', csvPath, tok{1});
-        blockIdx(k) = str2double(nm{1});
-        cpm(k)      = str2double(nm{2});
-        depth(k)    = str2double(nm{3});
+        if ~isempty(nm)
+            isSweep(k)  = true;
+            blockIdx(k) = str2double(nm{1});
+            cpm(k)      = str2double(nm{2});
+            depth(k)    = str2double(nm{3});
+        else
+            blockIdx(k) = T.block(sIdx(k));     % a non-pacing block: the logged block number
+        end
         cndNum(k)    = kvNum(kv, 'cndNum');
         targetP2T(k) = kvNum(kv, 'target_p2t');
         center(k)    = kvNum(kv, 'center');
@@ -115,7 +122,7 @@ function L = parse_sweepLog(csvPath)
     end
     assert(all(usedEnd), 'parse_sweepLog:orphanEnd', '%s: %d block_end without a block_start', ...
         csvPath, sum(~usedEnd));
-    L.blocks = table(name, blockIdx, cpm, depth, cndNum, targetP2T, center, gain, tStart, tEnd, complete);
+    L.blocks = table(name, isSweep, blockIdx, cpm, depth, cndNum, targetP2T, center, gain, tStart, tEnd, complete);
 
     fprintf('parse_sweepLog: %s\n   %.1f min of pressure, audiobook %s, %d blocks (%d complete)\n', ...
         csvPath, (L.t(end) - L.t(1)) / 60, mat2str(round(L.audio, 1)), n, sum(complete));

@@ -92,6 +92,9 @@ for s = 1:numel(sessionIDs)
     if P.rspIDX == 1 && outDat.TTLinfo.rspFlip ~= P.rspFlip
         error(['%s: sheet rspFlip (%+d) contradicts the log-alignment polarity ' ...
                '(%+d) - fix the sheet before running'], S.id, P.rspFlip, outDat.TTLinfo.rspFlip);
+    elseif P.rspIDX ~= 1
+        fprintf(['%s: rspIDX %d is not the log-aligned channel (rsp1) - the log polarity check is ' ...
+                 'skipped; verify rspFlip on the paramCheck figure\n'], S.id, P.rspIDX);
     end
 
     if isGuess, [outDat, P] = paramCheck(outDat, P); end
@@ -101,11 +104,13 @@ for s = 1:numel(sessionIDs)
 
     % ===== TASK-SPECIFIC (respiratorySweep) =====
     % event table: raw samples -> final samples (time-exact: raw sample k is at
-    % (k-1)/origFS s, final sample j at (j-1)/fs s); TTL = block starts
+    % (k-1)/origFS s, final sample j at (j-1)/fs s); the start rounds to the
+    % nearest final sample, the inclusive end to the last final sample at or
+    % before the raw end sample's time; TTL = block starts
     nS = size(outDat.data, 2);
     blocks = blocksRaw;
     blocks.startSample = round((blocksRaw.startSample - 1) * outDat.fs / outDat.origFS) + 1;
-    blocks.endSample   = min(nS, round((blocksRaw.endSample - 1) * outDat.fs / outDat.origFS) + 1);
+    blocks.endSample   = min(nS, floor((blocksRaw.endSample - 1) * outDat.fs / outDat.origFS) + 1);
     assert(all(blocks.startSample >= 1 & blocks.endSample > blocks.startSample), 'block conversion failed');
     outDat.blocks = blocks;
     outDat.TTL = blocks.startSample';              % breathing-style vector (block starts)

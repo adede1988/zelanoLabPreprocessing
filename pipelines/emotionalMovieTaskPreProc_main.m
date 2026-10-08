@@ -70,6 +70,7 @@ for s = 1:numel(sessionIDs)
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
     raw    = assembleRaw_emotionalMovieTask(S);   % <-- TASK-SPECIFIC
     outDat = assembleOutDat(raw, S, P);           % shared
+    if isfield(raw, 'clipCheck'), outDat.clipCheck = raw.clipCheck; end   % PsychoPy clip cross-check
 
     if isGuess, [outDat, P] = paramCheck(outDat, P); end
 

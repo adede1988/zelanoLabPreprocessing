@@ -79,15 +79,15 @@ function plotBlocks_respiratorySweep(outDat, rspDat)
         m = bh.condition == b;
         medR = median(bh.rateBPM(m), 'omitnan');
         if B.blockType(b) == "sweep"
-            ttl = sprintf('b%02d %g/min d%.2f: med %.1f/min (n=%d)', B.blockIdx(b), B.cpm(b), B.depth(b), medR, sum(m));
+            ttl = {sprintf('b%02d  target %g/min, depth %.2f', B.blockIdx(b), B.cpm(b), B.depth(b)), sprintf('median %.1f/min (n=%d)', medR, sum(m))};
         else
-            ttl = sprintf('%s: med %.1f/min (n=%d)', B.label(b), medR, sum(m));
+            ttl = {char(B.label(b)), sprintf('median %.1f/min (n=%d)', medR, sum(m))};
         end
-        title(ax, ttl, 'Interpreter', 'none', 'FontSize', 8);
+        title(ax, ttl, 'Interpreter', 'none', 'FontSize', 7.5, 'FontWeight', 'normal');
         xlim(ax, [t(1) t(end)]); grid(ax, 'on');
         if mod(b - 1, nc) == 0, ylabel(ax, 'z'); end
     end
-    sgtitle(fig, sprintf('%s: 40 s of each block from 30 s after its start - black respiration, blue target trace', ...
+    sgtitle(fig, sprintf('%s: 40 s of each block, from 30 s after its start (black respiration, blue target trace, z)', ...
         outDat.sessID), 'Interpreter', 'none');
     saveas(fig, fullfile(outDat.figs, 'sweepBlocks_zoom.jpg'));
     close(fig);
@@ -117,9 +117,9 @@ function plotBlocks_respiratorySweep(outDat, rspDat)
         inT = bm(:, 11) >= t(1) & bm(:, 11) <= t(end);
         plot(ax, bm(inT, 11), bm(inT, 10), 'bo', 'MarkerSize', 3);
         xlim(ax, [t(1) t(end)]); grid(ax, 'on');
-        title(ax, sprintf('%s (%d onsets in 60 s)', B.label(b), sum(in)), 'Interpreter', 'none', 'FontSize', 8);
+        title(ax, {char(B.label(b)), sprintf('%d onsets in 60 s', sum(in))}, 'Interpreter', 'none', 'FontSize', 8, 'FontWeight', 'normal');
     end
-    sgtitle(fig, sprintf('%s breath segmentation: green = inhale onset, red = inhale peak, blue = exhale trough (s from recording start)', ...
+    sgtitle(fig, sprintf('%s breath segmentation (green onset, red inhale peak, blue exhale trough; s)', ...
         outDat.sessID), 'Interpreter', 'none');
     saveas(fig, fullfile(outDat.figs, 'breathOverlay.jpg'));
     close(fig);
@@ -131,14 +131,15 @@ function shade(ax, B, fs, yl, withText)
         switch B.blockType(b)
             case "audiobook",        c = [0.30 0.50 0.90];
             case "focusedBreathing", c = [0.20 0.65 0.30];
-            otherwise,               c = [0.95 0.55 0.15];
+            case "sweep",            c = [0.95 0.55 0.15];
+            otherwise,               c = [0.60 0.60 0.60];
         end
         patch(ax, [x0 x1 x1 x0], [yl(1) yl(1) yl(2) yl(2)], c, 'FaceAlpha', 0.15, 'EdgeColor', 'none');
         if withText
             if B.blockType(b) == "sweep"
                 txt = sprintf('b%02d', B.blockIdx(b));
             else
-                txt = strrep(char(B.label(b)), '_', ' ');
+                txt = shortLabel(B.label(b));
             end
             text(ax, (x0 + x1) / 2, yl(2) - 0.5, txt, 'HorizontalAlignment', 'center', ...
                  'VerticalAlignment', 'top', 'FontSize', 7, 'Interpreter', 'none');
@@ -149,4 +150,13 @@ end
 function y = z(x)
     x = double(x(:)');
     y = (x - mean(x)) / (std(x) + eps);
+end
+
+function s = shortLabel(lab)
+% 'audiobook_pre' -> 'AB pre', 'focusedBreathing_post2' -> 'FB2', 'audiobook_post1' -> 'AB1'
+    lab = char(lab);
+    s = regexprep(lab, '^audiobook_pre$', 'AB pre');
+    s = regexprep(s, '^audiobook_post(\d+)$', 'AB$1');
+    s = regexprep(s, '^focusedBreathing_post(\d+)$', 'FB$1');
+    s = strrep(s, '_', ' ');
 end

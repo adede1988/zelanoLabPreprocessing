@@ -35,9 +35,12 @@ function plotSweepTTL(rsp, fs, TTL, logTrace, info, sessID, figDir)
             case "audiobook"
                 c = [0.30 0.50 0.90];
                 txt = {'AB', char(TTL.phase(b)), regexprep(char(TTL.label(b)), '^.*_(post|pre)', '')};
-            otherwise
+            case "focusedBreathing"
                 c = [0.20 0.65 0.30];
                 txt = {'FB', char(TTL.phase(b)), regexprep(char(TTL.label(b)), '^.*_(post|pre)', '')};
+            otherwise
+                c = [0.60 0.60 0.60];
+                txt = {strrep(char(TTL.label(b)), '_', ' ')};
         end
         patch(ax1, [x0 x1 x1 x0], [yl(1) yl(1) yl(2) yl(2)], c, 'FaceAlpha', 0.25, 'EdgeColor', 'none');
         text(ax1, (x0 + x1) / 2, yl(2) - 0.2, txt, 'HorizontalAlignment', 'center', ...
@@ -47,16 +50,16 @@ function plotSweepTTL(rsp, fs, TTL, logTrace, info, sessID, figDir)
     ylim(ax1, yl); xlim(ax1, [0 t10(end)]); grid(ax1, 'on');
     xlabel(ax1, 'Atlas recording time (min)'); ylabel(ax1, 'rsp1, robust z');
     title(ax1, {sprintf('%s  respiratorySweep event table (raw-file curDat.TTL)', sessID), ...
-        ['blue = audiobook (AB), orange = sweep block (pace /min, depth; darker = deeper), green = focused ' ...
-         'breathing (FB); post-sweep blocks = stopwatch times from the session notes, 6 min each']}, ...
-        'Interpreter', 'none', 'FontSize', 10);
+        ['blue = audiobook (AB), orange = sweep (pace /min, depth; darker = deeper), green = focused breathing (FB); ' ...
+         'post blocks = stopwatch times from the notes, 6 min']}, ...
+        'Interpreter', 'none', 'FontSize', 9);
 
     % ---------------- zooms ----------------
     zoomKeys = {'audiobook_pre', 'Sweep_b01', 'Sweep_b18', 'focusedBreathing'};
     zoomEdge = {'start', 'start', 'end', 'start'};
     tP = (0:numel(logTrace.pressure) - 1)' / logTrace.fs;
     for z = 1:4
-        ax = axes(fig, 'Position', [0.05 + (z - 1) * 0.24, 0.30, 0.205, 0.22]); hold(ax, 'on');
+        ax = axes(fig, 'Position', [0.05 + (z - 1) * 0.24, 0.32, 0.205, 0.20]); hold(ax, 'on');
         m = find(startsWith(TTL.label, zoomKeys{z}), 1);
         if isempty(m), axis(ax, 'off'); continue; end
         if strcmp(zoomEdge{z}, 'start'), tc = TTL.startSec(m); w = [tc - 20, tc + 40];
@@ -76,7 +79,7 @@ function plotSweepTTL(rsp, fs, TTL, logTrace, info, sessID, figDir)
         title(ax, {char(TTL.label(m)), sprintf('%s (%s)', zoomEdge{z}, TTL.source(m))}, 'Interpreter', 'none', 'FontSize', 8);
         xlabel(ax, 's from block edge', 'FontSize', 8);
     end
-    annotation(fig, 'textbox', [0.05 0.245 0.92 0.03], 'String', ...
+    annotation(fig, 'textbox', [0.05 0.225 0.92 0.03], 'String', ...
         ['zooms (z-scored): black = raw rsp1 (CSC31), red = SniffLogic log pressure mapped onto the raw clock, ' ...
          'blue dashed = target trace; magenta = block edge'], 'EdgeColor', 'none', 'FontSize', 8, 'Interpreter', 'none');
 
@@ -99,12 +102,22 @@ function plotSweepTTL(rsp, fs, TTL, logTrace, info, sessID, figDir)
         L{end+1} = sprintf('note check %s %s: notes %s = %.0f s, logs %.0f s, note - log = %+.0f s', ...
             nc.key(k), ed, nc.noteTime(k), nc.noteSec(k), nc.logSec(k), nc.diffSec(k)); %#ok<AGROW>
     end
+    if isfield(info, 'skippedLogs')
+        for k = 1:numel(info.skippedLogs)
+            L{end+1} = sprintf('skipped log (no events, not aligned): %s', info.skippedLogs(k)); %#ok<AGROW>
+        end
+    end
+    if isfield(info, 'flags')
+        for k = 1:numel(info.flags)
+            L{end+1} = sprintf('CHECK: %s', info.flags(k)); %#ok<AGROW>
+        end
+    end
     sw = TTL(TTL.source == "notes_stopwatch", :);
     for k = 1:height(sw)
         L{end+1} = sprintf('stopwatch %-24s %s - %s (%.0f s, hard-coded from the session notes)', sw.label(k), ...
             hmsStr(sw.startSec(k)), hmsStr(sw.endSec(k)), sw.durationSec(k)); %#ok<AGROW>
     end
-    axT = axes(fig, 'Position', [0.05 0.01 0.92 0.22]); axis(axT, 'off');
+    axT = axes(fig, 'Position', [0.05 0.0 0.92 0.215]); axis(axT, 'off');
     text(axT, 0, 1, L, 'VerticalAlignment', 'top', 'FontSize', 8, 'Interpreter', 'none', 'FontName', 'FixedWidth');
 
     saveas(fig, fullfile(figDir, [sessID '_sweepTTL.png']));

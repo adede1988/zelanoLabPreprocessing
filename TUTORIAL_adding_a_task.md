@@ -49,7 +49,10 @@ richest) as your template.
   `spikeClean`, …) are set for every task already.
 
 Mirror the same two mappings in `pipelines/preprocessAll.m` (`taskKey` / `canonTask`) and add
-your task to the `tasks` list and the run block.
+your task to the `tasks` list and the run block. The sheet writers keep their own copies of the
+mappings too: add the task to `taskKey` / `canonTask` in `config/writeParams.m` and `config/setPreProcX.m`
+(else `writeParams` / `writePreProcX` fail at the very end of a run), and to the per-task tie-break list in
+`shared/findLoadDataScript.m`.
 
 Then add rows for your sessions to `dataTracking.xlsx`: `Subject ID`, `Task` (your sheet value),
 `Type` (`Dupi`/`OBEControl`/`EEGbreathing`), `Raw Data Extracted` (non‑blank), plus the parameter

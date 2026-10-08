@@ -75,6 +75,7 @@ function ratings = parse_sweepRatings(csvPaths)
         if height(R) == 0, continue; end
         R = sortrows(R, 't');
         setId = cumsum([1; diff(R.t) > 120]);
+        used = strings(0, 1);
         for s = 1:max(setId)
             m = setId == s;
             tm = median(R.t(m));
@@ -85,7 +86,15 @@ function ratings = parse_sweepRatings(csvPaths)
             else
                 lab = "midSweep";
             end
+            % several sets of one kind in a run (e.g. ratings after each logged
+            % post-sweep block in a later protocol) stay distinct: postSweep_2, ...
+            nUsed = sum(used == lab);
+            used(end+1, 1) = lab; %#ok<AGROW>
+            if nUsed > 0, lab = lab + "_" + (nUsed + 1); end
             R.set(m) = lab;
+            if sum(m) ~= numel(qmap(:, 1))
+                fprintf('parse_sweepRatings: %s set %s has %d of %d questions\n', [fn ext], lab, sum(m), size(qmap, 1));
+            end
         end
         ratings = [ratings; R]; %#ok<AGROW>
     end
