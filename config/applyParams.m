@@ -14,12 +14,17 @@ function out = applyParams(task, sel, xlsxPath)
 %
 %   task in {'breathingTask','cueTask','threshTask','O15','EmotionalMovieTask',
 %            'alternating6Blocks','breathingTasks_separate','pacedBreathing',
-%            'vipassana'}
+%            'vipassana','ADmeditation'}
 %   default xlsxPath = labPaths().adminXlsx, the lab master
 %     (R:\Neurology\Zelano_Lab\Lab_Common\Admin\Data\dataTracking.xlsx). If that
 %     file is unreachable or lacks the datPre parameter column, falls back - with
 %     an applyParams:localFallback warning on every call - to the copy at the
 %     repo root, <repo>\dataTracking.xlsx.
+%     EXCEPTION - ADmeditation (2026-10-08) is tracked in its own sheet,
+%     labPaths().adMedXlsx (Admin\Data\dataTracking_AD_meditation.xlsx, same
+%     layout: header row 2, data from row 3); no local fallback. That sheet
+%     carries only the parameter columns this task uses; the master-only
+%     columns are treated as blank (padMissingCols).
 %
 %   Mode A cfg fields:
 %     .sessionIDs (n x 1 cell)  .root (n x 1 cell)  .datPre (1 x k cell, fixed order)
@@ -27,10 +32,6 @@ function out = applyParams(task, sel, xlsxPath)
 %     .rspIDX (1 x n)  .rspFlip (1 x n)  .paramSource (1 x n cell)
 %
 %   See CLAUDE.md section 3 for the full contract.
-
-    if nargin < 3 || isempty(xlsxPath)
-        xlsxPath = resolveDefaultXlsx();
-    end
 
     % --- canonical roots (order is load-bearing: 1=Dupi 2=OBEControl 3=EEGbreathing) ---
     % Sourced from labPaths so they follow the machine's lab-common drive.
@@ -44,7 +45,21 @@ function out = applyParams(task, sel, xlsxPath)
         error('applyParams:badTask', 'Unknown task "%s".', char(string(task)));
     end
 
+    if nargin < 3 || isempty(xlsxPath)
+        if strcmp(tkey, 'adMed')
+            xlsxPath = L.adMedXlsx;       % the task's own tracking sheet
+        else
+            xlsxPath = resolveDefaultXlsx();
+        end
+    end
+
     C = readSheetCached(xlsxPath);
+    if strcmp(tkey, 'adMed')
+        % the AD sheet holds only the columns this task uses: the master-only
+        % parameter columns read below are appended blank (-> defaults)
+        C = padMissingCols(C, {'spikeThresh', 'spikeWin', 'macroRemove', 'respThresh', ...
+            'cuedBackBuff', 'adjWin', 'ttlRemoveIdx', 'ttlNote', 'isNewStd'});
+    end
 
     % --- locate columns by trimmed header name (header row = 2) ---
     hdr = C(2, :);
@@ -285,9 +300,59 @@ function out = applyParams(task, sel, xlsxPath)
             switch selStr
             end
             P.vipOpts = struct();
+
+        case 'adMed'
+            % ADmeditation (added 2026-10-08): Adam's repeated ~60-min seated
+            % meditation recordings on the EEG_breathing Atlas rig (Zelano_
+            % EEGbreathing.cfg: 32-ch EEG, ECG1-3, rsp1-2, event), tracked in
+            % their own sheet (labPaths().adMedXlsx). One continuous recording
+            % per session, no behavioral file; the only marker is a button on
+            % the event channel pressed at a "good" meditative state (a ~5-s
+            % pulse, AC-coupled: +step at the press, -step at the release).
+            % No makeOutDat (raw loaded directly, like pacedBreathing). Every
+            % recording is trimmed: the first 3 min and the last 1 min are
+            % dropped (user, 2026-10-08) before any processing.
+            % Parameters (measured 2026-10-08 on all 14 non-empty recordings:
+            % batch/probeMontage + the AD probes in E:\claudeWork\adMed1008):
+            %  - rsp = CSC31 (rsp1; CSC32 = rsp2 is its inverted duplicate),
+            %    inhale DOWN as recorded -> rspFlip -1 (inhale-locked RR dips
+            %    51-88 ms with -1 and ~0 with +1 in every session);
+            %  - ECG: lead 1 (CSC25) changes polarity between sessions, lead 3
+            %    (CSC27) has a negative R wave in every session and gives the
+            %    right rate in all 14 -> beatSpec '3,0,lt,-3.5';
+            %  - eyes closed throughout (frontal blink rate ~0/min in every
+            %    session) -> no blink removal (as vipassana): an ICA "blink"
+            %    component would be eye drift / alpha, and the batch blink-IC
+            %    selection errors when none is blink-like;
+            %  - 32-ch EEG present (hasEEG), no macros (hasMacros / spikeClean
+            %    false).
+            % The recording setup is the same in every session, so these
+            % blank-cell defaults serve them all (sheet cells override).
+            P.rspFlip  = num_or(row{cFlip}, -1);
+            P = ecgParams(P, row, cHasM, cBeat, false, '3,0,lt,-3.5');  % EEG rig: no macros
+            P.spikeClean   = bool_or(row{cSpkC}, false);               % no macros to spike-clean
+            P.blinkRemoval = false;                                    % task-level, not a sheet column
+            % trimming + button-press detection options (see
+            % detectButtonPresses_ADmeditation for the detector's defaults)
+            P.adMedOpts = struct('trimStartSec', 180, 'trimEndSec', 60, 'press', struct());
+            switch selStr     % explicit per-session overrides (none needed yet)
+            end
     end
 
     out = P;
+end
+
+function C = padMissingCols(C, names)
+% Append a blank column (header in row 2) for every name the header row lacks,
+% so findCol below resolves it and every cell reads as blank -> its default.
+    hdr = C(2, :);
+    for i = 1:numel(names)
+        if findColSoftLocal(hdr, names{i}) == 0
+            C(:, end + 1) = {missing}; %#ok<AGROW>
+            C{2, end} = names{i};
+            hdr = C(2, :);
+        end
+    end
 end
 
 % ======================= helpers =======================
@@ -483,6 +548,8 @@ function k = canonTask(t)
             k = 'paced';   % pacedBreathing (added 2026-09-15)
         case {'vipassana'}
             k = 'vip';     % vipassana (added 2026-09-26)
+        case {'admeditation'}
+            k = 'adMed';   % ADmeditation (added 2026-10-08; own sheet)
         otherwise
             % breathingTasks_separate condition rows (D12a; OBE button/mouth
             % 2026-09-22; plain focusedBreathing_button and <cond>_run<N>
@@ -508,6 +575,7 @@ function k = taskKey(task)
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
         case 'vipassana',          k = 'vip';
+        case 'admeditation',       k = 'adMed';
         case {'breathingtasks_separate', 'breathingtasksseparate'}, k = 'sep';
         otherwise,                 k = '';
     end
@@ -525,6 +593,7 @@ function s = taskCallerKey(task)
         case 'paced',     s = 'pacedBreathing';
         case 'sep',       s = 'breathingTasks_separate';
         case 'vip',       s = 'vipassana';
+        case 'adMed',     s = 'ADmeditation';
         otherwise,        s = asChar(task);
     end
 end

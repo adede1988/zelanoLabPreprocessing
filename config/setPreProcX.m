@@ -23,12 +23,7 @@ function setPreProcX(P, sessID, value, xlsxPath)
             error('setPreProcX:badValue', 'value must be ''X'' or '''' (got "%s").', value);
     end
 
-    if nargin < 4 || isempty(xlsxPath)
-        xlsxPath = resolveDefaultXlsx(who);
-    end
-    if exist(xlsxPath, 'file') ~= 2
-        error([who ':noFile'], 'Spreadsheet not found: %s', xlsxPath);
-    end
+    useDefaultXlsx = nargin < 4 || isempty(xlsxPath);   % resolved once the task is known
 
     sessID = strtrim(char(string(sessID)));
     if isempty(sessID)
@@ -42,6 +37,17 @@ function setPreProcX(P, sessID, value, xlsxPath)
         % an unknown task would "match" any sheet row whose Task is also
         % unmapped (canonTask '') and silently write the wrong cell
         error([who ':badTask'], 'Unknown task "%s".', char(string(P.task)));
+    end
+    if useDefaultXlsx
+        if strcmp(tkey, 'adMed')
+            L = labPaths();
+            xlsxPath = L.adMedXlsx;     % ADmeditation: its own tracking sheet
+        else
+            xlsxPath = resolveDefaultXlsx(who);
+        end
+    end
+    if exist(xlsxPath, 'file') ~= 2
+        error([who ':noFile'], 'Spreadsheet not found: %s', xlsxPath);
     end
 
     % --- read the sheet, locate the header row (the one with 'Subject ID') ---
@@ -156,6 +162,7 @@ function k = taskKey(task)   % P.task -> key
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
         case 'vipassana',          k = 'vip';
+        case 'admeditation',       k = 'adMed';
         otherwise,                 k = '';
     end
 end
@@ -183,6 +190,8 @@ function k = canonTask(t)    % sheet Task cell -> key
             k = 'paced';
         case 'vipassana'
             k = 'vip';
+        case 'admeditation'
+            k = 'adMed';
         otherwise
             k = '';
     end
