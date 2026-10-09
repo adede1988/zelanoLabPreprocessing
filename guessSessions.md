@@ -168,6 +168,20 @@ to v1; only the EEG stage changed. Still-block badTS = fraction of each still bl
 
 `dataLap` is present again for DD but is still subject to the CLAUDE.md §6.3 known issue (off-sphere coordinates).
 
+## ADmeditation (2026-10-08) — promoted to curated 2026-10-09
+
+Adam's 14 repeated meditation recordings (`AllStudyData\AD_repeatRecordings`; own sheet
+`Admin\Data\dataTracking_AD_meditation.xlsx`, CLAUDE.md §1/§3). One parameter set for every session, measured on all
+14 recordings: `rspIDX 1, rspFlip +1` (CSC31 inhale up, the rig's polarity — a −1 guess from an RR-window test was
+wrong, see CLAUDE.md §1), `beatSpec 3,0,lt,-3.5` (ECG3 negative R in every session; ECG1 flips between sessions),
+`hasEEG` true, no macros / spike cleaning, `P.blinkRemoval = false` (eyes closed, blink rate ~0/min). Run on guess
+(D4) 2026-10-08, QC page `AD_repeatRecordings\preProc\ADmeditation_QC_261008.html` reviewed by the user, all 14 rows
+promoted to `curated` 2026-10-09 (finals unchanged by the promotion). Outcome: 694–935 breaths / session (97–99 %
+good), HR 53–68 bpm, 58 button presses in the analysis windows + 4 in trimmed stretches (3 in the first 3 min; 260709
+press 7 at 62.63 min, 23 s before the end), every paired press 5.00 ± 0.02 s; 260825 has no presses; 260831's
+respiration amplitude is ~10x smaller than the others (detection unaffected). Empty stub recordings 260615_ADmed_0920
+and 260707_ADmed_1017 are listed in the sheet, not extracted.
+
 ## Dupi/OBE breathingTask guess sessions — Part-2 probe pass (2026-08-27)
 
 Instruction: run these with critically-evaluated parameters (measured ECG

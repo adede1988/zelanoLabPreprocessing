@@ -1,9 +1,9 @@
 # zelanoLabPreprocessing
 
 MATLAB preprocessing pipelines for the Zelano Lab's respiration + scalp‑EEG / intracranial‑EEG
-(+ ECG) experiments. One shared signal‑processing core serves **nine tasks** —
+(+ ECG) experiments. One shared signal‑processing core serves **ten tasks** —
 `breathingTask`, `cueTask`, `threshTask`, `O15`, `pacedBreathing`, `EmotionalMovieTask`,
-`alternating6Blocks`, `breathingTasks_separate`, and `vipassana` — differing only in how the raw data
+`alternating6Blocks`, `breathingTasks_separate`, `vipassana`, and `ADmeditation` — differing only in how the raw data
 are laid out and how events (photodiode/TTL) and behavior are parsed.
 
 This repository is a **self‑contained copy of the preprocessing code**: every function the
@@ -66,7 +66,7 @@ The final `.mat` holds one struct (`outDat`, or `chanDat` for breathingTask fina
 | `pipelines/` | the deliverable entry points: `preprocessAll.m` + one `*PreProc_main.m` per task |
 | `pipelines/makeOutDat/` | the raw→intermediate ingestion scripts (breathing / cue / thresh / emotionalMovie / alternating6Blocks) |
 | `shared/` | the task‑shared signal core (`runSharedCore`) + assembly + EEG/spike/onset helpers, the breath engine (`segmentBreaths_zlp`) and the breath‑type stage helpers (per‑breath table, ECG/HRV) |
-| `tasks/breathing/` `tasks/cue/` `tasks/thresh/` `tasks/O15/` `tasks/pacedBreathing/` `tasks/emotionalMovie/` `tasks/alternating6Blocks/` `tasks/breathingSeparate/` `tasks/vipassana/` | each task's raw loader, behavior‑table builder, and task‑specific helpers |
+| `tasks/breathing/` `tasks/cue/` `tasks/thresh/` `tasks/O15/` `tasks/pacedBreathing/` `tasks/emotionalMovie/` `tasks/alternating6Blocks/` `tasks/breathingSeparate/` `tasks/vipassana/` `tasks/ADmeditation/` | each task's raw loader, behavior‑table builder, and task‑specific helpers |
 | `batch/` | reusable QC / maintenance tools (e.g. `probeMontage.m` to verify a new LoadData channel map) — not pipeline steps |
 | `external/breathMetrics/` | the BreathMetrics respiration toolbox (vendored from the lab fork `qhyang42/breathmetrics`, commit `9791153`, 2026‑08‑03; BSD-style academic licence per the upstream `zelanolab/breathmetrics` README/publication — Noto et al. 2018, *Chemical Senses*). Driven, unmodified, by `shared/segmentBreaths_zlp.m`, which computes every breath‑based task's per‑breath features with it. |
 
@@ -111,7 +111,9 @@ psychopy `mindfulBreathing` CSV). The pipelines *write* their own per‑breath C
    ```
    or run one task's pipeline directly, e.g. `cueTask_makeOutDat` then `cueTaskPreProc_main`.
    `preprocessAll` runs breathingTask / cueTask / threshTask / O15 / pacedBreathing / vipassana; run the
-   EmotionalMovieTask, alternating6Blocks and breathingTasks_separate pipelines directly.
+   EmotionalMovieTask, alternating6Blocks and breathingTasks_separate pipelines directly, and
+   `ADmeditationPreProc_main` (its sessions live in their own sheet, `dataTracking_AD_meditation.xlsx`;
+   new recordings are extracted by the one `LoadData_ADmeditation_claude.m` in the study folder).
 
    Sessions whose `paramSource` is `guess` deliberately halt for interactive verification
    (`paramCheck` figures + an onset gate); once you've inspected the figures, set the row to
@@ -127,6 +129,9 @@ structure is inferred from the breaths themselves (`tasks/pacedBreathing/inferBl
 comes from a BrainVision Recorder, not Neuralynx/Atlas (`batch/readBrainVision.m`, `batch/probeMontageBV.m`),
 and its block structure is inferred from an EEG artifact index rather than from breaths
 (`tasks/vipassana/inferBlocks_vipassana.m`), since one of its three sessions has no usable respiration.
+`ADmeditation` (2026-10-08) is the simplest breath-type template: one continuous recording per session, a
+fixed trim, and event-channel button presses carried into the final as analysis anchors
+(`tasks/ADmeditation/detectButtonPresses_ADmeditation.m`); it is tracked in its own sheet.
 
 See **[`TUTORIAL_adding_a_task.md`](TUTORIAL_adding_a_task.md)** for a step‑by‑step guide to
 standing up a new task by writing only the task‑specific pieces and reusing the shared core.
