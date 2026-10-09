@@ -196,10 +196,31 @@ QC page: https://claude.ai/artifact/JaAv8wnnYN6FB8x976FcjN (figures also in `R:\
 | 261006_EEG_NWU_RC | EmotionalMovieTask | 0.55 GB, `[42 x 1002528]` | 337 (317) | 179 bounded clips | 1650 / 49.4 bpm | F7 FT9 FC5 F8 | 15.8 % | |
 | 261006_EEG_NWU_IS | EmotionalMovieTask | 0.54 GB, `[42 x 971758]` | 548 (539) | 179 bounded clips | 1823 / 56.3 bpm | FT9 T7 TP9 | 2.1 % | |
 
-Not processed: `261007_EEG_NWU_AL` (rows 649–650; organized on R:, session notes not filed yet — the stopwatch block
-times come from them). Rows 651–658: four older sessions found only on the external drive (`260828_EEG_NWU_CC`,
-`260901_EEG_NWU_ES`, `260902_EEG_NWU_YW`, `260908_EEG_NWU_MC`), copied to R:, first recording's task not identified
-(Task `unidentified`), movie recording listed, nothing extracted.
+RC and IS (rows 645–648) promoted to `paramSource = curated` on 2026-10-09 after QC review; the finals were not re-run.
+
+### 261007_EEG_NWU_AL (2026-10-09)
+
+Session notes filed 2026-10-09 (`IRB\STU00201748_Respiratory Oscillations (EEG)\2026 Participant Documentation\`);
+stopwatch block times read independently three times, all agreeing. Loader `LoadData_261007_EEG_NWU_AL_claude.m`,
+same rig channel map as RC/IS (probeMontage). Sheet rows 649–650 (parameters written 2026-10-09).
+
+| Subject ID | Task | Type | sheet row | guessed columns = values | basis | status | notes |
+|---|---|---|---|---|---|---|---|
+| 261007_EEG_NWU_AL | respiratorySweep | EEG_breathing | 649 | same as RC/IS | probeMontage + log alignment (r 0.88, +1) | run-on-guess (D4) | 1 SniffLogic log; stopwatch FB 1:05:10, AB 1:13:19, FB 1:20:30, AB 1:27:10; note checkpoints (AB 2:02, sweeps 10:20 / 28:40 / 44:50) land 2–20 s from the log events; RSITT not done (notes) |
+| 261007_EEG_NWU_AL | EmotionalMovieTask | EEG_breathing | 650 | same | same | run-on-guess (D4) | recording `_0001`; 180/180 clips matched to PsychoPy (zthresh −3.5, 4 detections dropped, residual median 4 ms) |
+
+Run outcome (2026-10-09 14:20–14:35, lab desktop, same settings; finals verified by `qcAL.m`; `Data Preprocessed = X`).
+QC page: https://claude.ai/artifact/5eqnCBnzNLkM5nhEPNPRHJ.
+
+| Subject ID | Task | final | breaths (good) | in blocks / clips | beats / HR | badChans | badTS | notes |
+|---|---|---|---|---|---|---|---|---|
+| 261007_EEG_NWU_AL | respiratorySweep | 1.58 GB, `[43 x 2869504]` | 974 (771) | 786 in 23 blocks | 6679 / 69.8 bpm | Oz O2 | 18.4 % | slow paces over-segmented (b12 / b18, target 4 → medians 7.5 / 7.4 /min); sparse nasal airflow from the post-sweep blocks on (SniffLogic sees it too; notes: 5 h sleep, tired 6/10) |
+| 261007_EEG_NWU_AL | EmotionalMovieTask | 0.53 GB, `[42 x 972476]` | 180 in-clip rows (88 good) | 179 bounded clips | 2155 / 66.5 bpm | F3 F7 FT9 FC5 T7 TP9 P7 O1 Oz O2 P8 TP10 T8 FT10 FC6 F4 F8 Fp1 | 33.5 % | respiration sparse throughout; EEG much worse than the sweep recording |
+
+Rows 651–658: four older sessions found only on the external drive (`260828_EEG_NWU_CC`, `260901_EEG_NWU_ES`,
+`260902_EEG_NWU_YW`, `260908_EEG_NWU_MC`), copied to R:, nothing extracted. Their session notes (read 2026-10-09)
+show the first recording was the **alternating6Blocks** task, the second the emotional videos (CC's movie is in
+`_0002`).
 
 ## Dupi/OBE breathingTask guess sessions — Part-2 probe pass (2026-08-27)
 
