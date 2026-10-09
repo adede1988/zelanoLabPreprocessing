@@ -221,6 +221,9 @@ Rows 651–658: four older sessions found only on the external drive (`260828_EE
 `260902_EEG_NWU_YW`, `260908_EEG_NWU_MC`), copied to R:, nothing extracted. Their session notes (read 2026-10-09)
 show the first recording was the **alternating6Blocks** task, the second the emotional videos (CC's movie is in
 `_0002`).
+Sheet Task set to `alternating6Blocks` (rows 651/653/655/657). Not extractable yet: their `mindfulBreathing` /
+`sniffLogicLog` files are not on R:, the external drive or Google Drive (`breathingDataFiles` logs stop on 2026-08-11).
+Their movie recordings (rows 652/654/656/658) need no behavioral file beyond the PsychoPy CSV already in `behavioralData`.
 
 ## Dupi/OBE breathingTask guess sessions — Part-2 probe pass (2026-08-27)
 
