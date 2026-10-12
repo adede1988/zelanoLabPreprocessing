@@ -223,6 +223,12 @@ condition recording for breathingTasks_separate; never edit per task):**
    against `config/eegLocs_standard_coords.csv`, attaches coords, detects + interpolates noisy channels
    (`removeNoiseChansVolt`), removes blinks on the good channels via ICA (`blinkRemoveWrapper`; blink‑IC
    auto‑selection with a manual fallback) when > 10 survive, and computes a Perrin surface Laplacian.
+   Blink‑IC rule since 2026‑10‑12 (`selectMode 'frontal'`): a candidate's average‑referenced map must peak at
+   Fp1/Fp2 (≥ 2× its mean weight) and its time course must track mean(Fp1,Fp2) − common average below 10 Hz with
+   |r| ≥ 0.6, else **no IC is removed** (blinkRemoval stays 1; sleep / eyes‑closed sections typically remove
+   nothing). The ICA training window avoids `badTS`; the flat‑channel test ignores stretches where every channel
+   is flat (recording gaps). The decision is stored in `outDat.blinkICA` (sep: per section) with the legacy
+   pick for comparison; `P.blinkSelect = struct('selectMode','legacy')` restores the old max‑corr‑with‑Fp1 rule.
    Appends QC channels and EEG fields (§6.3). Blink removal is skipped — the same degrade path as when both
    blink channels are bad: data unchanged, `blinkRemoval = 0`, no `blinkIndicator` row, bad‑channel
    handling / `badTS` / `interpChan` / Laplacian as usual — when `P.blinkRemoval` is `false` (task‑level flag,
@@ -245,7 +251,9 @@ condition recording for breathingTasks_separate; never edit per task):**
   is `NA` / whose CSV has no `target` column gets a zero target, like the audio/pre conditions);
   `processECG` band‑passes the `ECG` channels 5–40 Hz, z‑scores (`buildECGz`), detects beats (`detectBeats`
   per `beatSpec`, min separation `fs/20`), filters inter‑beat intervals physiologically, and appends an
-  interpolated **`RRint`** channel; `flagBadBreaths` adds per‑breath QC.
+  interpolated **`RRint`** channel (optional per‑session `P.minIBI`, set in an `applyParams` `switch sessID` case —
+  currently only `251009_OBE_NWU_CP_1`, 0.7 s — prunes beats closer than that to the last kept beat and floors the
+  RR series); `flagBadBreaths` adds per‑breath QC.
 - **other breath‑type tasks** (movie / alt6 / paced / sep / vipassana) call `segmentBreaths_zlp` from their
   mains — vipassana only when its respiration viability probe passes (`probeRespViability_vipassana`;
   otherwise `respSkipped=2`, no `bmObj`) — and vipassana's block boundaries come from an artifact‑index +
