@@ -213,8 +213,9 @@ end
 function [mi, fit, res, segs, segOf, F] = alignTimes(c, d)
 % match PsychoPy times c (s, its own clock) to detected onsets d (s, recording).
 % The PsychoPy -> recording mapping d = a + (1 + b) * c can STEP between two
-% clips and stay constant on either side (2026-08 sessions: 260806_MM -0.85 s
-% after clip 43, 260807_GP +0.35 s after clip 134; the recordings have no gaps),
+% clips and stay constant on either side (2026-08 sessions: the offset grows by
+% 0.80 s from 260806_MM clip 44 and by 0.36 s from 260807_GP clip 135; the
+% recordings have no gaps),
 % so it is fitted piecewise:
 %   1. discovery: fit one mapping to the clips not yet explained (best offset
 %      over candidate pairs, then two linear refits); the clips it puts within

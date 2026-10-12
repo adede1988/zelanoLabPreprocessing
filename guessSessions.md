@@ -91,6 +91,32 @@ an earlier −1 inference was corrected 2026-08-26 and all finals rebuilt) and
 | 250904_OBE_NWU_TI_1 | EmotionalMovieTask | OBEControl | rspIDX=3, rspFlip=+1 (curated row 49), hasEEG=true, spikeClean=true, spikeThresh=**50**, beatSpec=`1,0,lt,-2 & 2,1,gt,3 & 3,2,lt,0` | inherited + old script values | not run | new-format intermediate saved (180 clips, 59/61/60 by valence) |
 | 251009_OBE_NWU_CP_1 | EmotionalMovieTask | OBEControl | rspIDX=1, rspFlip=+1 (curated row 77), hasEEG=true, spikeClean=true, spikeThresh=**15**, spikeWin=**7**, macroRemove=**6**, beatSpec=`3,0,lt,-3` | inherited + old script values | not run | old final left untouched |
 
+**Clip norms reprocess (2026-10-12, branch `respiratorySweep-261008` @ ef9e943, lab desktop).** Every EEG movie
+session with a PsychoPy clip log was rebuilt (makeOutDat + main) so that `TTL` carries `fileName`, `vidLenSec`,
+`normValence/Arousal/Impact` (DEVO2 per-clip means, not participant ratings), `movieStart/movieStop`, and each
+breath its clip's title and norms. The pre-rebuild finals, their figures and processed-behavior CSVs are in
+`E:\reprocBackup_261012_movie\<id>\` on the lab desktop. All 10 passed verification (fs, `moreThan1`, `manOnset`,
+new columns finite, behDat joins TTL, norms equal the CSV, heart beats and badChans unchanged):
+
+| Subject ID | clips kept / played (before) | dropped detections | valences corrected | clock segments | in-clip breaths (before) |
+|---|---|---|---|---|---|
+| 260806_EEG_NWU_JH | 180 / 180 (192) | 12 | 10 | 1 | 342 (363) |
+| 260806_EEG_NWU_MM | 180 / 180 (189) | 64 | 7 | **2** (offset +0.80 s from clip 44) | 403 (435) |
+| 260807_EEG_NWU_GP | 180 / 180 (196) | 16 | 10 | **2** (offset +0.36 s from clip 135) | 257 (255) |
+| 260810_EEG_NWU_IS | 180 / 180 (190) | 10 | 12 | 1 | 356 (356) |
+| 260810_EEG_NWU_AL | 179 / 180 (188) | 62 | 11 | 1 (median residual 41 ms) | 429 (430) |
+| 260811_EEG_NWU_MS | 180 / 180 (192) | 63 | 13 | 1 (median residual 33 ms; PsychoPy stall in clips 54–55) | 379 (379) |
+| 260811_EEG_NWU_HK | 180 / 180 (185) | 60 | 2 | 1 | 378 (382) |
+| 261006_EEG_NWU_RC | 180 / 180 (180) | 2 | 0 | 1 | 340 (337) |
+| 261006_EEG_NWU_IS | 180 / 180 (180) | 2 | 0 | 1 | 549 (548) |
+| 261007_EEG_NWU_AL | 180 / 180 (180) | 4 | 0 | 1 | 180 (180) |
+
+"Before" = the photodiode-only finals of 2026-09-03 (Aug sessions) or the 2026-10-08/09 PsychoPy-checked finals.
+MM and GP first failed the cross-check (153 / 134 of 180 matched): their PsychoPy-to-recording mapping steps once
+between two clips (no gap in the recordings), which the piecewise clock fit now handles. The OBE movie sessions
+(AS_4, TI_1, CP_1) have no PsychoPy log and were not part of this run. Sheet: the 2026-08-10 IS, 260811 MS and HK
+movie rows were promoted to curated by another session earlier on 2026-10-12.
+
 ## alternating6Blocks (Task 8)
 
 Same EEG standard set + empirical rspFlip=+1 (no flip) + beatSpec=`1,0,lt,-3.5`
