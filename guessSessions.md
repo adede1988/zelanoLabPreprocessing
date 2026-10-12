@@ -256,4 +256,6 @@ fraction of samples inside 0.2-s notch windows; the actual change is ~1 µV RMS 
 | cue BG RA_1 EZ_1 ZF_2 RX_2 RC_2 BW_2 | cue | respThresh / cuedBackBuff per verdict; ZF_2 macroRemove 4,5 | BG 34→38 trials, RA_1 trial 50 fixed, BW_2 54→60, RX_2 loses trial 7, RC_2/EZ_1 unchanged onsets |
 | thresh RX_1 EZ_1 JA_2 | thresh | cuedBackBuff 150; EZ_1 macroRemove 2 etc.; JA_2 hasEEG TRUE | RX_1 tail: EEG/macro overload from ~851 s, zeros from 897 s (after last trial) |
 
-Still blocked: 260504_Dupi_NMH_JA_2 O15 — the O15 answers exist only in the session video.
+| 260820_OBE_NWU_DW_1 | sep (curated) | rerun with the new blink IC rule (user request) | section 1 now removes an Fp2 IC (r 0.86; the old rule's pick scored 0.60); section 2 unchanged; 90 breaths, 1273 beats unchanged |
+
+Still blocked (user decision 2026-10-12): 260504_Dupi_NMH_JA_2 O15 stays without a final until the user supplies the answers (`O15_responses_260504_Dupi_NMH_JA_2.csv`; they exist only in the session video). Open decisions: `guessReview_261012.html`.
