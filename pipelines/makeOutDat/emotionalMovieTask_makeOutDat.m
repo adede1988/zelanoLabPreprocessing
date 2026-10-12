@@ -74,7 +74,7 @@ for sessi = 1:length(sessionIDs)
         outDat.data = fillmissing(outDat.data, 'linear', 2, 'EndValues', 'nearest');
     end
 
-    outDat.behDat = table();      % this task has no behavioral file
+    outDat.behDat = table();      % per-breath table built by the main; the PsychoPy clip log (below) feeds TTL
     if datPrei(sessi) == 1
         outDat.type = 'Dupi';
     elseif datPrei(sessi) == 2

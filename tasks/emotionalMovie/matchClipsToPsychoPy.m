@@ -8,9 +8,11 @@ function [TTL, chk] = matchClipsToPsychoPy(od, P, csvPath, figDir)
 %   P        applyParams('EmotionalMovieTask', id) (P.pd photodiode parameters)
 %   csvPath  the session's PsychoPy <id>_emotionalMovieTask_<datetime>.csv (one row
 %            per clip: fileName, group = neut / happy / sad, photoDiode1.started =
-%            first photodiode flash on the PsychoPy clock, movie.stopped = end of
-%            the clip on the same clock, and the conditions-file columns vidLen /
-%            valence / arousal / impact)
+%            first photodiode flash on the PsychoPy clock, movie.started /
+%            movie.stopped = the clip's first frame / the first screen flip after
+%            its routine ended (= the next clip's movie.started, ~0.3 s after
+%            playback ends), and the conditions-file columns vidLen / valence /
+%            arousal / impact)
 %   figDir   QC figure folder
 %
 %   The photodiode pulse-count grammar (1 / 2 / 3 pulses = neutral / happy / sad,
@@ -28,9 +30,12 @@ function [TTL, chk] = matchClipsToPsychoPy(od, P, csvPath, figDir)
 %        the PsychoPy valence (fewest unmatched detections on ties) is kept;
 %     4. detections without a PsychoPy clip are dropped, valence comes from the
 %        PsychoPy log (pulse-count disagreements are counted), clipEnd is
-%        recomputed with the legacy rule (next onset - P.pd.clipEndGapSec). The
-%        last kept clip has no next onset: its end is its movieStop (NaN when
-%        the log has no movie.stopped).
+%        recomputed with the legacy rule (next onset - P.pd.clipEndGapSec, which
+%        lands ~0.27 s after the clip's movieStop). Two exceptions end a clip at
+%        its own movieStop instead (NaN when the log has no usable movie.stopped):
+%        the last kept clip (no next onset), and a kept clip whose next PsychoPy
+%        clip was not matched (the legacy window would run through that unmatched
+%        clip and give its breaths this clip's identity and norms).
 %   Each clip's own PsychoPy movie.started / movie.stopped times are mapped onto
 %   the recording with the same offset/drift fit (movieStart / movieStop,
 %   clamped to the recording). The task starts the movie with the trial routine
@@ -39,14 +44,15 @@ function [TTL, chk] = matchClipsToPsychoPy(od, P, csvPath, figDir)
 %   definition.
 %   Errors when fewer than 95% of the PsychoPy clips can be matched.
 %
-%   The stimulus attributes of each kept clip are copied from the log:
-%   vidLenSec (clip length, s) and normValence / normArousal / normImpact. These
-%   are NOT the participant's ratings (the task collects none): they are the
-%   per-clip mean ratings (1-9 scale; valence unhappy-happy, arousal
-%   calm-excited, impact none-intense) of the DEVO2 norms (Davidson et al. 2025,
-%   Behav Res Methods 57:161) that configFileCreation.R copied into the task's
-%   conditions file (EmotionalMovieTask repo, configFile1.csv). The norm prefix
-%   avoids a clash with TTL.valence, the neutral / happy / sad category.
+%   The stimulus attributes of each kept clip are copied from the log: vidLenSec
+%   (the clip's length in s, DEVO2 Lengthofmoviesec) and normValence /
+%   normArousal / normImpact. The norm* columns are NOT the participant's
+%   ratings (the task collects none): they are the DEVO2 per-clip mean ratings
+%   (1-9 scales; valence 1 unhappy - 9 happy, arousal 1 calm - 9 excited,
+%   impact 1 no impact - 9 intense impact; Davidson et al. 2025, Behav Res
+%   Methods 57:161) that configFileCreation.R copied into the task's conditions
+%   file (EmotionalMovieTask repo, configFile1.csv). The norm prefix avoids a
+%   clash with TTL.valence, the neutral / happy / sad category.
 %
 %   Returns TTL in the makeOutDat convention (fs_target samples: clipOnset,
 %   clipEnd, nPulses, valence) plus nPulsesDetected / psychopyIdx / fileName /
@@ -124,6 +130,11 @@ function [TTL, chk] = matchClipsToPsychoPy(od, P, csvPath, figDir)
     nSampT = floor(size(od.data, 2) / (od.fs / fsT));
     TTL.movieStart = toRec(T, 'movie.started', TTL.psychopyIdx, best.fit, fsT, nSampT);
     TTL.movieStop  = toRec(T, 'movie.stopped', TTL.psychopyIdx, best.fit, fsT, nSampT);
+    % a kept clip whose next PsychoPy clip went unmatched: the legacy window
+    % (next KEPT onset - gap) would run through the unmatched clip - end it at
+    % its own movieStop instead
+    gapNext = [diff(TTL.psychopyIdx) > 1; false] & isfinite(TTL.movieStop);
+    TTL.clipEnd(gapNext) = TTL.movieStop(gapNext);
     % the last kept clip has no next onset: end it at its movieStop
     lastEndSrc = "none";
     if isfinite(TTL.movieStop(end))
@@ -144,15 +155,21 @@ function [TTL, chk] = matchClipsToPsychoPy(od, P, csvPath, figDir)
     chk.driftPPM = best.fit(2) * 1e6;
     chk.residualMs = 1000 * best.res(matched);
     chk.lastClipEndSource = lastEndSrc;
+    chk.nEndAtMovieStopBeforeGap = sum(gapNext);   % kept clips followed by an unmatched clip
+    if lastEndSrc == "none"
+        lastNote = 'last clip end NaN (no usable PsychoPy movie.stopped); ';
+    else
+        lastNote = 'last clip ends at its movieStop; ';
+    end
     chk.note = ['clips = PsychoPy clips matched to photodiode onsets within 0.3 s; valence from the PsychoPy log; ' ...
                 'detections without a PsychoPy clip dropped; movieStart / movieStop = PsychoPy movie.started / ' ...
                 'movie.stopped on the recording (clipOnset = photodiode flash, ~1.6-1.9 s after movieStart); ' ...
-                'last clip ends at its movieStop; ' ...
-                'vidLenSec / normValence / normArousal / normImpact = DEVO2 norms from the conditions file, ' ...
-                'not participant ratings (matchClipsToPsychoPy)'];
-    fprintf('%s: kept %d clips (zthresh %g; %d detections dropped; %d valences taken from PsychoPy over the pulse count); residual median %.0f ms, max %.0f ms\n', ...
+                lastNote sprintf('%d clips followed by an unmatched clip end at their movieStop; ', chk.nEndAtMovieStopBeforeGap) ...
+                'vidLenSec = clip length (s); normValence / normArousal / normImpact = DEVO2 per-clip mean ratings ' ...
+                'from the conditions file, not participant ratings (matchClipsToPsychoPy)'];
+    fprintf('%s: kept %d clips (zthresh %g; %d detections dropped; %d valences taken from PsychoPy over the pulse count); residual median %.0f ms, max %.0f ms; %d clips end at movieStop before an unmatched clip; last clip end: %s\n', ...
         od.sessID, chk.nMatched, chk.zthresh, chk.nDroppedDetections, chk.nValenceFromPsychoPy, ...
-        median(abs(chk.residualMs)), max(abs(chk.residualMs)));
+        median(abs(chk.residualMs)), max(abs(chk.residualMs)), chk.nEndAtMovieStopBeforeGap, lastEndSrc);
 
     % QC figure: matched / unmatched onsets and timing residuals
     fig = figure('Visible', 'off', 'Position', [0 0 1400 600], 'Color', 'w');

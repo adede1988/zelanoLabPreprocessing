@@ -17,10 +17,11 @@ function outDat = build_behavior_table_emotionalMovieTask(outDat)
 %
 %   Clip columns per breath: clipIndex (row of outDat.TTL), clipValence
 %   (category), clipOnset, then clipFile, clipVidLenSec, clipNormValence,
-%   clipNormArousal, clipNormImpact from the PsychoPy clip log (the DEVO2
-%   per-clip norms, not the participant's ratings - see matchClipsToPsychoPy);
-%   these are "" / NaN when the session has no PsychoPy log, so every session's
-%   table has the same columns.
+%   clipNormArousal, clipNormImpact from the PsychoPy clip log (clip length in s
+%   and the DEVO2 per-clip mean ratings, not the participant's ratings - see
+%   matchClipsToPsychoPy); these are "" / NaN when the session has no PsychoPy
+%   log or its intermediate predates 2026-10-12 (the norms need a fresh
+%   makeOutDat), so every session's table has the same columns.
 
     bmObj = outDat.bmObj;
     T = outDat.TTL;
