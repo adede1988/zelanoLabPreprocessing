@@ -80,7 +80,8 @@ function [outTTLs, raw] = detect_ttls_O15(raw, P)
         
     end
 
-    confirmMarks = []; 
+    sniffMarksAll = sniffMarks;   % before the confirm-pair pass below removes pairs
+    confirmMarks = [];
     for tt = 1:length(trialMarks)
         if tt < length(trialMarks)
             idx = find(sniffMarks>trialMarks(tt) & ...
@@ -96,6 +97,27 @@ function [outTTLs, raw] = detect_ttls_O15(raw, P)
         end
     end
     
+    % Optional per-session rule (P.ttl.confirmAfterPress, set in applyParams
+    % for 251030_Dupi_NMH_DB_3): the confirm sniff is the LAST sniff mark
+    % after the button press of each trial (a single pulse there), and the
+    % double pulse (~0.6 s apart) between trial start and press is one
+    % sniff event (kept as its first pulse) - the pair-of-pulses rule above
+    % would instead take DB_3's pre-press pair as the confirm and leave the
+    % real post-press confirm pulse unused.
+    if isfield(P.ttl, 'confirmAfterPress') && P.ttl.confirmAfterPress
+        sniffMarks = sniffMarksAll;
+        confirmMarks = nan(1, 15);
+        for tt = 1:15
+            tPress = trialMarks(2*tt);
+            if 2*tt < length(trialMarks), tNext = trialMarks(2*tt+1); else, tNext = inf; end
+            idx = sniffMarks(sniffMarks > tPress & sniffMarks < tNext);
+            if ~isempty(idx), confirmMarks(tt) = idx(end); end
+        end
+        sniffMarks(ismember(sniffMarks, confirmMarks)) = [];
+        % the pair is ONE sniff signalled by a double pulse (start and free
+        % both land on the same respiration sniff otherwise): keep the first
+        sniffMarks(find(diff(sniffMarks) < raw.fs_raw) + 1) = [];
+    end
     % confirmMarks = sniffMarks(diff(sniffMarks)<raw.fs_raw);
     % idx = find(diff(sniffMarks)<raw.fs_raw);
     % sniffMarks([idx, idx+1]) = []; 

@@ -3,6 +3,9 @@ function behDat = build_behavior_table_O15(sniffs, rawBeh)
 % Shared front matter (first 6 columns) comes from behDatFromSniffs; the loop
 % below is the TASK-SPECIFIC broadcast of O15 raw-behavior fields onto each sniff.
 
+    % detect_sniffs_from_TTLs preallocates 30 rows: with fewer sniffs than that
+    % (e.g. DB_3: one start + one confirm per trial) drop the unfilled rows
+    sniffs = sniffs(sniffs(:,6) > 0, :);
     behDat = behDatFromSniffs(sniffs, {"start", "free", "confirm"});
 
     for ii = 1:length(rawBeh.target)

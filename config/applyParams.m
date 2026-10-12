@@ -224,6 +224,22 @@ function out = applyParams(task, sel, xlsxPath)
                 'expectedTrialCount', 30, ...
                 'removeTrialMarksIdx', list_or(rows{ri, cTtlR}, []), ...
                 'note', stringOrEmpty(rows{ri, cTtlN}));
+            switch selStr
+                case '251030_Dupi_NMH_DB_3'
+                    % 2026-10-12: the DAQ event channel is rail-clipped (+-5000)
+                    % and its z-scored low state never reaches -2 (z min -1.39),
+                    % so the standard threshold finds no pulses; -1 gives the
+                    % usual widths (~620 samples trial marks, ~1008 sniff marks
+                    % at 2 kHz: inside the standard min/max/split). The 5 sync
+                    % pulses at the start leave one extra short pulse (17.2 s)
+                    % after detect_ttls_O15's start-of-run cut: drop trial mark 1
+                    P.pd.zthresh = -1;
+                    P.ttl.removeTrialMarksIdx = 1;
+                    % DB_3 trials read start (2 short) / sniff (double long
+                    % pulse) / press / confirm sniff (single long pulse): see
+                    % detect_ttls_O15 (confirmAfterPress)
+                    P.ttl.confirmAfterPress = true;
+            end
 
         case 'movie'
             % EmotionalMovieTask (Tasks_260824.md Task 7): breathing-type
@@ -236,6 +252,15 @@ function out = applyParams(task, sel, xlsxPath)
                           'maxPulseSamp', 2000, 'searchWin', 2000, ...
                           'numNeg', 3, 'numPos', 2, 'numNeu', 1, ...
                           'clipEndGapSec', 1.6);
+            % Per-session ECG override (explicit switch on the ID, repo convention).
+            % P.minIBI (s) is honoured by shared/processECG: beats closer than
+            % this to the last kept beat are dropped before the RR series.
+            switch selStr
+                case '251009_OBE_NWU_CP_1'
+                    % 2026-10-12 reviewer: over-detected beats (IBI 0.1-0.7 s, true
+                    % rate ~66 bpm / IBI ~0.9 s) -> discard every IBI below 0.7 s
+                    P.minIBI = 0.7;
+            end
 
         case 'alt6'
             % alternating6Blocks (Tasks_260824.md Task 8): breathing-type
@@ -265,11 +290,13 @@ function out = applyParams(task, sel, xlsxPath)
             P = ecgParams(P, row, cHasM, cBeat, true, '1,0,gt,3.5');
             % which condition recordings this session has (sheet order): the
             % session's rows that the Mode-A selection accepts for 'sep'
-            allConds = {};
+            allConds = {}; allRsp = []; allFlip = [];
             for r2 = 1:size(data, 1)
                 if ~isEligibleRow(data(r2, :), 'sep', cSub, cTask, cRaw, cDT), continue; end
                 if ~strcmpi(strtrim(asChar(data{r2, cSub})), selStr), continue; end
                 allConds{end+1} = strtrim(asChar(data{r2, cTask})); %#ok<AGROW>
+                allRsp(end+1)   = num_or(data{r2, cRsp}, 1);        %#ok<AGROW>
+                allFlip(end+1)  = num_or(data{r2, cFlip}, 1);       %#ok<AGROW>
             end
             % a duplicated condition row would load the same recording twice
             [uc, iu] = unique(lower(allConds), 'stable');
@@ -279,6 +306,13 @@ function out = applyParams(task, sel, xlsxPath)
                     selStr, numel(allConds), numel(uc));
             end
             P.conditions = allConds(iu);
+            % per-condition respiration channel (2026-10-12, 260921_OBE_NWU_BW_2:
+            % binaps in three recordings, spirometer for the mouth recording):
+            % each condition row's own rspIDX / rspFlip, aligned with
+            % P.conditions. P.rspIDX / P.rspFlip stay the first row's (as
+            % before); the main only changes behaviour when these differ.
+            P.condRspIDX  = allRsp(iu);
+            P.condRspFlip = allFlip(iu);
 
         case 'vip'
             % vipassana (added 2026-09-26): three single-session BrainVision

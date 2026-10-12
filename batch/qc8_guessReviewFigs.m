@@ -104,6 +104,14 @@ for tt = 1:size(TASKS, 1)
             labs = cellfun(@(x) char(string(x)), od.labels, 'UniformOutput', false);
 
             % ---------------- flags from the final ----------------
+            if isfield(od, 'surrogateTTL')
+                st = od.surrogateTTL;
+                if isstruct(st) && isfield(st, 'summary')
+                    info.notes{end+1} = ['FLAG: SURROGATE markers (no DAQ pulses were recorded): ' char(st.summary)];
+                else
+                    info.notes{end+1} = 'FLAG: SURROGATE markers (no DAQ pulses were recorded) - see outDat.surrogateTTL';
+                end
+            end
             if isfield(od, 'blinkRemoval')
                 info.blinkRemoval = od.blinkRemoval;
                 if ~od.blinkRemoval
@@ -323,6 +331,19 @@ for tt = 1:size(TASKS, 1)
                     end
                 end
                 info.nHarvested = numel(copied);
+                % preprocess_macros makes macroSpikeRemoval.jpg only when the targeted
+                % ICA actually ran; with spikeClean=false (or too few spikes) a copy in
+                % the session figure folder is a STALE leftover of an earlier run, so
+                % do not show it as if it described this final
+                if isfield(info, 'spikeSamplesAltered') && info.spikeSamplesAltered == 0
+                    stale = dir(fullfile(outDir, 'macroSpikeRemoval*'));
+                    for h = 1:numel(stale)
+                        delete(fullfile(stale(h).folder, stale(h).name));
+                    end
+                    if ~isempty(stale)
+                        info.notes{end+1} = 'macroSpikeRemoval figure omitted: no spike removal applied in this final (spikeCleanVec all ones); the figure on disk is from an earlier run';
+                    end
+                end
                 recompressDir(outDir);
             catch ME2
                 info.notes{end+1} = ['figure harvest failed: ' ME2.message];

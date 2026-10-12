@@ -89,7 +89,7 @@ function outDat = concatSections(segs, S, P)
                         sampOffset + 1, sampOffset + n};
         % per-section EEG QC metadata (interpolation/cleaning are per segment)
         q = struct();
-        for fq = {'badChans', 'EEGInterpolation', 'EEGCleaning', 'blinkRemoval', 'dataLapFromInterp'}
+        for fq = {'badChans', 'EEGInterpolation', 'EEGCleaning', 'blinkRemoval', 'dataLapFromInterp', 'blinkICA'}
             if isfield(od, fq{1}), q.(fq{1}) = od.(fq{1}); end
         end
         eegQC{c} = q;
@@ -112,6 +112,36 @@ function outDat = concatSections(segs, S, P)
     outDat.sections = secTab;
     outDat.eegQCPerSection = eegQC;   % top-level fields still describe section 1
     outDat.TTL = reshape([secTab.startSample'; secTab.endSample'], 1, []);
+
+    % ---- per-condition respiration channels (only when they differ) ----
+    % Analysts select the respiration trace with the canonical idiom
+    %   rsp = data(isRsp,:); rsp = rsp(outDat.rspIDX,:) .* outDat.rspFlip.
+    % When the sections use different channels/polarities, append ONE row
+    % 'rspSelected' (label contains 'rsp'; after the raw rsp rows, so their
+    % indices do not shift) = each section's chosen channel x its flip, point
+    % rspIDX at it with rspFlip = 1, and record each section's choice in
+    % outDat.sections.rspIDX / rspFlip. Sessions with one channel are untouched.
+    [~, ~, mixed] = sepSectionRsp(P);
+    if mixed
+        lab = outDat.labels;
+        isRsp = cellfun(@(x) contains(x, 'rsp'), lab);
+        rspRows = outDat.data(isRsp, :);
+        sel = zeros(1, size(outDat.data, 2));
+        sIdx = zeros(nSeg, 1); sFlip = zeros(nSeg, 1);
+        for c = 1:nSeg
+            [sIdx(c), sFlip(c)] = sepSectionRsp(P, segs(c).condition);
+            r = secTab.startSample(c):secTab.endSample(c);
+            sel(r) = rspRows(sIdx(c), r) .* sFlip(c);
+        end
+        outDat.data(end+1, :) = sel;
+        outDat.labels{end+1} = 'rspSelected';
+        outDat.rspIDX  = sum(isRsp) + 1;     % index among the rsp rows (new row is last)
+        outDat.rspFlip = 1;
+        secTab.rspIDX = sIdx; secTab.rspFlip = sFlip;
+        outDat.sections = secTab;
+        outDat.rspSelectedNote = ['row rspSelected = per-section chosen rsp channel x its flip (outDat.sections.rspIDX/rspFlip); ' ...
+            'raw rsp rows are unchanged; rspIDX points at rspSelected, rspFlip = 1'];
+    end
 end
 
 function F = appendFeat(F, name, v)

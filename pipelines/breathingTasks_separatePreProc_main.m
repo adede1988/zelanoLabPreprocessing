@@ -65,16 +65,37 @@ for s = 1:numel(sessionIDs)
         raw = struct('sessID', S.id, 'fs_raw', raws(c).fs_raw, ...
                      'data', raws(c).data, 'labels', {raws(c).labels}, ...
                      'beh', table());
-        od = assembleOutDat(raw, S, P);
+        % this recording's respiration channel/polarity (sheet row of its
+        % condition; identical to P.rspIDX/rspFlip unless the session's
+        % conditions differ - 260921_OBE_NWU_BW_2). Pc is P with those two
+        % values set; everything per-section below uses Pc.
+        [secIdx, secFlip, rspMixed] = sepSectionRsp(P, raws(c).condition);
+        Pc = P; Pc.rspIDX = secIdx; Pc.rspFlip = secFlip;
+        od = assembleOutDat(raw, S, Pc);
         if c == 1 && isGuess
-            [od, P] = paramCheck(od, P);   % run-on-guess: saves QC figures
+            [od, Pc] = paramCheck(od, Pc);   % run-on-guess: saves QC figures
+            if rspMixed
+                % interactive edits to the rsp choice would apply to one section only
+                Pc.rspIDX = secIdx; Pc.rspFlip = secFlip;
+                P.macroRemove = Pc.macroRemove; P.spikeClean = Pc.spikeClean;
+            else
+                P = Pc;
+            end
         end
 
-        od = runSharedCore(od, P, EEGLOC);   % shared: downsample, EEG, macros
+        od = runSharedCore(od, Pc, EEGLOC);   % shared: downsample, EEG, macros
+        % blink-ICA QC figures have fixed names; keep one per section (the
+        % last section's used to overwrite the others - 2026-10-12)
+        for fnm = {'removedBlink', 'blinkICA'}
+            src = fullfile(od.figs, [fnm{1} '.jpg']);
+            if exist(src, 'file')
+                movefile(src, fullfile(od.figs, sprintf('%s_sec%d.jpg', fnm{1}, c)), 'f');
+            end
+        end
 
         isRsp  = cellfun(@(x) contains(x, 'rsp'), od.labels);
         rspDat = od.data(isRsp, :);
-        rspDat = rspDat(P.rspIDX, :) .* P.rspFlip;
+        rspDat = rspDat(Pc.rspIDX, :) .* Pc.rspFlip;
         [od.bmObj, od.bmFeatures] = segmentBreaths_zlp(rspDat, od.fs);
 
         hasECG = sum(cellfun(@(x) contains(x, 'ECG'), od.labels)) > 0;
@@ -120,7 +141,7 @@ for s = 1:numel(sessionIDs)
             end
         end
         if secECG
-            od = processECG(od, P);
+            od = processECG(od, Pc);
             % processECG saves fixed-name QC figures; keep one per section
             for fnm = {'ECG_beatDetect', 'interbeatHist', 'RespirationHeart'}
                 src = fullfile(od.figs, [fnm{1} '.jpg']);
@@ -140,8 +161,10 @@ for s = 1:numel(sessionIDs)
     outDat = concatSections(segs, S, P);
     clear segs
     outDat.moreThan1 = 1;
-    outDat.rspIDX  = P.rspIDX;
-    outDat.rspFlip = P.rspFlip;
+    if ~isfield(outDat, 'rspSelectedNote')   % concatSections built 'rspSelected' when the sections' channels differ
+        outDat.rspIDX  = P.rspIDX;
+        outDat.rspFlip = P.rspFlip;
+    end
 
     outDat = build_behavior_table_breathingTasks_separate(outDat);
 

@@ -1,5 +1,17 @@
-function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
-                                                            chanIDX, fs, interpChan)
+function [out, badChan, blinkIndicator, selInfo] = blinkRemoveWrapper(outDat, ...
+                                                            chanIDX, fs, interpChan, opts)
+% opts (optional struct, from preprocess_eeg / P.blinkSelect):
+%   .selectMode  'frontal' (default since 2026-10-12) | 'legacy' (the pre-
+%                2026-10-12 pick: IC most correlated with raw Fp1, z > 2)
+%   .minFrontRatio (2) / .minRefCorr (0.6)   frontal-selection thresholds
+%                (calibrated 2026-10-12 on 16 sections of 9 sessions: blink
+%                ICs |r| 0.83-0.99, frontal non-blink ICs <= 0.51)
+% selInfo = ica_blinks' selection record (+ labels), stored by preprocess_eeg
+% as outDat.blinkICA.
+    if nargin < 5 || isempty(opts), opts = struct(); end
+    if ~isfield(opts, 'selectMode'), opts.selectMode = 'frontal'; end
+    if ~isfield(opts, 'minFrontRatio'), opts.minFrontRatio = 2; end
+    if ~isfield(opts, 'minRefCorr'), opts.minRefCorr = 0.6; end
 
     data = outDat.data(chanIDX, :); 
     origIs2D = ismatrix(data);
@@ -52,10 +64,17 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
     flatTotalSamples   = round(flatTotalSecThresh * fs);
     
     badFlat = false(C,1);
-    
+    % Samples where EVERY channel is flat are a recording gap (zero-filled
+    % acquisition pause), not a dead channel: they must not count toward any
+    % one channel's flat time (2026-10-12, 260805_EEG_NWU_CA: a ~208-s
+    % all-channel gap flagged all 28 channels, both blink channels included,
+    % so blink removal was skipped). Sessions without such a gap are
+    % unaffected.
+    allFlat = all(abs(data) <= flatAmpThresh, 1);
+
     for ch = 1:C
         x = data(ch,:);                         % 1 x nSamp
-        isFlat = abs(x) <= flatAmpThresh;       % logical
+        isFlat = abs(x) <= flatAmpThresh & ~allFlat;   % logical
     
         if ~any(isFlat)
             continue;                           % no flat segments at all
@@ -149,8 +168,20 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
         selEnd   = size(trainDat, 2); 
 
     else
-        cand         = 1:500:(length(test) - winLen); 
-        blinkCounts  = arrayfun(@(x) sum(test(x:x+winLen)), cand); 
+        cand         = 1:500:(length(test) - winLen);
+        % keep the training window off trials removeNoiseChansVolt rejected
+        % outright (badTS): the blink-band indicator below also fires on
+        % large artifacts, so an artifact-rich stretch could be chosen and
+        % the ICA would spend components on it (2026-10-12, 260625_OBE_NWU_HM_2
+        % sleep: window over two ~1500 uV all-channel transients). Windows
+        % with the fewest badTS samples stay candidates; no badTS = unchanged.
+        if ~strcmpi(opts.selectMode, 'legacy') && isfield(opts, 'badTS') && ...
+                numel(opts.badTS) == numel(test) && any(opts.badTS)
+            cb = cumsum([0; double(opts.badTS(:) ~= 0)]);
+            badCounts = cb(cand + winLen + 1) - cb(cand);
+            cand = cand(badCounts == min(badCounts));
+        end
+        blinkCounts  = arrayfun(@(x) sum(test(x:x+winLen)), cand);
         interpCounts = arrayfun(@(x) mean(interpChan(x:x+winLen)), cand); 
         sel = find(blinkCounts > prctile(blinkCounts, 75) & ...
                    blinkCounts < prctile(blinkCounts, 90)); 
@@ -181,7 +212,33 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
     
 
 
-    out = ica_blinks(trainDatHP, 'blinkChan', blinkChan, 'targIC', k);
+    % frontal-polar reference for the IC selection: mean of the good Fp1/Fp2
+    % minus the common average of the good channels (removes the common-mode
+    % / reference-site signal that dominates the raw Fp1 trace)
+    goodLbl = string(outDat.labels(chanIDX));
+    frontIdx = find(ismember(goodLbl, ["Fp1" "Fp2"]));
+    blinkRef = mean(trainDatHP(frontIdx, :), 1) - mean(trainDatHP, 1);
+    out = ica_blinks(trainDatHP, 'blinkChan', blinkChan, 'targIC', k, ...
+        'selectMode', opts.selectMode, 'blinkRef', blinkRef, ...
+        'frontIdx', frontIdx, 'selFs', fs, ...
+        'minFrontRatio', opts.minFrontRatio, 'minRefCorr', opts.minRefCorr);
+    selInfo = out.select;
+    selInfo.labels = cellstr(goodLbl);
+    selInfo.trainStartSample = selStart;
+    selInfo.removedLabel = '';
+    if ~isempty(out.badICs)
+        [~, pkR] = max(abs(out.A(:, out.badICs(1)) - mean(out.A(:, out.badICs(1)))));
+        selInfo.removedLabel = char(goodLbl(pkR));
+    end
+    fprintf('%s blink IC (%s): %s | legacy pick IC%d (r=%.2f z=%.1f) | removed: %s\n', ...
+        outDat.sessID, selInfo.mode, selInfo.reason, selInfo.legacyIC, ...
+        selInfo.legacyCorr, selInfo.legacyZ, mat2str(out.badICs));
+    try
+        plotBlinkSelection(out, trainDatHP, blinkRef, frontIdx, goodLbl, ...
+            outDat.eegLocs.X_flat(chanIDX), outDat.eegLocs.Y_flat(chanIDX), fs, outDat);
+    catch MEp
+        warning('%s: blink QC figure failed: %s', outDat.sessID, MEp.message);
+    end
 
     if isfield(out, 'ambiguous') && out.ambiguous
         % Batch run could not auto-select a blink IC. Save a candidate-vs-blink
@@ -210,6 +267,11 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
         miniTopo(out.A(:,out.badICs(1)), outDat.eegLocs.X_flat(chanIDX), outDat.eegLocs.Y_flat(chanIDX)); 
       
         saveas(ax,fullfile(outDat.figs, 'removedBlink.jpg'));
+        close(ax);
+    elseif exist(fullfile(outDat.figs, 'removedBlink.jpg'), 'file')
+        % nothing removed: a removedBlink.jpg left by an earlier run would
+        % claim otherwise (blinkICA.jpg documents the decision)
+        try, delete(fullfile(outDat.figs, 'removedBlink.jpg')); catch, end
     end
 
     %% ---------- Apply the spatial filter to the BROADBAND data ----------
@@ -227,4 +289,48 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
     else
         out = newEphys; 
     end
+end
+
+
+function plotBlinkSelection(out, trHP, blinkRef, frontIdx, goodLbl, xf, yf, fs, outDat)
+% QC figure blinkICA.jpg (always saved): average-referenced maps (sign set so
+% the frontal-polar weight is positive) of the removed IC, the legacy pick
+% and the best frontal candidate, with 30 s of their activations against the
+% frontal-polar reference (blinkRef) from the ICA training window.
+    sel = out.select;
+    Sact = out.W * (trHP - mean(trHP, 2));
+    aRef = out.A - mean(out.A, 1);
+    sgn = @(v) v * sign(sum(v(frontIdx)) + eps);
+    show = {};
+    if ~isempty(out.badICs), show(end+1, :) = {out.badICs(1), 'REMOVED'}; end
+    show(end+1, :) = {sel.legacyIC, 'legacy pick'};
+    if isfield(sel, 'refCorrAll') && isempty(out.badICs)
+        cand = find(sel.eligAll);
+        if ~isempty(cand)
+            [~, j] = max(sel.refCorrAll(cand)); show(end+1, :) = {cand(j), 'best frontal (kept)'};
+        end
+    end
+    f = figure('Visible', 'off', 'Color', 'w', 'Position', [0 0 1400 800]);
+    nS = size(show, 1);
+    for s = 1:nS
+        subplot(2, 3, s);
+        miniTopo(sgn(aRef(:, show{s, 1})), xf, yf);
+        [~, pk] = max(abs(aRef(:, show{s, 1})));
+        r = NaN; if isfield(sel, 'refCorrAll'), r = sel.refCorrAll(show{s, 1}); end
+        title(sprintf('%s: IC%d (peak %s, r_{ref}=%.2f)', show{s, 2}, show{s, 1}, goodLbl(pk), r));
+    end
+    w = 1:min(size(trHP, 2), 30*fs); t = w/fs;
+    zs = @(x) (x - mean(x)) / max(std(x), eps);
+    subplot(2, 1, 2); hold on
+    plot(t, zs(blinkRef(w)), 'k');
+    for s = 1:nS
+        plot(t, zs(sign(sum(aRef(frontIdx, show{s, 1})) + eps) * Sact(show{s, 1}, w)) - 6*s);
+    end
+    yticks(-6*(nS:-1:0)); yticklabels([flip(show(:, 2)'), {'Fp - avg'}]);
+    xlabel('s (ICA training window)'); xlim(t([1 end]));
+    sgtitle(sprintf('%s blink IC selection (%s): %s', outDat.sessID, sel.mode, sel.reason), ...
+        'Interpreter', 'none');
+    if ~exist(outDat.figs, 'dir'), mkdir(outDat.figs); end
+    saveas(f, fullfile(outDat.figs, 'blinkICA.jpg'));
+    close(f);
 end

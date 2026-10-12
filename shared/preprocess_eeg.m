@@ -60,9 +60,17 @@ function outDat = preprocess_eeg(outDat, standardEEGlocs, P)
         blinkOK = false;
     else
     try
-        [out, badChan2, blinkIndicator] = blinkRemoveWrapper(outDat,...
+        % optional P.blinkSelect (struct: selectMode 'frontal' default |
+        % 'legacy', minFrontRatio, minRefCorr) - see blinkRemoveWrapper
+        blinkOpts = struct();
+        if isstruct(P) && isfield(P, 'blinkSelect') && isstruct(P.blinkSelect)
+            blinkOpts = P.blinkSelect;
+        end
+        blinkOpts.badTS = badTS;   % keep the ICA training window off rejected 2-s trials
+        [out, badChan2, blinkIndicator, blinkSel] = blinkRemoveWrapper(outDat,...
                                                     chanIDX,...
-                                                    outDat.fs, interpChan);
+                                                    outDat.fs, interpChan, blinkOpts);
+        outDat.blinkICA = blinkSel;
         blinkOK = true;
     catch MEblink
         if contains(MEblink.message, 'no available blink chan')

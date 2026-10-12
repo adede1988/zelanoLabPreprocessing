@@ -8,6 +8,21 @@ function outDat = processECG(outDat, P)
 
     heartBeats = P.getBeats(ECGz, beatSep);
 
+    % Optional per-session refractory pruning (P.minIBI, seconds; set in
+    % config/applyParams.m under an explicit per-session case, absent = off =
+    % behaviour unchanged): drop every detected beat that follows the last
+    % KEPT beat by less than P.minIBI, so over-detected beats (noise
+    % crossings, double detections) never enter the RR series.
+    minIBI = [];
+    if isstruct(P) && isfield(P, 'minIBI') && ~isempty(P.minIBI), minIBI = P.minIBI; end
+    if ~isempty(minIBI) && ~isempty(heartBeats)
+        keep = heartBeats(1);
+        for bi = 2:numel(heartBeats)
+            if heartBeats(bi) - keep(end) >= minIBI * outDat.fs, keep(end+1) = heartBeats(bi); end %#ok<AGROW>
+        end
+        heartBeats = keep;
+    end
+
 
 
     % QC-figure window: nominally samples 100000:110000, clamped so short
@@ -72,7 +87,8 @@ function outDat = processECG(outDat, P)
     if isempty(minVal)
         minVal = .6; %interbeat interval of less than .6 is unrealistic for generally healthy people sitting still
     end
-    maxVal = breakVals(idx + find(counts(idx:end)<5, 1) - 1); 
+    if ~isempty(minIBI), minVal = max(minVal, minIBI); end   % explicit per-session floor (P.minIBI)
+    maxVal = breakVals(idx + find(counts(idx:end)<5, 1) - 1);
 
     %remove bad vals: 
     beatTims(beatDiffs < minVal) = []; 

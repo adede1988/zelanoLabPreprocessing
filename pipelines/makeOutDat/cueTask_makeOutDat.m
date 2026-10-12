@@ -108,6 +108,10 @@ if sum(cellfun(@(x) strcmp(sessionIDs{sessi}, x), newSet))==1
         outDat.CSClist = dat1.ncslabels; 
         outDat.fs = dat1.rawData.fsample; 
         outDat.sessID = sessionIDs{sessi}; 
+        % a raw file whose event channel was rebuilt from the task result files
+        % (dead DAQ input, e.g. 260824_OBE_NWU_EZ_1) documents it in
+        % curDat.surrogateTTL; carry it into the intermediate and the final
+        if isfield(dat1, 'surrogateTTL'), outDat.surrogateTTL = dat1.surrogateTTL; end
 
         
         %process the TTL pulses for dat 1: 

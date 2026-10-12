@@ -6,4 +6,6 @@ function raw = assembleRaw_cueTask(S)
     matPath = fullfile(S.root, S.id, 'preProc', [S.id '_cueTaskPreProc.mat']);
     [raw, od] = loadIntermediateRaw(matPath);
     if isfield(od, 'TTL'), raw.TTL = od.TTL; end
+    % rebuilt (surrogate) markers: the documentation travels with the TTLs
+    if isfield(od, 'surrogateTTL'), raw.surrogateTTL = od.surrogateTTL; end
 end

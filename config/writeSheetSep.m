@@ -3,6 +3,8 @@ function writeSheetSep(P, sessID, action, xlsxPath)
 %
 %   writeSheetSep(P, sessID, 'params')   write P's parameter values identically
 %                                        onto EVERY in-scope condition row
+%                                        (except rspIDX/rspFlip: each row gets its
+%                                        own, P.condRspIDX/condRspFlip)
 %   writeSheetSep(P, sessID, 'X')        set Data Preprocessed = X on every row
 %   writeSheetSep(P, sessID, 'clearX')   blank it on every row
 %
@@ -67,6 +69,12 @@ function writeSheetSep(P, sessID, action, xlsxPath)
                         continue;
                     end
                     val = P.(fld);
+                    % per-condition respiration channel (applyParams P.condRspIDX /
+                    % condRspFlip): each row gets ITS OWN value back, never the
+                    % session-level first-row value
+                    if any(strcmp(fld, {'rspIDX', 'rspFlip'}))
+                        val = rowRsp(P, fld, C{r, cTask}, val);
+                    end
                     if strcmp(paramCols{pc, 2}, 'bool'), val = logical(val); end
                     if strcmp(paramCols{pc, 2}, 'str'), val = char(string(val)); end
                     writeCellChecked(xlsxPath, sheet, ci, r, val);
@@ -82,6 +90,16 @@ function writeSheetSep(P, sessID, action, xlsxPath)
             end
         otherwise
             error('writeSheetSep: unknown action "%s"', action);
+    end
+end
+
+function val = rowRsp(P, fld, taskCell, val)
+% the row's own rspIDX/rspFlip (match by condition Task string), else val
+    cf = {'rspIDX', 'condRspIDX'; 'rspFlip', 'condRspFlip'};
+    cn = cf{strcmp(cf(:, 1), fld), 2};
+    if isfield(P, cn) && isfield(P, 'conditions')
+        k = find(strcmpi(strtrim(P.conditions), strtrim(char(string(taskCell)))), 1);
+        if ~isempty(k), val = P.(cn)(k); end
     end
 end
 

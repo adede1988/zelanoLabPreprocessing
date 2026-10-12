@@ -194,3 +194,66 @@ Probe: `batch/task12_probeParams.m` (needs the makeOutDat intermediate).
 | JL_2, TB_3, GH_3, AB_3, JN_3, BS_1, AD_1, AD_2, PD_1, JA_1, JA_2, BW_1 | not probed — makeOutDat fails first | **blocked: `experiment_EEGsync\processedBehavior\<id>.csv` missing** (generate with `tidyDataImport_waveExp.R`, rerun makeOutDat → probe → main) |
 | 251110_Dupi_NMH_PC_2 | not probed | blocked: makeOutDat "load file not identified uniquely" — inspect the session folder's LoadData scripts |
 | 260316_Dupi_NMH_PD_2 | not probed | blocked: no breathing raw on disk (sheet says extracted) |
+
+## OBE update 2026-10-08 (DW_1, EZ_1 new; BW_2 rebuilt)
+
+Run on the lab desktop against the master sheet, `ZLP_ALLOW_GUESS_RUN=1` + `ZLP_ALLOW_GUESS_RUN_ALL=1`, scoped with
+`ZLP_MAKEOUTDAT_ONLY` / `ZLP_MAIN_ONLY`; paramSource stays `guess`. Parameters measured with `batch/guessParamsFromRaw.m`
+(cue/threshold on binaps1 as for the rest of the cohort: the sniff thresholds are in binaps units). Finals verified
+(`whos`, fs 500, moreThan1, manOnset, forehead labels).
+
+| Subject ID | task | guessed columns = values | outcome |
+|---|---|---|---|
+| 260820_OBE_NWU_DW_1 | odor cue task | rspIDX=1, rspFlip=1, hasEEG=TRUE, spikeClean=FALSE, respThresh/cuedBackBuff/adjWin=4000/500/500, isNewStd=TRUE | 60 trials; 7 bad EEG channels (spiky EEG in the notes) |
+| 260820_OBE_NWU_DW_1 | threshold | rspIDX=1, rspFlip=1, hasEEG=TRUE, spikeClean=FALSE, 5000/350/500, isNewStd=TRUE | 45 trials |
+| 260820_OBE_NWU_DW_1 | focusedBreathing_button + restingBaseline (sep) | rspIDX=1, rspFlip=1 (binaps1; the riseFall vote said -1 on these slow-breathing recordings but +1 on threshold, and the cannula's polarity cannot change), beatSpec=`2,0,gt,3.5`, hasMacros=TRUE, spikeClean=FALSE | 90 breaths, 1274 beats / 82 bpm; polarity confirmed by the inhale-locked RR check (RR falls 36 / 29 ms after inhale onset in the two sections; EZ_1 -11/-16/-20 ms, BW_2 -31..-48 ms) |
+| 260824_OBE_NWU_EZ_1 | odor cue task | as DW_1 cue | 60 trials; **SURROGATE markers** (`outDat.surrogateTTL`): the DAQ input was dead, markers rebuilt from the result files, trial 1 cue marker at 32.30 s +-0.05 s (EEG-aligned within the cued-sniff window; method `reports\obeUpdate_261008\cueSurrogate\`) |
+| 260824_OBE_NWU_EZ_1 | threshold | as DW_1 threshold | 45 trials |
+| 260824_OBE_NWU_EZ_1 | focusedBreathing_button + restingBaseline + focusedBreathing_button_mouth (sep) | rspIDX=1, rspFlip=1 (binaps1: the only channel with respiration in all three; the mask was off in the nose-clip run), beatSpec=`2,0,gt,2.5` | 235 breaths, 1906 beats / 72 bpm; the nose-clip section rests on the cannula alone |
+| 260921_OBE_NWU_BW_2 | cue, threshold, sep | unchanged (rebuilt from the 49-channel re-extraction with the forehead electrodes) | 54 sniffs / 45 trials / 346 breaths, 66 bpm, as before; superseded finals in `preProc\superseded_261008\` and `E:\reprocBackup_261008\` |
+
+## Guess review 261008 — reviewer response executed 2026-10-12
+
+Reviewer verdicts: `reportResponse.md` (2026-10-12). Sheet edits via a row-keyed, Subject-ID+Task-checked writer under a lab
+`sheet.lock` (backups `Admin\Data\sheetBackups\dataTracking_backup_261012_*.xlsx`); superseded finals in each session's
+`preProc\superseded_261012\` and `E:\reprocBackup_261012\<task>\<id>\`; new review figures under
+`R:\…\Adam\Dupi_processing\guessReview_261012\` (blinkAudit, BW_2, HW, PC_2_ecgWindows, sepResegment, spikeAudit, hrSpotCheck).
+
+**Promoted to curated:** breathing TB_3 GH_3 JL_2 PD_1 PD_2 BS_1 JA_1 JA_2 AD_2 (no change needed: TTL 0/300 s are the
+measured raw windows 30–330 / 690–990 s in concatenated time); movie 260810_IS HK MS, CP_1 (beats pruned with a 0.7-s
+refractory, `P.minIBI`, 2301→2026 beats); alt6 JH HK; sep AZ FM HRM BG AS(241017) RY_1 SP_2 KA_2 DW_1 RA_1 EZ_1 RC_2;
+paced KG JW; cue CC_1 DW_1 CS_2; thresh PD_2 DW_1 BW_2 SP_2 (blink skipped because only 10 good EEG channels remain);
+O15 RX_1 SP_2 (26 bad channels).
+
+**Recorded reviewer notes (accepted, not fixable):** 251006_OBE_NWU_RY_1 — ECG unusable (badly recorded); the empty
+`heartBeats` is expected. 240923_OBE_NMH_HRM — macro data extremely noisy (high-amplitude, random): treat this dataset as
+noisy/different. 260824_OBE_NWU_EZ_1 sep — rhythmic artifact in the macros that standard methods cannot remove.
+ZF_1 / ZF_2 sep low heart rates (≈41 / 44 bpm) verified real (no missed beats). Spike-clean "% altered" (up to 52 %, JA_2) =
+fraction of samples inside 0.2-s notch windows; the actual change is ~1 µV RMS — intended.
+
+**Rerun, still guess:**
+
+| Session | task | change | outcome |
+|---|---|---|---|
+| 251002_Dupi_NMH_AB_3 | breathing | macroRemove none | 5 macBP; all else identical |
+| 260514_OBE_NWU_BW_1 | breathing | rspIDX 1 | 204→211 breaths |
+| 251110_Dupi_NMH_PC_2 | breathing | macroRemove 6→2 (macro2 13 % railing) | ECG noise is one ~90-s movement burst (210–300 s), beatSpec kept |
+| 260227_EEG_NWU_HW | breathing | cyclicSigh refractory (0.65 × cycle period, task level) | cond 4 31→25 breaths; target-trace misalignment = linear stretch + unknown start offset (not fixed) |
+| 251013_Dupi_NMH_JN_3 | breathing | new blink IC rule | removes Fp2 IC r 0.94 |
+| 251030_Dupi_NMH_DB_3 | breathing / cue / thresh / O15 | first processing (measured windows 142.7/621.0/1323.8 s; O15 zthresh −1 + confirmAfterPress) | 175 breaths; 38/40 cue; 44/45 thresh; 15 O15 trials |
+| 250904_OBE_NWU_TI_1 | movie | rspIDX 1 | 731→416 in-clip breaths (old median length implausible) |
+| 250225_OBE_NWU_AS_4 | movie | rebuilt from the old-format file through the current pipeline | no ECG recorded (CSC25–27 unconnected); 461 in-clip breaths |
+| 260805_EEG_NWU_CA | alt6 | flat-test ignores all-channel gaps | blink removal now runs (Fp1 IC r 0.92) |
+| 241010_OBE_NMH_SJ | sep | macroRemove 3,5 | 3 macBP |
+| 251218_OBE_NWU_SM_1 | sep | beatSpec `1,0,lt,-1.25`, rspIDX 1 | 183 beats / 66 bpm (was none) |
+| 260824_OBE_NWU_ZF_2 | sep | macroRemove 5 (clips in sleep) | 4 macBP |
+| 260827_OBE_NWU_RX_2 | sep | rspIDX 1, resegment only | 311→298 breaths |
+| 260817_OBE_NWU_CC_1 | sep | rspIDX 1, resegment only | 64→63 breaths |
+| 260105_OBE_NWU_ZF_1 | sep | new blink IC rule | nothing removed (no blink IC) |
+| 260625_OBE_NWU_HM_2 | sep | new blink IC rule | sleep: nothing removed; end noise from 1893 s (not truncated) |
+| 260831_OBE_NWU_CS_2 | sep | beatSpec `3,0,lt,-2.75` + new blink rule | 1820→2083 beats; sleep section still no beats |
+| 260921_OBE_NWU_BW_2 | sep | per-condition rspIDX (1,1,1,3; `rspSelected` row) | section 3 binaps1 is noise (86→237 breaths) — reviewer decision |
+| cue BG RA_1 EZ_1 ZF_2 RX_2 RC_2 BW_2 | cue | respThresh / cuedBackBuff per verdict; ZF_2 macroRemove 4,5 | BG 34→38 trials, RA_1 trial 50 fixed, BW_2 54→60, RX_2 loses trial 7, RC_2/EZ_1 unchanged onsets |
+| thresh RX_1 EZ_1 JA_2 | thresh | cuedBackBuff 150; EZ_1 macroRemove 2 etc.; JA_2 hasEEG TRUE | RX_1 tail: EEG/macro overload from ~851 s, zeros from 897 s (after last trial) |
+
+Still blocked: 260504_Dupi_NMH_JA_2 O15 — the O15 answers exist only in the session video.
