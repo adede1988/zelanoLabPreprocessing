@@ -29,9 +29,14 @@ function [TTL, chk] = matchClipsToPsychoPy(od, P, csvPath, figDir)
 %     4. detections without a PsychoPy clip are dropped, valence comes from the
 %        PsychoPy log (pulse-count disagreements are counted), clipEnd is
 %        recomputed with the legacy rule (next onset - P.pd.clipEndGapSec). The
-%        last kept clip has no next onset: its end is the PsychoPy movie.stopped
-%        time mapped onto the recording with the same offset/drift fit (NaN when
-%        the log has no movie.stopped), clipped to the recording length.
+%        last kept clip has no next onset: its end is its movieStop (NaN when
+%        the log has no movie.stopped).
+%   Each clip's own PsychoPy movie.started / movie.stopped times are mapped onto
+%   the recording with the same offset/drift fit (movieStart / movieStop,
+%   clamped to the recording). The task starts the movie with the trial routine
+%   and the photodiode flash 2 s into it, so clipOnset (the flash) is ~1.6-1.9 s
+%   after movieStart; the clip windows (clipOnset..clipEnd) keep the legacy
+%   definition.
 %   Errors when fewer than 95% of the PsychoPy clips can be matched.
 %
 %   The stimulus attributes of each kept clip are copied from the log:
@@ -45,7 +50,8 @@ function [TTL, chk] = matchClipsToPsychoPy(od, P, csvPath, figDir)
 %
 %   Returns TTL in the makeOutDat convention (fs_target samples: clipOnset,
 %   clipEnd, nPulses, valence) plus nPulsesDetected / psychopyIdx / fileName /
-%   vidLenSec / normValence / normArousal / normImpact, and chk (thresholds tried,
+%   vidLenSec / normValence / normArousal / normImpact / movieStart / movieStop
+%   (fs_target samples), and chk (thresholds tried,
 %   chosen one, counts, offset/drift, residuals, final-clip end) for
 %   outDat.clipCheck. Saves <id>_movieClipMatch.png.
 
@@ -109,17 +115,20 @@ function [TTL, chk] = matchClipsToPsychoPy(od, P, csvPath, figDir)
     TTL.normArousal = toNum(T.arousal(matched));
     TTL.normImpact  = toNum(T.impact(matched));
 
-    % the last kept clip has no next onset: end it at its PsychoPy movie.stopped,
-    % mapped onto the recording with the clip-onset clock fit
+    % each clip's own start / stop on the PsychoPy clock (movie.started /
+    % movie.stopped), mapped onto the recording with the clip-onset clock fit
+    % and clamped to the recording (NaN kept). The task starts the movie with the
+    % trial routine but the photodiode flash (clipOnset) 2 s into it, so
+    % movieStart is ~1.6-1.9 s before clipOnset; the legacy clipEnd (next flash -
+    % P.pd.clipEndGapSec) lands ~0.1-0.3 s after movieStop.
+    nSampT = floor(size(od.data, 2) / (od.fs / fsT));
+    TTL.movieStart = toRec(T, 'movie.started', TTL.psychopyIdx, best.fit, fsT, nSampT);
+    TTL.movieStop  = toRec(T, 'movie.stopped', TTL.psychopyIdx, best.fit, fsT, nSampT);
+    % the last kept clip has no next onset: end it at its movieStop
     lastEndSrc = "none";
-    if ismember('movie.stopped', T.Properties.VariableNames)
-        ms = toNum(T.('movie.stopped'));
-        msLast = ms(TTL.psychopyIdx(end));
-        if isfinite(msLast)
-            nSampT = floor(size(od.data, 2) / (od.fs / fsT));
-            TTL.clipEnd(end) = min(round((best.fit(1) + (1 + best.fit(2)) * msLast) * fsT), nSampT);
-            lastEndSrc = "psychopy movie.stopped";
-        end
+    if isfinite(TTL.movieStop(end))
+        TTL.clipEnd(end) = TTL.movieStop(end);
+        lastEndSrc = "psychopy movie.stopped";
     end
 
     chk = struct();
@@ -136,7 +145,9 @@ function [TTL, chk] = matchClipsToPsychoPy(od, P, csvPath, figDir)
     chk.residualMs = 1000 * best.res(matched);
     chk.lastClipEndSource = lastEndSrc;
     chk.note = ['clips = PsychoPy clips matched to photodiode onsets within 0.3 s; valence from the PsychoPy log; ' ...
-                'detections without a PsychoPy clip dropped; last clip ends at its PsychoPy movie.stopped; ' ...
+                'detections without a PsychoPy clip dropped; movieStart / movieStop = PsychoPy movie.started / ' ...
+                'movie.stopped on the recording (clipOnset = photodiode flash, ~1.6-1.9 s after movieStart); ' ...
+                'last clip ends at its movieStop; ' ...
                 'vidLenSec / normValence / normArousal / normImpact = DEVO2 norms from the conditions file, ' ...
                 'not participant ratings (matchClipsToPsychoPy)'];
     fprintf('%s: kept %d clips (zthresh %g; %d detections dropped; %d valences taken from PsychoPy over the pulse count); residual median %.0f ms, max %.0f ms\n', ...
@@ -215,6 +226,17 @@ function [mi, dist] = nearestWithin(p, d, tol)
     for k = cand(o)'
         if ~used(idx(k)), mi(k) = idx(k); dist(k) = dd(k); used(idx(k)) = true; end
     end
+end
+
+function s = toRec(T, col, idx, fit, fsT, nSampT)
+% PsychoPy-clock times of column col (rows idx) -> recording samples at fsT via the
+% clip-onset fit d = a + (1 + b) * c; clamped to [1, nSampT], NaN when absent
+    s = NaN(numel(idx), 1);
+    if ~ismember(col, T.Properties.VariableNames), return; end
+    v = toNum(T.(col));
+    s = round((fit(1) + (1 + fit(2)) * v(idx)) * fsT);
+    s(s < 1) = 1;
+    s(s > nSampT) = nSampT;
 end
 
 function x = toNum(v)
