@@ -35,13 +35,15 @@ function [bmObj, bmFeatures, info] = mergeIncompleteExhales(bmObj, bmFeatures, r
 %
 % info: exFrac, minorFrac, zeroFlow ('onset rest level, +-30 s moving median'), nBefore, nAfter,
 % nMerged (pulses merged away), nMinorReassigned, and per KEPT row: nPulses, inhaleArea, exhaleArea
-% (trace units x ms, over the final breath), exInRatio, origRows (cell of the engine rows it holds).
+% (trace units x ms, over the final breath), exInRatio, origRows (cell of the engine rows it holds);
+% engineOnsetSec (the engine's onsets, s) and restLevelAtOnsets (zero-flow level there) for QC.
 
     if nargin < 5 || isempty(exFrac), exFrac = 0.20; end
     if nargin < 6 || isempty(minorFrac), minorFrac = 0.30; end
     x = fillmissing(double(rsp(:)'), 'linear', 'EndValues', 'nearest');
     N = numel(x);
     n0 = size(bmObj, 1);
+    on0Sec = bmObj(:, 2);                              % the engine's onsets (kept in info for QC)
     on = min(max(round(bmObj(:, 2) * fs), 1), N);      % onset samples (the engine stores sample / fs)
     en = min(max(round(bmObj(:, 6) * fs), 1), N);      % breath end = next onset
     pk = min(max(round(bmObj(:, 4) * fs), 1), N);
@@ -124,8 +126,10 @@ function [bmObj, bmFeatures, info] = mergeIncompleteExhales(bmObj, bmFeatures, r
         'run''s highest peak) go to the breath before'], exFrac, minorFrac), ...
         'exFrac', exFrac, 'minorFrac', minorFrac, 'zeroFlow', 'onset rest level (+-30 s moving median of the trace at the inhale onsets)', ...
         'nBefore', n0, 'nAfter', nK, 'nMerged', n0 - nK, 'nMinorReassigned', nMinor, ...
-        'nPulses', nP, 'inhaleArea', inA, 'exhaleArea', exA, 'exInRatio', exA ./ inA, 'origRows', {origRows});
+        'nPulses', nP, 'inhaleArea', inA, 'exhaleArea', exA, 'exInRatio', exA ./ inA, 'origRows', {origRows}, ...
+        'engineOnsetSec', on0Sec, 'restLevelAtOnsets', medO);
     if isfield(bmFeatures, 'conditioning')
-        bmFeatures.conditioning.incompleteExhaleMerge = rmfield(info, {'nPulses', 'inhaleArea', 'exhaleArea', 'exInRatio', 'origRows'});
+        bmFeatures.conditioning.incompleteExhaleMerge = rmfield(info, {'nPulses', 'inhaleArea', 'exhaleArea', ...
+            'exInRatio', 'origRows', 'engineOnsetSec', 'restLevelAtOnsets'});
     end
 end
