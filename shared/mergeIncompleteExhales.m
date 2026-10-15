@@ -18,12 +18,14 @@ function [bmObj, bmFeatures, info] = mergeIncompleteExhales(bmObj, bmFeatures, r
 %     a pause averages out; over a 7-s pause a few units add up) and on the 200-ms mean for shorter
 %     ones (a 1-s mean would cancel a fast breath: 261006_EEG_NWU_RC at 30 /min).
 %  2. Lead bumps. An inhale k with no exhale before the next inhale (E < exFrac x I over its window),
-%     a peak under opts.leadFrac (0.5) x that next inhale's, and >= opts.restSec (3 s) near zero flow
+%     a peak under opts.leadFrac (0.5) x the highest pulse of the run that next inhale starts (its
+%     pulses up to the next exhale), and >= opts.restSec (3 s) near zero flow
 %     (1-s mean within 2 noise bands) between its peak and the next onset is the overshoot of the
 %     previous exhale's recovery followed by a pause, not the start of the next breath: it joins the
 %     breath before, and the breath starts at the next inhale. Contiguous pulses (a double inhale) have
-%     no rest between them and are left to step 3. (261007_EEG_NWU_AL 2529.6 s: the SniffLogic target
-%     is still in its recovery there; the inhale starts at 2536.5 s with the target's.)
+%     no rest between them and are left to step 3. (261007_EEG_NWU_AL 2529.6 and 3663.7 s: the
+%     SniffLogic target is still in its recovery there; the inhales start at 2536.5 and 3670.8 s with
+%     the target's.)
 %  3. Merge. For every remaining inhale k (in order): over [onset(k-1), onset(k)) - since the LAST
 %     inhale, merged or not, blips included - E = area below zero flow and I = area above it; when E <
 %     exFrac (0.20) x I, inhale k is not a new breath and joins the breath of inhale k-1. Consecutive
@@ -136,7 +138,13 @@ function [bmObj, bmFeatures, info] = mergeIncompleteExhales(bmObj, bmFeatures, r
     for j = 2:numel(inh0) - 1
         k = inh0(j); kn = inh0(j + 1);
         a = on(k); b = max(a, on(kn) - 1);
-        if areaE(a, b) >= exFrac * areaI(a, b) || pk1(k) >= leadFrac * pk1(kn), continue; end
+        nxt = pk1(kn); m = j + 1;                       % highest pulse of the run the next inhale starts
+        while m < numel(inh0)
+            a2 = on(inh0(m)); b2 = max(a2, on(inh0(m + 1)) - 1);
+            if areaE(a2, b2) >= exFrac * areaI(a2, b2), break; end
+            m = m + 1; nxt = max(nxt, pk1(inh0(m)));
+        end
+        if areaE(a, b) >= exFrac * areaI(a, b) || pk1(k) >= leadFrac * nxt, continue; end
         [~, ip] = max(r1(a:b)); p = a + ip - 1;
         if sum(abs(r1(p:b)) <= 2 * dS(p:b)) / fs >= restSec
             isLead(k) = true; isMinor(k) = true;
