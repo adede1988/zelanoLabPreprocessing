@@ -20,7 +20,7 @@ function [bmObj, bmFeatures, info] = mergeIncompleteExhales(bmObj, bmFeatures, r
 %  2. Lead bumps. An inhale k with no exhale before the next inhale (E < exFrac x I over its window),
 %     a peak under opts.leadFrac (0.5) x the highest pulse of the run that next inhale starts (its
 %     pulses up to the next exhale), and >= opts.restSec (3 s) near zero flow
-%     (1-s mean within 2 noise bands) between its peak and the next onset is the overshoot of the
+%     (1-s mean within 2 noise bands) in its window before the next onset is the overshoot of the
 %     previous exhale's recovery followed by a pause, not the start of the next breath: it joins the
 %     breath before, and the breath starts at the next inhale. Contiguous pulses (a double inhale) have
 %     no rest between them and are left to step 3. (261007_EEG_NWU_AL 2529.6 and 3663.7 s: the
@@ -54,7 +54,8 @@ function [bmObj, bmFeatures, info] = mergeIncompleteExhales(bmObj, bmFeatures, r
 % Validation 2026-10-15: synthetic regressions (double inhales, chains, staircases, blips, continuous
 % breathing 4-30 /min, square-law slow exhales) and, on the four sweep sessions, the share of
 % SniffLogic target cycles holding exactly one breath onset (engine -> merged: AL 83.5 -> 87.5 %,
-% ZL 96.9 -> 97.9 %, RC 83.2 -> 85.3 %, IS 91.7 -> 93.9 %).
+% ZL 96.9 -> 97.9 %, RC 83.2 -> 85.6 %, IS 91.7 -> 93.9 %). Not fixed here: an engine onset placed late,
+% partway up an inhale, leaves that inhale's start in the previous window (261007_EEG_NWU_AL 1557.4 s).
 %
 % Merged breath (kept row = its first inhale, keep-first) absorbs the rows after it: end (cols 5-7) =
 % the last absorbed row's end; inhale peak (cols 3, 4, 9) = the highest pulse; exhale trough (cols
@@ -145,8 +146,8 @@ function [bmObj, bmFeatures, info] = mergeIncompleteExhales(bmObj, bmFeatures, r
             m = m + 1; nxt = max(nxt, pk1(inh0(m)));
         end
         if areaE(a, b) >= exFrac * areaI(a, b) || pk1(k) >= leadFrac * nxt, continue; end
-        [~, ip] = max(r1(a:b)); p = a + ip - 1;
-        if sum(abs(r1(p:b)) <= 2 * dS(p:b)) / fs >= restSec
+        if sum(abs(r1(a:b)) <= 2 * dS(a:b)) / fs >= restSec   % time at rest in its window (not "after its peak":
+                                                               % the 1-s mean leaks the next inhale into the window end)
             isLead(k) = true; isMinor(k) = true;
         end
     end
