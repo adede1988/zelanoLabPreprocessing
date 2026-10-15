@@ -251,6 +251,43 @@ Sheet Task set to `alternating6Blocks` (rows 651/653/655/657). Not extractable y
 `sniffLogicLog` files are not on R:, the external drive or Google Drive (`breathingDataFiles` logs stop on 2026-08-11).
 Their movie recordings (rows 652/654/656/658) need no behavioral file beyond the PsychoPy CSV already in `behavioralData`.
 
+### 261014_EEG_NWU_ZL (2026-10-15)
+
+A new participant (not 250819_EEG_NWU_ZL). Folder organised on R: (the Atlas folder was loose in `<id>\` → `AtlasData\`;
+27 of ZL's behavioral files moved from the EEGbreathing root → `behavioralData\`). Loader `LoadData_261014_EEG_NWU_ZL_claude.m`,
+same rig channel map as RC/IS/AL (probeMontage). No session notes were used: the four end-block start times were given by
+the user (AB 1:02:08, FB 1:09:20, AB 1:16:05, FB 1:22:40; exactly 6 min each). The SniffLogic log ran ~5 min past the
+Atlas stop; `buildSweepTTL` now checks the log's events (all inside) instead of its full span. Sheet rows 659–660 appended.
+
+| Subject ID | Task | Type | sheet row | guessed columns = values | basis | status | notes |
+|---|---|---|---|---|---|---|---|
+| 261014_EEG_NWU_ZL | respiratorySweep | EEG_breathing | 659 | same as RC/IS/AL | probeMontage + log alignment (overlap r 0.82, +1, lag 48.4 s, drift 47 ppm) | run-on-guess (D4) | first recording (no suffix), 88.8 min; 1 SniffLogic log |
+| 261014_EEG_NWU_ZL | EmotionalMovieTask | EEG_breathing | 660 | same | same | run-on-guess (D4) | recording `_0001`; 180/180 clips matched to PsychoPy (zthresh −3, 4 detections dropped, 1 clock segment, residual median 5 ms) |
+
+Run outcome (2026-10-15, lab desktop, `ZLP_ALLOW_GUESS_RUN=1`, branch `respiratorySweep-261008`; the sweep final as re-run
+under the final breath-merge rule at 5d40ada, ZL has no lead bumps so 494548c gives the same result; verified by
+`verify1015b.m` / `verify1015.m`; `Data Preprocessed = X`). QC page: @@QCURL@@.
+
+| Subject ID | Task | final | breaths (good) | in blocks / clips | beats / HR | badChans | badTS | notes |
+|---|---|---|---|---|---|---|---|---|
+| 261014_EEG_NWU_ZL | respiratorySweep | 1.37 GB, `[43 x 2664576]` | 806 (741); engine 825, 1 blip + 18 inhales merged | 667 in 23 blocks | 5325 / 60.0 bpm | TP9 O1 TP10 CP6 T8 FT10 FC6 F8 | 10.7 % | every sweep block's median rate within 0.2 /min of its target |
+| 261014_EEG_NWU_ZL | EmotionalMovieTask | 0.50 GB, 32.4 min | 414 in-clip (402) | 173 of 180 clips | 1800 / 55.5 bpm | TP9 T8 FT10 FC6 F8 | 5.3 % | |
+
+### Breath-merge rule + AL changes (2026-10-15)
+
+- **AL movie (row 650) set back to `guess` on purpose** (user: mouth breathing through most of the movie; ttlNote "do not
+  use downstream"). Never promote it; the final is unchanged.
+- **Breath-merge rule (user):** an inhale is not a new breath unless there has been an exhale with ≥ 20 % of the inhale's
+  volume since the last one — `shared/mergeIncompleteExhales` after the locked engine, every respiratorySweep session from
+  now on (CLAUDE.md §1: pause blips, lead bumps, per-inhale 20 % test, zero flow = max(dwell level, 60-s mean)). Validated
+  on synthetic regressions and on the share of SniffLogic target cycles holding exactly one onset: AL 83.5 → 87.5 %,
+  ZL 96.9 → 97.9 %, RC 83.2 → 85.3 %, IS 91.7 → 93.9 % (engine → rule).
+- **AL sweep re-run** with the rule (494548c): @@ALROW@@. EEG (Oz O2, badTS 17.6 % — the 'fixed' detector since the
+  vipassana merge) and ECG (6679 beats) unchanged. Backups (lab) `E:\reprocBackup_261015_sweep\261007_EEG_NWU_AL\`:
+  pre-rule original (974 breaths), `v1rule\` (first rule version, 938), `interim5d40ada\` (932).
+- **RC / IS not re-run** (curated 2026-10-09, before the rule existed): the rule would take RC 1277 → 1237 and IS
+  1148 → 1131 breaths. Offered to the user.
+
 ## ADmeditation (2026-10-08) — promoted to curated 2026-10-09
 
 Adam's 14 repeated meditation recordings (`AllStudyData\AD_repeatRecordings`; own sheet
