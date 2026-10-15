@@ -61,9 +61,7 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
     opt = parseOpts(opt, varargin);
     sheet = opt.Sheet;
 
-    if nargin < 3 || isempty(xlsxPath)
-        xlsxPath = resolveDefaultXlsx();
-    end
+    useDefaultXlsx = nargin < 3 || isempty(xlsxPath);   % resolved once the task is known
 
     sessID = strtrim(asChar(sessID));
     if isempty(sessID)
@@ -82,6 +80,16 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
     tkey = taskKey(taskName);
     if isempty(tkey)
         error('writeParams:badTask', 'Unknown task "%s".', taskName);
+    end
+    if useDefaultXlsx
+        if strcmp(tkey, 'adMed')
+            % ADmeditation is tracked in its own sheet (labPaths().adMedXlsx);
+            % only the param columns that sheet carries are written
+            L = labPaths();
+            xlsxPath = L.adMedXlsx;
+        else
+            xlsxPath = resolveDefaultXlsx();
+        end
     end
 
     % ---------------- read sheet ----------------
@@ -519,6 +527,8 @@ function k = canonTask(t)
             k = 'paced';
         case {'vipassana'}
             k = 'vip';
+        case {'admeditation'}
+            k = 'adMed';
         case {'respiratorysweep'}
             k = 'sweep';
         otherwise
@@ -538,6 +548,7 @@ function k = taskKey(task)
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
         case 'vipassana',          k = 'vip';
+        case 'admeditation',       k = 'adMed';
         case 'respiratorysweep',   k = 'sweep';
         otherwise,                 k = '';
     end

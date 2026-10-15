@@ -29,6 +29,7 @@ function L = labPaths()
 %   ---- Derived fields (built from the bases; never set these per machine) -----
 %     .repo .eegLocCsv .procBehavior .figPath
 %     .adminXlsx .rootDupi .rootOBE .rootEEG .behCue .behThresh .targTraceDir
+%     .rootADmed .adMedXlsx  (ADmeditation study folder + its own tracking sheet)
 %     .labCommonCanon  (the Lab_Common prefix as stored in dataTracking.xlsx;
 %                       lets loaders rebase the sheet's absolute paths onto a
 %                       machine whose labCommon differs)
@@ -132,6 +133,15 @@ function L = deriveLabPaths(L)
     L.rootDupi  = [lc 'Dupi\'];
     L.rootOBE   = [lc 'OBEControl\'];
     L.rootEEG   = [lc 'AllStudyData\EEGbreathing\'];
+    % ADmeditation (added 2026-10-08): Adam's repeated meditation recordings
+    % live in their own study folder and are tracked in their OWN sheet, not
+    % in dataTracking.xlsx. applyParams / writeParams / setPreProcX switch to
+    % L.adMedXlsx for that task only. ZLP_ADMED_XLSX overrides it per process
+    % (a staging copy), like ZLP_ADMIN_XLSX does for the master.
+    L.rootADmed = [lc 'AllStudyData\AD_repeatRecordings\'];
+    L.adMedXlsx = fullfile(lc, 'Admin', 'Data', 'dataTracking_AD_meditation.xlsx');
+    ovA = getenv('ZLP_ADMED_XLSX');
+    if ~isempty(ovA), L.adMedXlsx = ovA; end
     L.behCue    = fullfile(lc, 'OBE_task_backup', 'tasks', 'olf_cuetask', 'results', 'olf_cuetask_results');
     L.behThresh = fullfile(lc, 'OBE_task_backup', 'tasks', 'pea_threshold', 'results');
 

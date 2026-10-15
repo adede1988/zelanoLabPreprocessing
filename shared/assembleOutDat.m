@@ -27,4 +27,9 @@ function outDat = assembleOutDat(raw, S, P)
     if isfield(raw, 'TTL')
         outDat.TTL = raw.TTL;
     end
+    % data-driven like the TTL passthrough: a task whose markers were rebuilt
+    % from its result files (dead DAQ input) carries their documentation
+    if isfield(raw, 'surrogateTTL')
+        outDat.surrogateTTL = raw.surrogateTTL;
+    end
 end

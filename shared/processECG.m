@@ -8,6 +8,48 @@ function outDat = processECG(outDat, P)
 
     heartBeats = P.getBeats(ECGz, beatSep);
 
+    % Optional per-session refractory pruning (P.minIBI, seconds; set in
+    % config/applyParams.m under an explicit per-session case, absent = off =
+    % behaviour unchanged): drop every detected beat that follows the last
+    % KEPT beat by less than P.minIBI, so over-detected beats (noise
+    % crossings, double detections) never enter the RR series.
+    minIBI = [];
+    if isstruct(P) && isfield(P, 'minIBI') && ~isempty(P.minIBI), minIBI = P.minIBI; end
+    if ~isempty(minIBI) && ~isempty(heartBeats)
+        keep = heartBeats(1);
+        for bi = 2:numel(heartBeats)
+            if heartBeats(bi) - keep(end) >= minIBI * outDat.fs, keep(end+1) = heartBeats(bi); end %#ok<AGROW>
+        end
+        heartBeats = keep;
+    end
+
+    % Optional per-session ECG exclusion windows (P.ecgExcludeSec, [N x 2]
+    % [start end] seconds on this outDat's own timeline; set in
+    % config/applyParams.m under an explicit per-session case, absent / empty =
+    % off = behaviour unchanged; tasks_261014 task 7). They mark stretches where
+    % the ECG is unreadable (criterion + measurement tool: batch/
+    % ecgUnreadableWindows). Beats inside a window are dropped from
+    % outDat.heartBeats, every RR interval that touches a window is dropped,
+    % and RRint is NaN from the last kept RR stamp before a window to the first
+    % one after it (never interpolated across excluded data); flagBadBreaths
+    % then blanks the within-breath HRV of the breaths that overlap that NaN
+    % stretch. The IBI-range estimate below keeps using ALL detected beats
+    % (hbAll), so RRint outside the NaN stretches is exactly what it would be
+    % without the windows. Recorded in outDat.ecgExclude.
+    hbAll = heartBeats;
+    exWin = [];
+    inEx  = false(size(heartBeats));
+    if isstruct(P) && isfield(P, 'ecgExcludeSec') && ~isempty(P.ecgExcludeSec)
+        exWin = P.ecgExcludeSec;
+        assert(isnumeric(exWin) && size(exWin, 2) == 2 && all(exWin(:) >= 0) && ...
+               all(exWin(:, 2) > exWin(:, 1)), ...
+               'processECG: P.ecgExcludeSec must be an N x 2 matrix of [start end] seconds with end > start');
+        for wi = 1:size(exWin, 1)
+            inEx = inEx | (heartBeats / outDat.fs >= exWin(wi, 1) & heartBeats / outDat.fs <= exWin(wi, 2));
+        end
+        heartBeats(inEx) = [];
+    end
+
 
 
     % QC-figure window: nominally samples 100000:110000, clamped so short
@@ -56,7 +98,7 @@ function outDat = processECG(outDat, P)
 
     %convert beats indecies to beat times
     tim = 1/outDat.fs:1/outDat.fs:size(outDat.data,2)/outDat.fs; 
-    beatTims = tim(outDat.heartBeats); 
+    beatTims = tim(hbAll);   % = tim(outDat.heartBeats) unless P.ecgExcludeSec dropped beats
     beatDiffs = diff(beatTims);
     beatTims(end) = [];
        
@@ -72,7 +114,8 @@ function outDat = processECG(outDat, P)
     if isempty(minVal)
         minVal = .6; %interbeat interval of less than .6 is unrealistic for generally healthy people sitting still
     end
-    maxVal = breakVals(idx + find(counts(idx:end)<5, 1) - 1); 
+    if ~isempty(minIBI), minVal = max(minVal, minIBI); end   % explicit per-session floor (P.minIBI)
+    maxVal = breakVals(idx + find(counts(idx:end)<5, 1) - 1);
 
     %remove bad vals: 
     beatTims(beatDiffs < minVal) = []; 
@@ -80,6 +123,17 @@ function outDat = processECG(outDat, P)
 
     beatTims(beatDiffs > maxVal) = []; 
     beatDiffs(beatDiffs > maxVal) = []; 
+
+    % P.ecgExcludeSec: drop every interval with a beat inside a window or
+    % spanning one (no-op without windows)
+    if ~isempty(exWin)
+        dropIv = false(size(beatTims));
+        for wi = 1:size(exWin, 1)
+            dropIv = dropIv | (beatTims + beatDiffs >= exWin(wi, 1) & beatTims <= exWin(wi, 2));
+        end
+        beatTims(dropIv) = [];
+        beatDiffs(dropIv) = [];
+    end
     figure('visible', false, 'position', [0,0,1000,500]);
     histogram(beatDiffs)
     xlabel('interbeat interval (s)')  
@@ -90,8 +144,26 @@ function outDat = processECG(outDat, P)
 
     %interpolate the interbeat interval into a full timeseries
     RRint = interp1(beatTims,beatDiffs, tim, 'linear');
-    
-    
+    if ~isempty(exWin)
+        % P.ecgExcludeSec: no RR estimate inside the windows, and none that
+        % would be interpolated across them: NaN between the last kept stamp
+        % before each window and the first kept stamp after it
+        exNaN = zeros(size(exWin, 1), 2);
+        for wi = 1:size(exWin, 1)
+            tL = max(beatTims(beatTims < exWin(wi, 1)));
+            tR = min(beatTims(beatTims > exWin(wi, 2)));
+            if isempty(tL), tL = 0; end
+            if isempty(tR), tR = tim(end); end
+            exNaN(wi, :) = [tL tR];
+            RRint(tim > tL & tim < tR) = NaN;
+        end
+        ex = struct('windowsSec', exWin, 'rrNaNSec', exNaN, 'nBeatsDropped', nnz(inEx), ...
+                    'note', '', 'nBreathsAffected', NaN, 'breathIdx', []);   % last two: flagBadBreaths
+        if isfield(P, 'ecgExcludeNote'), ex.note = P.ecgExcludeNote; end
+        outDat.ecgExclude = ex;
+    end
+
+
     % clamped QC window (figure-only; see note above)
     v0 = min(100000, max(1, numel(rspDat) - 50000));
     v1 = min(v0 + 50000, numel(rspDat));

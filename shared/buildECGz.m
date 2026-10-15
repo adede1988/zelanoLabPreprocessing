@@ -31,9 +31,16 @@ function [ECGz, beatSep] = buildECGz(outDat)
     % beatSpec probes (probe_resp2: burst overdetection in the noise windows,
     % clean rhythm once blanked). Explicit per-session list per repo
     % convention.
+    % CS_2 added 2026-10-14 (tasks_261014 task 9): its sleep recording carries
+    % ECG3 bursts (6 flagged windows, global std x1.56) that pressed the R
+    % troughs to ~-2.3 z; blanked, the awake spec 3,0,lt,-2.75 gives 94 bpm,
+    % unimodal IBIs, 3 gaps > 1.5 s (vs 66 for the best unblanked sleep spec,
+    % -2.0), and its three awake sections have no flagged ECG3 window, so their
+    % beats are unchanged (E:\claudeWork\u1014\sepCode\cs2ecg.m;
+    % guessReview_261014\CS_2\CS2_sleepBeatSpec.png).
     NOISYECG = {'260805_EEG_NWU_CA', '250811_Dupi_NMH_TB_3', ...
                 '251110_Dupi_NMH_PC_2', '251009_OBE_NWU_CP_1', ...
-                '260105_OBE_NWU_ZF_1'};
+                '260105_OBE_NWU_ZF_1', '260831_OBE_NWU_CS_2'};
     if isfield(outDat, 'sessID') && any(strcmpi(NOISYECG, outDat.sessID))
         wLen = 10 * outDat.fs;
         nW = floor(size(ECG, 2) / wLen);

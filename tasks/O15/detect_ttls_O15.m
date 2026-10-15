@@ -31,7 +31,13 @@ function [outTTLs, raw] = detect_ttls_O15(raw, P)
 
         raw.data = rawData;
 
-
+    % Held-button protocol (opt-in per session: P.ttl.protocol = 'heldButton'
+    % in applyParams' O15 switch; tasks_261014 task 10). Default (absent or
+    % 'pressPulse') = the legacy z-score path below, unchanged.
+    if isfield(P, 'ttl') && isfield(P.ttl, 'protocol') && strcmp(P.ttl.protocol, 'heldButton')
+        [outTTLs, raw] = heldButtonTTLs(raw, P, photoDiode);
+        return
+    end
 
 
 
@@ -80,7 +86,7 @@ function [outTTLs, raw] = detect_ttls_O15(raw, P)
         
     end
 
-    confirmMarks = []; 
+    confirmMarks = [];
     for tt = 1:length(trialMarks)
         if tt < length(trialMarks)
             idx = find(sniffMarks>trialMarks(tt) & ...
@@ -95,7 +101,10 @@ function [outTTLs, raw] = detect_ttls_O15(raw, P)
             end
         end
     end
-    
+
+    % (The 2026-10-12 DB_3-only 'confirmAfterPress' rule that stood here is
+    % retired: it read DB_3's trials one event out of phase. DB_3 runs the
+    % held-button protocol instead - see heldButtonTTLs below.)
     % confirmMarks = sniffMarks(diff(sniffMarks)<raw.fs_raw);
     % idx = find(diff(sniffMarks)<raw.fs_raw);
     % sniffMarks([idx, idx+1]) = []; 
@@ -161,7 +170,95 @@ function [outTTLs, raw] = detect_ttls_O15(raw, P)
     outTTLs.free14= TTLs(:,17); 
     outTTLs.free15= TTLs(:,18); 
     outTTLs.free16= TTLs(:,19); 
-    outTTLs.free17= TTLs(:,20); 
+    outTTLs.free17= TTLs(:,20);
 
 
+end
+
+
+function [outTTLs, raw] = heldButtonTTLs(raw, P, photoDiode)
+%HELDBUTTONTTLS  O15 TTL table for the held-button protocol (tasks_261014 task 10).
+%   The experimenter holds the button down while the odor bottle is under the
+%   participant's nose (from ~Oct 2025; 251030_Dupi_NMH_DB_3) instead of tapping
+%   once per observed sniff. Those holds occupy ~25 % of the samples on the
+%   (rail-clipped, AC-coupled) event channel, so the legacy z-score threshold
+%   finds no pulses and the hold widths exceed maxPulseSamp. parse_O15_events
+%   parses the channel on median/rail-referenced levels instead, using the
+%   fixed widths of the programmatic pulses (start / cue / press pair /
+%   confirm pair).
+%
+%   TTL table: same columns as the legacy path (trialStart, buttonPress,
+%   confirmSniff, free1..free17; samples at P.fs_target). free1 = the start
+%   cue (as in the legacy path, where it is the first sniff mark of the trial
+%   and detect_sniffs_from_TTLs labels its sniff 'start'); free2..free17 stay
+%   NaN - the free events are button-DOWN PERIODS, returned in raw.buttonDown
+%   (-> outDat.buttonDown), and heldButtonFreeSniffs_O15 turns the inhales
+%   inside them into the 'free' sniffs.
+
+    if ~isempty(P.ttl.removeTrialMarksIdx)
+        error('detect_ttls_O15:heldButton', ...
+            'removeTrialMarksIdx is not supported with the held-button protocol');
+    end
+    opts = struct;
+    if isfield(P.ttl, 'heldOpts'), opts = P.ttl.heldOpts; end
+    opts.expectedTrials = P.ttl.expectedTrialCount / 2;   % 2 trial marks per trial (start, press)
+    [ev, pulses, info] = parse_O15_events(photoDiode, raw.fs_raw, opts);
+
+    k = raw.fs_raw / P.fs_target;
+    nT = numel(ev.trialStart);
+    TTLs = nan(nT, 20);
+    TTLs(:,1) = ev.trialStart;
+    TTLs(:,2) = ev.press;
+    TTLs(:,3) = ev.confirm;
+    TTLs(:,4) = ev.cue;
+    TTLs = round(TTLs ./ k);
+    names = [{'trialStart', 'buttonPress', 'confirmSniff'}, ...
+             arrayfun(@(x) sprintf('free%d', x), 1:17, 'UniformOutput', false)];
+    outTTLs = array2table(TTLs, 'VariableNames', names);
+
+    % button-down periods (one row per hold; samples at P.fs_target and raw)
+    nW = cellfun(@(x) size(x, 1), ev.free);
+    bd = zeros(0, 2); trialIdx = zeros(0, 1); winIdx = zeros(0, 1);
+    for t = 1:nT
+        bd = [bd; ev.free{t}];                         %#ok<AGROW>
+        trialIdx = [trialIdx; repmat(t, nW(t), 1)];    %#ok<AGROW>
+        winIdx = [winIdx; (1:nW(t))'];                 %#ok<AGROW>
+    end
+    BD = table;
+    BD.trial     = trialIdx;
+    BD.window    = winIdx;
+    BD.onset     = round(bd(:,1) ./ k);
+    BD.offset    = round(bd(:,2) ./ k);
+    BD.durSec    = (bd(:,2) - bd(:,1)) ./ raw.fs_raw;
+    BD.onsetRaw  = bd(:,1);
+    BD.offsetRaw = bd(:,2);
+    raw.buttonDown = BD;
+    info.protocol = 'heldButton';
+    info.fs_raw = raw.fs_raw;
+    info.pulses = pulses;          % every pulse with its role (raw samples)
+    raw.ttlInfo = info;
+
+    % QC figure (TTLs.jpg, same file as the legacy path)
+    hF = figure('visible', 'off', 'position', [0, 0, 1800, 500]);
+    hold on
+    dec = 10;
+    tt = (0:dec:numel(photoDiode)-1) ./ raw.fs_raw;
+    yl = [min(photoDiode) max(photoDiode)];
+    for i = 1:height(BD)
+        patch([BD.onsetRaw(i) BD.offsetRaw(i) BD.offsetRaw(i) BD.onsetRaw(i)] ./ raw.fs_raw, ...
+            yl([1 1 2 2]), [1 .7 .3], 'EdgeColor', 'none', 'FaceAlpha', .5)
+    end
+    plot(tt, photoDiode(1:dec:end), 'color', [.4 .4 .4])
+    xlim([0 tt(end)])
+    xline(ev.trialStart ./ raw.fs_raw, 'color', 'magenta')
+    xline(ev.cue ./ raw.fs_raw, 'color', 'green')
+    xline(ev.press ./ raw.fs_raw, 'color', 'black')
+    xline(ev.confirm ./ raw.fs_raw, 'color', 'red')
+    yline(info.thresh, '--')
+    xlabel('time (s)')
+    title({sprintf('%s TTLs (held-button): %d trials, %d button-down periods (%.0f s held)', ...
+        raw.sessID, nT, height(BD), sum(BD.durSec)), ...
+        'magenta start, green cue, black press, red confirm, orange = button held'}, 'interpreter', 'none')
+    saveas(hF, fullfile(raw.paths.fig, 'TTLs.jpg'));
+    close(hF)
 end

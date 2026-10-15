@@ -9,4 +9,9 @@ function outDat = assembleOutDat_O15extras(outDat, S, raw)
     outDat.OGdataDir = fullfile(S.root, S.id);
     outDat.loadFile  = findLoadDataScript(outDat.OGdataDir, 'O15', raw);
     outDat.preProcScript = 'O15PreProc_main.m';
+    % held-button protocol only (detect_ttls_O15 with P.ttl.protocol =
+    % 'heldButton', tasks_261014 task 10): the button-down periods (the free
+    % events; heldButtonFreeSniffs_O15 reads them) and the event-channel parse
+    if isfield(raw, 'buttonDown'), outDat.buttonDown = raw.buttonDown; end
+    if isfield(raw, 'ttlInfo'),    outDat.ttlInfo    = raw.ttlInfo;    end
 end

@@ -100,6 +100,14 @@ for s = 1:numel(sessionIDs)
 
     % ----- TASK-SPECIFIC (cueTask): behavior table from sniffs + raw behavior -----
     outDat.behDat = build_behavior_table_cueTask(sniffs, raw.beh);
+    % trials the reviewer dropped (P.dropTrials, set per session in
+    % applyParams; default none): their sniff rows leave behDat, the audit
+    % record goes to outDat.droppedTrials (trial, reason)
+    if ~isempty(P.dropTrials)
+        [outDat.behDat, outDat.droppedTrials] = dropTrials_cueTask( ...
+            outDat.behDat, P.dropTrials, P.dropTrialsReason);
+        disp(['dropped trial(s) ' mat2str(P.dropTrials(:)') ' from behDat: ' P.dropTrialsReason])
+    end
     % ----- end TASK-SPECIFIC -----
 
     outDat = refine_onsets_with_phase(outDat, R, P); % uses precomputed phase

@@ -17,8 +17,14 @@
 %                   can carry different verdicts per task (DL_1: breathing
 %                   keep, sep invert); updates od.rspFlip in the final
 %                   (sheet updates + review flags handled by the caller)
+%   ZLP_RSPIDXFIX   'task|id=1,...' respiration-channel (rspIDX) overrides,
+%                   same key convention; updates od.rspIDX in the final
+%                   (the caller keeps the sheet's rspIDX consistent)
+%   ZLP_RESEG_BACKUP backup root (default E:\reprocBackup_260824\r12);
+%                   backups go to <root>\<task>\
 
 BKD = 'E:\reprocBackup_260824\r12';
+if ~isempty(getenv('ZLP_RESEG_BACKUP')), BKD = getenv('ZLP_RESEG_BACKUP'); end
 TASKS = { ...
  'breathingTask',          '_breathing*.mat',                'i_processedBreathing.csv'; ...
  'emotionalMovieTask',     '_EmotionalMovieTask*.mat',       'i_EmotionalMovieTask_processedBreathing.csv'; ...
@@ -35,6 +41,15 @@ if ~isempty(ffEnv)
     for p = 1:numel(pairs)
         kv = strsplit(strtrim(pairs{p}), '=');
         flipFix(kv{1}) = str2double(kv{2});
+    end
+end
+idxFix = containers.Map('KeyType', 'char', 'ValueType', 'double');
+ixEnv = getenv('ZLP_RSPIDXFIX');
+if ~isempty(ixEnv)
+    pairs = strsplit(ixEnv, ',');
+    for p = 1:numel(pairs)
+        kv = strsplit(strtrim(pairs{p}), '=');
+        idxFix(kv{1}) = str2double(kv{2});
     end
 end
 L = labPaths();
@@ -87,6 +102,10 @@ for tt = 1:size(TASKS, 1)
                 fprintf('RESEG FLIPFIX %s %s: rspFlip %+d -> %+d\n', tkey, id, od.rspFlip, fl);
             end
             od.rspFlip = fl;
+            if idxFix.isKey(fkey)
+                fprintf('RESEG RSPIDXFIX %s %s: rspIDX %d -> %d\n', tkey, id, od.rspIDX, idxFix(fkey));
+                od.rspIDX = idxFix(fkey);
+            end
             isRsp = cellfun(@(x) contains(x, 'rsp'), od.labels);
             r = double(od.data(isRsp, :)); r = r(od.rspIDX, :) .* fl;
             fs = od.fs; N = numel(r);

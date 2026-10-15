@@ -270,6 +270,7 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
     elseif strcmpi(sessionIDs{sessi}, '250623_Dupi_NMH_KS_3') || ...
            strcmpi(sessionIDs{sessi}, '251120_Dupi_NMH_JL_1') || ...
            strcmpi(sessionIDs{sessi}, '251002_Dupi_NMH_AB_3') || ...
+           strcmpi(sessionIDs{sessi}, '251030_Dupi_NMH_DB_3') || ...
            strcmpi(sessionIDs{sessi}, '260326_OBE_NWU_AD_2')
         % (2026-08-29 audit) In these two sessions the AUDIO block shows NO
         % photodiode flicker (dark screen), so flicker-based detection found
@@ -296,6 +297,15 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
             % windows measured the same way (audioResp r=-.78, focusedResp
             % r=+.90, shadow4 r=+.84; runner-ups <=.34)
             blockStartSec = [39 516 1281];     % audio focus shadow
+        elseif strcmpi(sessionIDs{sessi}, '251030_Dupi_NMH_DB_3')
+            % (2026-10-12) DB_3: photodiode shows no usable block flicker;
+            % windows measured by sliding correlation of each block's
+            % closed-loop recording CSV against the session respiration
+            % (20 Hz, rsp3: audioResp r=+.91, focusedResp r=+.84, shadow4
+            % r=+.88; runner-ups <=.33). Offsets between blocks (478.3 /
+            % 702.8 s) reproduce the behavior cndOnset differences (478.2 /
+            % 702.8 s).
+            blockStartSec = [142.7 621.0 1323.8];   % audio focus shadow
         elseif strcmpi(sessionIDs{sessi}, '260326_OBE_NWU_AD_2')
             % (2026-08-31) partial session: 999-s recording, behavior
             % aborted after the audio ratings; audio block located via its
@@ -307,6 +317,10 @@ if ~exist([datPre{datPrei(sessi)} sessionIDs{sessi} '\preProc\' ...
             % -> the focused-breathing (slowFocus) block. No ratings exist
             % for it (behavior aborted first), so a synthetic order-2 row
             % (Q_short = SKIP) labels the block and ratings stay blank.
+            % (2026-10-12) blockStartSec are RAW-recording seconds; the
+            % stored TTL boundaries (0 and 300 s) are in the CONCATENATED
+            % 2 x 300 s data (audio = raw 30-330 s, slowFocus = raw 690-990
+            % s), so they are consistent with the measured windows.
             blockStartSec = [30 690];          % audio, slowFocus
             nr = behDat(find(behDat.order == max(behDat.order), 1, 'last'), :);
             nr.order = 2;

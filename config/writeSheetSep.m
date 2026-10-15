@@ -3,13 +3,17 @@ function writeSheetSep(P, sessID, action, xlsxPath)
 %
 %   writeSheetSep(P, sessID, 'params')   write P's parameter values identically
 %                                        onto EVERY in-scope condition row
+%                                        (except rspIDX/rspFlip/beatSpec: each row
+%                                        gets its own, P.condRspIDX/condRspFlip/
+%                                        condBeatSpec)
 %   writeSheetSep(P, sessID, 'X')        set Data Preprocessed = X on every row
 %   writeSheetSep(P, sessID, 'clearX')   blank it on every row
 %
 %   In-scope = the session's condition rows (the Task values listed in
 %   config/sepConditionInfo - the same list applyParams uses; case- and
 %   whitespace-insensitive) with Raw Data Extracted non-blank/non-INCOMPLETE
-%   and dataType == ephys.
+%   and dataType == ephys - or, for the echem mode's P (P.sepEchem, tasks_
+%   261014 task 6), dataType == ephys_echem.
 %   The task-9 writers deliberately do NOT use writePreProcX (first-match
 %   semantics cannot cover multiple condition rows). Each write verifies the
 %   Subject ID cell at the target row first.
@@ -32,6 +36,8 @@ function writeSheetSep(P, sessID, action, xlsxPath)
            ~isempty(cDT) && ~isempty(cPre), ...
            'writeSheetSep: required sheet columns not found - aborting');
 
+    dtWant = 'ephys';
+    if isfield(P, 'sepEchem') && isequal(P.sepEchem, true), dtWant = 'ephys_echem'; end
     rowsHit = [];
     for r = 3:size(C, 1)
         v = C{r, cSub};
@@ -43,7 +49,7 @@ function writeSheetSep(P, sessID, action, xlsxPath)
         if isa(rawv, 'missing') || ((ischar(rawv) || isstring(rawv)) && strlength(strtrim(string(rawv))) == 0), continue; end
         if (ischar(rawv) || isstring(rawv)) && strcmpi(strtrim(char(string(rawv))), 'INCOMPLETE'), continue; end
         dt = C{r, cDT};
-        if ~((ischar(dt) || isstring(dt)) && strcmpi(strtrim(char(string(dt))), 'ephys')), continue; end
+        if ~((ischar(dt) || isstring(dt)) && strcmpi(strtrim(char(string(dt))), dtWant)), continue; end
         rowsHit(end+1) = r; %#ok<AGROW>
     end
     assert(~isempty(rowsHit), 'writeSheetSep: no in-scope condition rows for %s', sessID);
@@ -67,6 +73,12 @@ function writeSheetSep(P, sessID, action, xlsxPath)
                         continue;
                     end
                     val = P.(fld);
+                    % per-condition respiration channel / ECG beatSpec (applyParams
+                    % P.condRspIDX / condRspFlip / condBeatSpec): each row gets ITS
+                    % OWN value back, never the session-level first-row value
+                    if any(strcmp(fld, {'rspIDX', 'rspFlip', 'beatSpec'}))
+                        val = rowRsp(P, fld, C{r, cTask}, val);
+                    end
                     if strcmp(paramCols{pc, 2}, 'bool'), val = logical(val); end
                     if strcmp(paramCols{pc, 2}, 'str'), val = char(string(val)); end
                     writeCellChecked(xlsxPath, sheet, ci, r, val);
@@ -82,6 +94,18 @@ function writeSheetSep(P, sessID, action, xlsxPath)
             end
         otherwise
             error('writeSheetSep: unknown action "%s"', action);
+    end
+end
+
+function val = rowRsp(P, fld, taskCell, val)
+% the row's own rspIDX/rspFlip/beatSpec (match by condition Task string), else val
+    cf = {'rspIDX', 'condRspIDX'; 'rspFlip', 'condRspFlip'; 'beatSpec', 'condBeatSpec'};
+    cn = cf{strcmp(cf(:, 1), fld), 2};
+    if isfield(P, cn) && isfield(P, 'conditions')
+        k = find(strcmpi(strtrim(P.conditions), strtrim(char(string(taskCell)))), 1);
+        if ~isempty(k)
+            if iscell(P.(cn)), val = P.(cn){k}; else, val = P.(cn)(k); end
+        end
     end
 end
 
