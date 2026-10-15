@@ -261,3 +261,34 @@ fraction of samples inside 0.2-s notch windows; the actual change is ~1 µV RMS 
 D1a-f promoted to curated 2026-10-13 (user): cue BG, RA_1, EZ_1, BW_2; thresh EZ_1; sep CC_1.
 
 Still blocked (user decision 2026-10-12): 260504_Dupi_NMH_JA_2 O15 stays without a final until the user supplies the answers (`O15_responses_260504_Dupi_NMH_JA_2.csv`; they exist only in the session video). Open decisions: `guessReview_261012.html`.
+
+## Task list 261014 (user, `tasks_261014.md`) — executed 2026-10-14/15
+
+Run as three orchestrated workflows (Fable audits on every change); backups `E:\reprocBackup_261014\<task>\<id>\`, superseded
+finals in `preProc\superseded_261014\`, review figures `R:\…\Adam\Dupi_processing\guessReview_261014\<topic>\`.
+
+**Promoted to curated:** cue ZF_2 (row 584: macroRemove 4,5 + cuedBackBuff 150 — trials 25/43/54/60 moved onto the main sniff,
+all 60 epochs judged aligned), cue RX_2 (598, trial 7 lost — accepted), cue RC_2 (624, trial 23 dropped via `P.dropTrials` →
+`outDat.droppedTrials`), breathing PC_2 (346: macroRemove 1,2, spikeClean off, HRV excluded where the ECG is unreadable —
+`P.ecgExcludeSec` = [25.2 30.2; 209.3 300.8; 335.0 336.3; 459.5 473.9] s from `batch/ecgUnreadableWindows.m`, 29 breaths with NaN
+HRV), sep HM_2 (456/458/460/462: sleep cut at 916 s via `P.condTrimSec`, noise starts 921.1 s; 319 breaths / 2129 beats),
+sep CS_2 (608/609/612/614: sleep ECG noise windows blanked in buildECGz (NOISYECG list) → 1961 sleep beats / 90 bpm with the
+same beatSpec, `P.condMinIBI` 0.5 s for sleep, no blink removal in sleep via `P.condBlinkRemoval`). D1a-f re-verified: correct.
+
+**Reprocessed, still as before on the sheet:**
+
+| Session | task | change | outcome |
+|---|---|---|---|
+| 240923_OBE_NMH_HRM | cue (62) + sep sleep (64), curated | channel map fixed: macros CSC3–8, micros CSC33–42, scalp CSC9–12 (labels O2 Cz C4 F4 = user's guess), event CSC269, rsp CSC270 (rspFlip +1 confirmed from sniff timing); proven against `Preproc_CueTask\preproc_cueTask_odor_HRM.mat` (2-kHz rows identical, macros r ≥ 0.9994; old CSC195–200 map |r| ≤ 0.03); new `LoadData_240923_OBE_NMH_HRM_claude.m`; all 12 raws re-extracted (old in `raw\superseded_261014\`) | respiration / sniffs / breaths unchanged; macBP now real (4–13 µV rms vs 98–143); cue spikeClean ICA now removes components. Siblings AZ/FM/SJ/AS/BG maps OK (SJ's own lab reference files use wrong macro channels) |
+| 260921_OBE_NWU_BW_2 | sep (guess) | section 3 (focusedBreathing_button2, recorded during echem) split out: row 639 dataType → ephys_echem, rspIDX 3; main file = button1 / restingBaseline / mouth with rspIDX 1/1/3; echem file via `ZLP_SEP_ECHEM=1` | main 259 breaths (102/61/96); `260921_OBE_NWU_BW_2_breathingTasks_echem_separatepreproc.mat` 86 spirometer breaths (recovered: ECG-derived-respiration coherence 0.98, RSA 0.65; binaps dead), echem macro spikes left in |
+| 251030_Dupi_NMH_DB_3 | O15 (guess) | held-button protocol (`P.ttl.protocol = 'heldButton'`, `parse_O15_events`, `heldButtonFreeSniffs_O15`, `outDat.buttonDown`); the 10-12 parse was one event out of phase | 15 trials, start 15 / free 105 / confirm 15 (was 0 free); EEG with the fixed detector: 24 bad (was 30) |
+
+**EEG cleaning fix (deployed 2026-10-15, default `P.eegClean` mode 'fixed', 'legacy' reproduces the old detector):**
+`removeNoiseChansVolt` trial purges were written into every channel's record, so ≥ 60 % purged trials flagged all channels
+(the 13 all-30 finals); purged trials read as flat; R5 divided by all trials; recording gaps counted per channel. Fixed in
+removeNoiseChansVolt / preprocess_eeg / blinkRemoveWrapper (+ concatSections). Existing finals are NOT reprocessed: 24 change
+certainly, ~45–65 of 219 estimated. Open policy: 'band' mode (1–40 Hz statistic) would leave most sessions with 0–3 bad channels.
+Survey + deep dives: `guessReview_261014\eegAudit\`.
+
+**Protocol change found:** O15 moved to the held-button protocol between 2026-07-02 and 2026-07-09 (DB_3 2026-07-09, RC_2
+2026-09-17; RC_2's O15 row 622 has no behaviour file and no parameters — not run).

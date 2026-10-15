@@ -8,6 +8,20 @@ function [out, badChan, blinkIndicator, selInfo] = blinkRemoveWrapper(outDat, ..
 %                ICs |r| 0.83-0.99, frontal non-blink ICs <= 0.51)
 % selInfo = ica_blinks' selection record (+ labels), stored by preprocess_eeg
 % as outDat.blinkICA.
+%   .badTS       (from preprocess_eeg) samples in trials removeNoiseChansVolt
+%                rejected; the ICA training window avoids them
+%   .chanTestBadTS  true = the two bad-channel tests below (high range, flat)
+%                ignore the .badTS epochs / samples: purged trials and
+%                recording gaps are not evidence against one channel (the
+%                'fixed' / 'band' detector's rule). preprocess_eeg sets it
+%                with those detector modes (2026-10-15, tasks_261014 task 10);
+%                absent / false = every epoch counts (as before).
+%   .minGood     when the bad-channel tests leave fewer than minGood good
+%                channels, nothing is run: out = the input rows 1:32, no
+%                blinkIndicator, selInfo = struct('skipped', true, 'reason',
+%                ..., 'nGoodLeft', n). preprocess_eeg passes 11 with the
+%                'fixed' / 'band' detector (blink ICA and the Laplacian need
+%                > 10 good channels); absent = no such check (as before).
     if nargin < 5 || isempty(opts), opts = struct(); end
     if ~isfield(opts, 'selectMode'), opts.selectMode = 'frontal'; end
     if ~isfield(opts, 'minFrontRatio'), opts.minFrontRatio = 2; end
@@ -50,9 +64,23 @@ function [out, badChan, blinkIndicator, selInfo] = blinkRemoveWrapper(outDat, ..
     
     % Epoch is "bad" if range >= 700 µV
     epochBad = epochRange >= highRangeThresh;       % logical [nCh x nEpochs]
-    
-    % Channel is bad if >= 15% of its epochs are bad
-    badHighDev = (sum(epochBad, 2) ./ nEpochs) >= epochFracThresh;   % [nCh x 1]
+
+    % opts.chanTestBadTS: epochs / samples in the detector's badTS are left
+    % out of both channel tests (the 2-s epochs here coincide with the
+    % detector's 2-s trials: both start at sample 1)
+    tsMask = false(1, size(data, 2));
+    if isfield(opts, 'chanTestBadTS') && ~isempty(opts.chanTestBadTS) && opts.chanTestBadTS && ...
+            isfield(opts, 'badTS') && numel(opts.badTS) == size(data, 2)
+        tsMask = reshape(opts.badTS ~= 0, 1, []);
+    end
+    keepEp = ~any(reshape(tsMask(1:nEpochs*epochSamples), epochSamples, nEpochs), 1);
+
+    % Channel is bad if >= 15% of its (counted) epochs are bad
+    if all(keepEp)
+        badHighDev = (sum(epochBad, 2) ./ nEpochs) >= epochFracThresh;   % [nCh x 1]
+    else
+        badHighDev = (sum(epochBad(:, keepEp), 2) ./ max(1, nnz(keepEp))) >= epochFracThresh;
+    end
     
     
     %% ---------- Criterion 2: flat periods (> 100 ms within ±1 µV) ----------
@@ -74,7 +102,7 @@ function [out, badChan, blinkIndicator, selInfo] = blinkRemoveWrapper(outDat, ..
 
     for ch = 1:C
         x = data(ch,:);                         % 1 x nSamp
-        isFlat = abs(x) <= flatAmpThresh & ~allFlat;   % logical
+        isFlat = abs(x) <= flatAmpThresh & ~allFlat & ~tsMask;   % logical
     
         if ~any(isFlat)
             continue;                           % no flat segments at all
@@ -101,7 +129,21 @@ function [out, badChan, blinkIndicator, selInfo] = blinkRemoveWrapper(outDat, ..
     badChan = find(badHighDev | badFlat);% channels failing either criterion
     badChannelsHighDev = find(badHighDev);
     badChannelsFlat    = find(badFlat);
-    
+
+    % opts.minGood: too few good channels left for blink ICA / the Laplacian
+    if isfield(opts, 'minGood') && ~isempty(opts.minGood) && C - numel(badChan) < opts.minGood
+        out = outDat.data(1:32, :);
+        blinkIndicator = [];
+        selInfo = struct('skipped', true, 'nGoodLeft', C - numel(badChan), 'reason', ...
+            sprintf(['blink-stage channel tests left %d of %d channels good (< %d): blink ICA ' ...
+                     'not run'], C - numel(badChan), C, opts.minGood));
+        if isfield(opts, 'chanTestBadTS')
+            selInfo.chanTestBadTS = any(tsMask);
+            selInfo.chanTestEpochsIgnored = nnz(~keepEp);
+        end
+        return
+    end
+
     if ismember(blinkChan, badChan)
         if ismember(C, badChan)
             error('no available blink chan!')
@@ -223,6 +265,12 @@ function [out, badChan, blinkIndicator, selInfo] = blinkRemoveWrapper(outDat, ..
         'frontIdx', frontIdx, 'selFs', fs, ...
         'minFrontRatio', opts.minFrontRatio, 'minRefCorr', opts.minRefCorr);
     selInfo = out.select;
+    if isfield(opts, 'chanTestBadTS')
+        % record (and proof for preprocess_eeg that this version honoured
+        % the option): were badTS epochs left out of the channel tests
+        selInfo.chanTestBadTS = any(tsMask);
+        selInfo.chanTestEpochsIgnored = nnz(~keepEp);
+    end
     selInfo.labels = cellstr(goodLbl);
     selInfo.trainStartSample = selStart;
     selInfo.removedLabel = '';

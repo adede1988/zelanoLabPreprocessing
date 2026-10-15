@@ -120,6 +120,29 @@ function outDat = flagBadBreaths(outDat)
 
     end
 
+    % Explicit ECG exclusion windows (processECG wrote them to
+    % outDat.ecgExclude from P.ecgExcludeSec; field absent = nothing happens,
+    % behaviour unchanged; tasks_261014 task 7): a breath that overlaps a window
+    % (or the RRint NaN stretch around it, rrNaNSec: last kept RR stamp before the
+    % window .. first one after) has no readable ECG for part of its span, so its
+    % within-breath HRV is NaN. goodBreath is the respiration-trace QC and is
+    % deliberately left as computed.
+    if isfield(outDat, 'ecgExclude') && isstruct(outDat.ecgExclude) && ...
+            isfield(outDat.ecgExclude, 'windowsSec') && ~isempty(outDat.ecgExclude.windowsSec)
+        wEx = [outDat.ecgExclude.windowsSec; outDat.ecgExclude.rrNaNSec];
+        b0  = outDat.behDat.finalOnset / outDat.fs;       % breath span (s)
+        b1  = b0 + outDat.behDat.length;
+        hit = false(nB, 1);
+        for wi = 1:size(wEx, 1)
+            hit = hit | (b1 > wEx(wi, 1) & b0 < wEx(wi, 2));
+        end
+        outDat.behDat.maxRR(hit)      = NaN;
+        outDat.behDat.minRR(hit)      = NaN;
+        outDat.behDat.RR_max_min(hit) = NaN;
+        outDat.ecgExclude.breathIdx        = find(hit);
+        outDat.ecgExclude.nBreathsAffected = nnz(hit);
+    end
+
 
 
 

@@ -17,11 +17,31 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 %  then the results are concatenated (D12b, concatSections). No makeOutDat:
 %  raw condition files are loaded directly (like O15).
 %  TASK-SPECIFIC pieces: assembleRaw_breathingTasks_separate,
-%  concatSections, build_behavior_table_breathingTasks_separate; its sheet
+%  concatSections, build_behavior_table_breathingTasks_separate,
+%  sepSectionP (one recording's per-condition parameters); its sheet
 %  writer is config/writeSheetSep.
+%
+%  ECHEM MODE (tasks_261014 task 6): ZLP_SEP_ECHEM=1 runs the same pipeline
+%  on each session's dataType ephys_echem condition rows (applyParams
+%  'breathingTasks_separate_echem') and saves
+%  <id>_breathingTasks_echem_separatepreproc.mat (+ its own processed-
+%  behaviour CSV and figure folder); the default run is unchanged. Echem
+%  mode requires ZLP_MAIN_ONLY: the sheet lists more ephys_echem rows with a
+%  condition Task than have been reviewed for it (2026-10-14: RY_1, KA_2,
+%  RX_2, RC_2 besides BW_2).
 % =====================================================================
 
-cfg        = applyParams('breathingTasks_separate','main');
+% echem mode: the ephys_echem condition recordings, into their own final
+echemMode = strcmp(getenv('ZLP_SEP_ECHEM'), '1');
+if echemMode
+    sepTaskArg = 'breathingTasks_separate_echem';
+    fileTag    = 'breathingTasks_echem_separate';
+    disp('breathingTasks_separate ECHEM MODE (ZLP_SEP_ECHEM=1): dataType ephys_echem condition rows')
+else
+    sepTaskArg = 'breathingTasks_separate';
+    fileTag    = 'breathingTasks_separate';
+end
+cfg        = applyParams(sepTaskArg,'main');
 sessionIDs = cfg.sessionIDs;
 
 % D4: ALL Task 9 sessions are run-on-guess under the batch override
@@ -30,6 +50,9 @@ allowGuessRunEnv = strcmp(getenv('ZLP_ALLOW_GUESS_RUN'), '1');
 mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
 mainOnlyList = {};
 if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
+if echemMode && isempty(mainOnlyList)
+    error('breathingTasks_separate echem mode: set ZLP_MAIN_ONLY to the session(s) to process');
+end
 
 for s = 1:numel(sessionIDs)
     try
@@ -40,47 +63,57 @@ for s = 1:numel(sessionIDs)
     S.root = cfg.root{s};
     S.fig  = fullfile(figPath, S.id);
 
-    P = applyParams('breathingTasks_separate', S.id);
+    P = applyParams(sepTaskArg, S.id);
     isGuess = ~strcmpi(strtrim(P.paramSource), 'curated');
     P.allowGuessRun = allowGuessRunEnv;        % D4: every Task 9 session
     % task subfolder (= assembleOutDat's outDat.figs) so the paramCheck PNGs of the
-    % session's different breath-type tasks cannot overwrite each other (C12)
+    % session's different breath-type tasks cannot overwrite each other (C12);
+    % echem mode: its own subfolder (fileTag) so the two runs never collide
     P.figDir = fullfile(S.fig, P.task);
+    if echemMode, P.figDir = fullfile(S.fig, fileTag); end
 
     % --- done-check ---
     preDir = fullfile(S.root, S.id, 'preProc');
-    fpath  = fullfile(preDir, [S.id '_breathingTasks_separatepreproc.mat']);
+    fpath  = fullfile(preDir, [S.id '_' fileTag 'preproc.mat']);
     if isSessionDone(fpath, {'moreThan1', 'bmFeatures'})
         disp(['Done with ' S.id ' ; ' num2str(s)])
         continue
     end
 
-    raws = assembleRaw_breathingTasks_separate(S, P);   % <-- TASK-SPECIFIC
+    raws = assembleRaw_breathingTasks_separate(S, P);   % <-- TASK-SPECIFIC (applies P.condTrimSec)
 
     % --- per-condition-file shared core + breath/ECG stages (D12b) ---
-    segs = struct('od', {}, 'label', {}, 'condition', {}, 'srcFile', {});
+    segs = struct('od', {}, 'label', {}, 'condition', {}, 'srcFile', {}, ...
+                  'raw', {}, 'blinkSkipped', {}, 'respSkipped', {});
+    beatMixed = false;
     for c = 1:numel(raws)
         % NB: cell-valued struct() args must be wrapped in {} or struct()
         % builds a struct ARRAY with one element per cell entry
         raw = struct('sessID', S.id, 'fs_raw', raws(c).fs_raw, ...
                      'data', raws(c).data, 'labels', {raws(c).labels}, ...
                      'beh', table());
-        % this recording's respiration channel/polarity (sheet row of its
-        % condition; identical to P.rspIDX/rspFlip unless the session's
-        % conditions differ - 260921_OBE_NWU_BW_2). Pc is P with those two
-        % values set; everything per-section below uses Pc.
-        [secIdx, secFlip, rspMixed] = sepSectionRsp(P, raws(c).condition);
-        Pc = P; Pc.rspIDX = secIdx; Pc.rspFlip = secFlip;
+        % this recording's parameters (sepSectionP): its sheet row's
+        % respiration channel/polarity and ECG beatSpec (identical to P's
+        % unless the session's rows differ - 260921_OBE_NWU_BW_2 rsp) and the
+        % optional per-condition switches P.condBlinkRemoval / condRespSkip.
+        % Pc is P with those set; everything per-section below uses Pc.
+        [Pc, secInfo] = sepSectionP(P, raws(c).condition);
+        beatMixed = beatMixed || secInfo.beatMixed;
         od = assembleOutDat(raw, S, Pc);
+        if echemMode
+            od.figs = P.figDir;                % not the main run's figure folder
+            if ~exist(od.figs, 'dir'), mkdir(od.figs); end
+        end
         if c == 1 && isGuess
             [od, Pc] = paramCheck(od, Pc);   % run-on-guess: saves QC figures
-            if rspMixed
+            if secInfo.rspMixed
                 % interactive edits to the rsp choice would apply to one section only
-                Pc.rspIDX = secIdx; Pc.rspFlip = secFlip;
-                P.macroRemove = Pc.macroRemove; P.spikeClean = Pc.spikeClean;
+                Pc.rspIDX = secInfo.rspIDX; Pc.rspFlip = secInfo.rspFlip;
             else
-                P = Pc;
+                P.rspIDX = Pc.rspIDX; P.rspFlip = Pc.rspFlip;
             end
+            % the fields paramCheck may change (the rest of Pc is per-section)
+            P.macroRemove = Pc.macroRemove; P.spikeClean = Pc.spikeClean;
         end
 
         od = runSharedCore(od, Pc, EEGLOC);   % shared: downsample, EEG, macros
@@ -93,19 +126,32 @@ for s = 1:numel(sessionIDs)
             end
         end
 
-        isRsp  = cellfun(@(x) contains(x, 'rsp'), od.labels);
-        rspDat = od.data(isRsp, :);
-        rspDat = rspDat(Pc.rspIDX, :) .* Pc.rspFlip;
-        [od.bmObj, od.bmFeatures] = segmentBreaths_zlp(rspDat, od.fs);
+        if secInfo.respSkipped
+            % respiration not recoverable in this recording (P.condRespSkip):
+            % no segmentation - its breaths would be guesses. Empty bmObj and a
+            % stub bmFeatures with the fields concatSections reads.
+            fprintf('   section %d (%s): respiration SKIPPED (P.condRespSkip) - no breaths\n', c, raws(c).label);
+            od.bmObj = zeros(0, 14);
+            od.bmFeatures = struct('engine', 'none', 'version', '', 'dataType', '', 'srate', od.fs, ...
+                'skipped', true, 'bmObjBreathIdx', zeros(1, 0), 'nInhalesDetected', 0, ...
+                'secondaryFeatures', [], 'conditioning', []);
+        else
+            isRsp  = cellfun(@(x) contains(x, 'rsp'), od.labels);
+            rspDat = od.data(isRsp, :);
+            rspDat = rspDat(Pc.rspIDX, :) .* Pc.rspFlip;
+            [od.bmObj, od.bmFeatures] = segmentBreaths_zlp(rspDat, od.fs);
+        end
 
         hasECG = sum(cellfun(@(x) contains(x, 'ECG'), od.labels)) > 0;
         if hasECG && c == 1
             % viability probe: a systematically wrong beatSpec (bad lead /
             % polarity) must not kill the session - drop ECG for ALL sections
-            % so the concatenated labels stay identical (strict D12b)
+            % so the concatenated labels stay identical (strict D12b). Uses
+            % this recording's own beatSpec (Pc; = P.beatSpec unless the
+            % session's rows differ)
             try
                 [ECGzP, sepP] = buildECGz(od);
-                bpmP = numel(P.getBeats(ECGzP, sepP)) / (size(od.data, 2) / od.fs / 60);
+                bpmP = numel(Pc.getBeats(ECGzP, sepP)) / (size(od.data, 2) / od.fs / 60);
                 if bpmP < 20
                     warning('%s: beat detection implausible (%.1f bpm) - ECG dropped for the session, REVIEW', ...
                         S.id, bpmP);
@@ -127,7 +173,7 @@ for s = 1:numel(sessionIDs)
             % section gets an all-NaN RRint row so the labels still match (D12b)
             try
                 [ECGzS, sepS] = buildECGz(od);
-                bpmS = numel(P.getBeats(ECGzS, sepS)) / (size(od.data, 2) / od.fs / 60);
+                bpmS = numel(Pc.getBeats(ECGzS, sepS)) / (size(od.data, 2) / od.fs / 60);   % this recording's spec
                 clear ECGzS
             catch
                 bpmS = 0;
@@ -152,8 +198,12 @@ for s = 1:numel(sessionIDs)
         end
         fprintf('   section %d (%s): %d samples, %d breaths\n', c, raws(c).label, ...
             size(od.data, 2), size(od.bmObj, 1));
+        rawInfo = struct('rawFirstSample', raws(c).rawFirstSample, 'rawLastSample', raws(c).rawLastSample, ...
+                         'rawSamples', raws(c).rawSamples, 'trimSec', raws(c).trimSec);
         segs(c) = struct('od', od, 'label', raws(c).label, ...
-                         'condition', raws(c).condition, 'srcFile', raws(c).srcFile);
+                         'condition', raws(c).condition, 'srcFile', raws(c).srcFile, ...
+                         'raw', rawInfo, 'blinkSkipped', secInfo.blinkSkipped, ...
+                         'respSkipped', 2 * double(secInfo.respSkipped));
         clear od raw
     end
 
@@ -165,12 +215,26 @@ for s = 1:numel(sessionIDs)
         outDat.rspIDX  = P.rspIDX;
         outDat.rspFlip = P.rspFlip;
     end
+    if echemMode
+        outDat.sepEchem = true;
+        outDat.echemNote = ['condition recording(s) made during electrochemistry (sheet dataType ephys_echem), ' ...
+            'processed apart from the session''s breathingTasks_separate final; the echem voltammetry ' ...
+            'artifacts on the macro channels are NOT cleaned (tasks_261014 task 6)'];
+    end
 
     outDat = build_behavior_table_breathingTasks_separate(outDat);
 
     hasRR = any(cellfun(@(x) contains(x, 'RRint'), outDat.labels));
     if hasRR
-        if isGuess, P = paramCheckECG(outDat, P); end
+        if isGuess
+            if beatMixed
+                % one spec cannot describe sections with different specs: the
+                % per-section ECG_beatDetect_sec<c> figures are the QC here
+                disp('paramCheckECG skipped: per-condition beatSpecs differ (see ECG_beatDetect_sec<c>.jpg)')
+            else
+                P = paramCheckECG(outDat, P);
+            end
+        end
         outDat = flagBadBreaths(outDat);
     else
         outDat.behDat = fillNaNHRV(outDat.behDat);
@@ -188,8 +252,12 @@ for s = 1:numel(sessionIDs)
         end
     end
 
-    R = preprocess_respiration_wholetrace(outDat);
-    plot_sniff_epochs(outDat, R);
+    if isfield(outDat, 'respSkipped') && outDat.respSkipped == 2
+        disp('respiration skipped in every section (P.condRespSkip): no breaths, no sniff-epoch figure')
+    else
+        R = preprocess_respiration_wholetrace(outDat);
+        plot_sniff_epochs(outDat, R);
+    end
 
     % --- Guess gate (D4: all Task 9 sessions run under the override) ---
     if isGuess
@@ -205,11 +273,11 @@ for s = 1:numel(sessionIDs)
 
     if ~exist(L.procBehavior, 'dir'), mkdir(L.procBehavior); end
     writetable(outDat.behDat, fullfile(L.procBehavior, ...
-        [outDat.sessID '_breathingTasks_separate_processedBreathing.csv']));
+        [outDat.sessID '_' fileTag '_processedBreathing.csv']));
 
     if ~exist(preDir, 'dir'), mkdir(preDir); end
     save(fpath, 'outDat', '-v7.3');
-    writeSheetSep(P, S.id, 'X');    % D12d: every in-scope condition row
+    writeSheetSep(P, S.id, 'X');    % D12d: every in-scope condition row (echem mode: the ephys_echem ones)
 
     catch ME
         disp(['fail for ', sessionIDs{s}, ': ', ME.message]); disp(getReport(ME, 'extended', 'hyperlinks', 'off'))

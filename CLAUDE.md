@@ -28,11 +28,11 @@ Companion documents:
 | `breathingTask` | `breathing tasks`, `breathingTasks`, `waveBreathing` | breathing blocks; **per‑breath table**, **ECG/HRV**, **paced target‑trace alignment**, **emotion ratings**. The richest task and the template for every new breath‑based task. |
 | `cueTask` | `odor cue task` | odor cue / sniff / response TTLs; hit/miss/cr/fa behavior |
 | `threshTask` | `threshold` | PEA threshold; 45 single‑sniff trials |
-| `O15` | `O15` | loads raw directly (no `makeOutDat`); photodiode TTLs via `detect_ttls_O15`. `O15_noTTLs_skip` / `O15_corrupted` are deliberately unmatched. |
+| `O15` | `O15` | loads raw directly (no `makeOutDat`); photodiode TTLs via `detect_ttls_O15`. `O15_noTTLs_skip` / `O15_corrupted` are deliberately unmatched. Trial motif on the (AC‑coupled, rail‑clipped) event channel: short start pulse → 0.5‑s start cue 7.78 s later → free events → press pair (2 short, 0.41 s apart) → confirm pair (2 × 0.5 s, 0.61 s apart). **Two free‑sniff protocols** (`P.ttl.protocol`, per session in `applyParams`' O15 switch; tasks_261014 task 10): `pressPulse` (default) — one fixed 0.5‑s pulse per sniff the experimenter saw, legacy z‑score parse; `heldButton` — the experimenter **holds** the button while the bottle is under the nose — the lab's protocol since July 2026 (by Atlas recording date: last press‑pulse recording `260702_OBE_NWU_SP_2` 2026‑07‑02; held‑button `251030_Dupi_NMH_DB_3` recorded 2026‑07‑09 and `260917_OBE_NWU_RC_2` 2026‑09‑17; the ID date is the enrollment date, not the recording date), so every new O15 session needs its `heldButton` case: `parse_O15_events` parses the channel on median/rail‑referenced levels (the holds put ~25 % of samples on the rail, so the z‑score threshold fails), the button‑down periods go to `outDat.buttonDown`, and `heldButtonFreeSniffs_O15` makes every inhale inside a period a `free` sniff. |
 | `pacedBreathing` | `pacedBreathing` | **marker-free** single EEG_breathing recording (added 2026-09-15 with `260915_EEG_NWU_KG`): ~7 min audiobook/survey, ~90 min paced breathing at a sweep of paces x depths with brief breaks, ~10 min focused breathing. Loads raw directly (no `makeOutDat`, no behavioral file); **blocks are inferred from the segmented breaths** (`inferBlocks_pacedBreathing`, positional labels `pre`/`paced`/`final`, stored in `outDat.blocks` + `blockInference`, `TTL` = block starts); per-breath table adds `rateBPM`, `localPeriodCV`, `localAmpCV`, `nSubPeaks` (raggedness). ECG/HRV via the breathing path. Multi-file recordings (an acquisition stop/restart) are stitched end to end by the LoadData script; the seam is carried to the final (`outDat.segments`) and breaths near it flagged (`behDat.nearSeam`). |
 | `EmotionalMovieTask` | `EmotionalMovieTask` | emotional film clips, **no behavioral file**: `emotionalMovieTask_makeOutDat` parses the photodiode (`detect_ttls_emotionalMovieTask`: 1 / 2 / 3 pulses = neutral / happy / sad) into a **clip table** that is `outDat.TTL` (`clipOnset, clipEnd, nPulses, valence`). The per‑breath table keeps **only in‑clip breaths** (`condition` = valence code 1/2/3; the final clip has no defined end, so its breaths are dropped). ECG/HRV via `runECGStage` (NaN‑HRV fallback, `ecgSkipped`). |
 | `alternating6Blocks` | `alternating6Blocks` | alternating breathing blocks (EEG_breathing) with ratings from the Google‑Drive behavioral files: `alternating6Blocks_makeOutDat` matches the `mindfulBreathing` ratings file (carries the participant ID) and the `sniffLogicLog` (matched by date + start time) and aligns the log to the raw respiration (`alignLogToRaw`) → `outDat.blocks` (`label, order, startSample, endSample`) + block‑start `TTL`. The per‑breath table keeps in‑block breaths (`task` = block label, `condition` = block order) with the block's ratings broadcast + `baseEmotion`. ECG/HRV via `runECGStage`. |
-| `breathingTasks_separate` | one row **per condition recording**, `Task` = a condition name — the one vocabulary is `config/sepConditionInfo.m`: `audioBook`/`audiobook`/`distractedBreathing`, `focusedBreathing`, `sleep`, `sleepWithOdor`, `restingBaseline`, `focusedBreathing_button` (+ `…_button1`/`…_button2`, `…_button_mouth`), and `<condition>_run<N>` | a session = the Subject ID's eligible condition rows (`dataType` = `ephys` only). No `makeOutDat`: each condition's `raw\raw_<condition>\` file (folder rules in `sepConditionInfo`) is loaded directly, run through the shared core + segmentation + ECG **separately**, then concatenated in recording order (`concatSections` → `outDat.sections`, `TTL` = `[start_1 end_1 start_2 end_2 …]`). Per‑breath `task` = section label, `condition` = section index; no ratings / `baseEmotion`. Sheet writes go through `config/writeSheetSep` (every condition row), not `writeParams`/`writePreProcX`. **Per‑condition respiration channel** (2026‑10‑12, `260921_OBE_NWU_BW_2`: binaps `rspIDX 1` for three recordings, spirometer `3` for the mouth recording): each condition row may carry its own `rspIDX`/`rspFlip`; `applyParams` returns them aligned with `P.conditions` as `P.condRspIDX`/`P.condRspFlip` (`P.rspIDX`/`rspFlip` stay the first row's) and the main segments / ECG‑processes each section with its own (`tasks/breathingSeparate/sepSectionRsp`); `writeSheetSep` writes each row's own value back. Only when the rows differ does `concatSections` append a row `rspSelected` (each section's chosen channel × its flip) and set `outDat.rspIDX` to it with `rspFlip = 1` (the canonical idiom of §7 keeps working), adding `rspIDX`/`rspFlip` columns to `outDat.sections`; sessions with one channel are unchanged. |
+| `breathingTasks_separate` | one row **per condition recording**, `Task` = a condition name — the one vocabulary is `config/sepConditionInfo.m`: `audioBook`/`audiobook`/`distractedBreathing`, `focusedBreathing`, `sleep`, `sleepWithOdor`, `restingBaseline`, `focusedBreathing_button` (+ `…_button1`/`…_button2`, `…_button_mouth`), and `<condition>_run<N>` | a session = the Subject ID's eligible condition rows (`dataType` = `ephys` only). No `makeOutDat`: each condition's `raw\raw_<condition>\` file (folder rules in `sepConditionInfo`) is loaded directly, run through the shared core + segmentation + ECG **separately**, then concatenated in recording order (`concatSections` → `outDat.sections`, `TTL` = `[start_1 end_1 start_2 end_2 …]`). Per‑breath `task` = section label, `condition` = section index; no ratings / `baseEmotion`. Sheet writes go through `config/writeSheetSep` (every condition row), not `writeParams`/`writePreProcX`. **Per‑condition respiration channel** (2026‑10‑12, `260921_OBE_NWU_BW_2`: binaps `rspIDX 1` for three recordings, spirometer `3` for the mouth recording): each condition row may carry its own `rspIDX`/`rspFlip`; `applyParams` returns them aligned with `P.conditions` as `P.condRspIDX`/`P.condRspFlip` (`P.rspIDX`/`rspFlip` stay the first row's) and the main segments / ECG‑processes each section with its own (`tasks/breathingSeparate/sepSectionRsp`); `writeSheetSep` writes each row's own value back. Only when the rows differ does `concatSections` append a row `rspSelected` (each section's chosen channel × its flip) and set `outDat.rspIDX` to it with `rspFlip = 1` (the canonical idiom of §7 keeps working), adding `rspIDX`/`rspFlip` columns to `outDat.sections`; sessions with one channel are unchanged. **More per‑condition settings (2026‑10‑14, `tasks_261014`)**, all aligned with `P.conditions` and applied per recording by `tasks/breathingSeparate/sepSectionP` (absent = off; a session without them runs exactly as before): `P.condBeatSpec` — every row's own `beatSpec` (always set; the ECG viability probes and `processECG` use the section's own spec, `writeSheetSep` writes each row's back; `outDat.sections.beatSpec` only when they differ); and, set only in an explicit `applyParams` `switch sessID` case: `P.condTrimSec` (`[start end)` s kept of that raw recording, applied by `assembleRaw_breathingTasks_separate` before any processing — `260625_OBE_NWU_HM_2` sleep `[0 916]`, the end‑of‑session noise starts at 921.09 s), `P.condBlinkRemoval` (false = that recording's EEG stage skips blink removal and `concatSections` inserts an all‑zero `blinkIndicator` row so the labels match — `260831_OBE_NWU_CS_2` sleep), `P.condRespSkip` (true = respiration not recoverable: no segmentation, no breaths from that recording; none configured), `P.condMinIBI` (s, that recording's `P.minIBI` for `processECG`, recorded in `outDat.sections.minIBI` — `260831_OBE_NWU_CS_2` sleep 0.5: its double detections had pushed `processECG`'s IBI acceptance window to the 0.6‑s default, leaving 19 % of the sleep IBIs out of `RRint`). **Echem mode**: `ZLP_SEP_ECHEM=1` (+ `ZLP_MAIN_ONLY`, required) runs the main on a session's `dataType = ephys_echem` condition rows (`applyParams('breathingTasks_separate_echem', …)`, `P.sepEchem`) into `<id>_breathingTasks_echem_separatepreproc.mat` (`outDat.sepEchem`, figure folder `<fig>\<id>\breathingTasks_echem_separate\`, CSV `<id>_breathingTasks_echem_separate_processedBreathing.csv`; `writeSheetSep` then writes the `ephys_echem` rows) — for `260921_OBE_NWU_BW_2` the `focusedBreathing_button2` recording (made during echem; Task name kept because its raw folder is `raw_focusedBreathing_button2`). The sheet also lists `RY_1` / `RX_2` / `RC_2` `sleep` and `KA_2` `restingBaseline` as `ephys_echem` condition rows: not reviewed for this mode. |
 | `vipassana` | `vipassana` | single continuous **BrainVision Recorder (actiCHamp)** session per participant (added 2026‑09‑26 with three `EEG_NWU` sessions AS/CC/DD): raw lives under `<id>\brainProductsDat\` (not Neuralynx/Atlas), and `Cz` — the recording reference — is reinserted as an all‑zero channel. Hand‑press event markers exist but are shaky/incomplete; treated only as hints. Loads raw directly (no `makeOutDat`); the fixed period sequence (`audiobook1`, `anapana`, `questionnaire1`, `vipassana`, `questionnaire2`, `metta`, `questionnaire3`, `audiobook2`, optional `pre`/`post`) is **inferred from an EEG artifact index by a duration‑constrained dynamic programme** (`inferBlocks_vipassana`), stored in `outDat.blocks` + `blockInference` (`TTL` = block starts). Respiration is optional per session: a viability probe (`probeRespViability_vipassana`) gates breath segmentation — when it fails (e.g. CC, no usable respiration channel), `respSkipped=2` and `outDat.respProbe` records why, no `bmObj`. ECG via `runECGStage`. **Line‑noise notch at ingestion** (2026‑09‑27): `assembleRaw_vipassana` notches the 32 scalp rows (ECG/rsp/event untouched; the Cz zero row stays zero) at 60/120/180 Hz (`designfilt` `bandstopiir`, order 2, f±1 Hz, `filtfilt`) and records `outDat.notchHz` / `notchNote` — the actiCHamp dry electrodes carry heavy 60‑Hz pickup and, un‑notched, the shared bad‑channel detector (`removeNoiseChansVolt`, amplitude rules on unfiltered data) flagged 22 of DD's 32 channels and nearly all of its first audiobook in `badTS` for line noise rather than bad contact; the shared core keeps no notch by design (§5), so this task notches before it. The block‑inference evidence (`artifactIndex`) is computed by the loader on the **un‑notched** rows before the notch, so the segmentation is unchanged (on notched evidence DD's audiobook1/anapana boundaries moved by 3.6–5.4 min). **No blink removal** (eyes closed throughout): `applyParams` sets `P.blinkRemoval = false` (§3), so `preprocess_eeg` skips `blinkRemoveWrapper` (`blinkRemoval = 0`, no `blinkIndicator` row). Current finals = the **2026‑09‑27 re‑run** with both changes: `badChans` AS `O1 Oz O2 Cz`, CC `FC5 TP9 P7 O1 Oz O2 TP10 Cz`, DD `Cz` only (was 22 channels, so DD has a `dataLap` again); still‑block `badTS` 2.6 / 6.3 / 0.2 % (was 3.0 / 19.1 / 10.4 %); blocks, breaths, beats and RSA check unchanged; the pre‑notch finals are in `…\AllStudyData\Vipassana\_backup_260927_preNotch\` (numbers: `guessSessions.md`). |
 | `ADmeditation` | `ADmeditation` (rows of its **own sheet**, `dataTracking_AD_meditation.xlsx`, §3) | Adam's repeated ~60‑min seated meditation recordings (added 2026‑10‑08; `Type` `EEG_meditation`), one continuous Atlas recording per session on the EEG_breathing rig (`Zelano_EEGbreathing.cfg`: EEG CSC33–64, ECG CSC25–27, rsp CSC31/32, event CSC269). **Study‑folder layout, not per‑session folders** (§2). No behavioral file, no `makeOutDat`. Every recording is **trimmed** — first 3 min and last 1 min dropped before any processing (`P.adMedOpts`; `outDat.trim` maps final samples back to the raw file). The one marker is a **button pressed at a "good" meditative state**: on the event channel a ~5‑s pulse, AC‑coupled (a ~750 µV step at the press, the opposite step at the release ~5 s later) under heavy 60‑Hz pickup. In the extracted raw the press step is NEGATIVE: CSC269 is recorded with `InputInverted=True`, which the lab's `ReadNCS` does not apply. `detectButtonPresses_ADmeditation` low‑passes (10 Hz), detects both steps on the whole untrimmed trace, takes the press polarity from the data (the first step of each press→release pair) and times each step at its half‑height crossing; presses → `outDat.buttonPresses` (table, incl. ones in the trimmed stretches, `inAnalysisWindow=false`) + `outDat.TTL` (press onsets in the analysis window) + per‑breath `pressInBreath / secSincePress / secToPress`. One parameter set for all sessions (measured 2026‑10‑08 on all 14): `rspIDX 1, rspFlip +1` (CSC31 inhale up, the lab's polarity on this rig, user‑confirmed 2026‑10‑08; an inhale‑locked RR window test pointed to −1 but is timing‑sensitive — `processECG` stamps each RR interval at its first beat — and is not a polarity test here), `beatSpec 3,0,lt,-3.5` (ECG3 = CSC27 has a negative R in every session; ECG1 flips polarity between sessions), eyes closed → `P.blinkRemoval = false`, no macros. ECG via `runECGStage`; `checkRspPolarityRSA` + `QC_ADmeditation.jpg` per session. |
 
@@ -174,13 +174,22 @@ P   = applyParams(task, sessID)                % Mode B: one session's parameter
 `P` (Mode B) always carries `task, type ('Dupi'|'OBE'|'EEG'), fs_target=500, rspIDX, rspFlip, hasEEG,
 spikeClean, spikeThresh, spikeWin, macroRemove, paramSource, hasMacros` + task extras (breath‑type tasks:
 `beatSpec, getBeats`; cue/thresh/O15: `respThresh, cuedBackBuff, adjWin`; O15 also `pd`, `ttl`;
-EmotionalMovieTask `pd`; pacedBreathing `pacedOpts`; breathingTasks_separate `conditions`; vipassana
-`vipOpts`, `blinkRemoval`). The mains add `allowGuessRun` and `figDir` (the session's task figure subfolder).
+EmotionalMovieTask `pd`; pacedBreathing `pacedOpts`; breathingTasks_separate `conditions`, `condRspIDX`,
+`condRspFlip`, `condBeatSpec` (+ optional `condTrimSec` / `condBlinkRemoval` / `condRespSkip` / `condMinIBI`, echem mode
+`sepEchem`; §1); vipassana `vipOpts`, `blinkRemoval`). The mains add `allowGuessRun` and `figDir` (the session's task figure subfolder).
 
 Task‑level `P` fields (set in `applyParams`, **not** sheet columns, not written by `writeParams`):
 `blinkRemoval` — optional; absent or `true` = `preprocess_eeg` runs blink removal (every task's default);
 `false` = the task has no blinks to remove, so blink removal is skipped (currently only `vipassana`, eyes
 closed throughout; §5).
+`dropTrials` / `dropTrialsReason` — cueTask only (default `[]` / `''`); trial numbers (`behDat.n`) whose sniff
+rows `cueTaskPreProc_main` removes via `tasks/cue/dropTrials_cueTask` and records in `outDat.droppedTrials`
+(§6.4). Set per session in an explicit `switch selStr` case in `applyParams` (currently `260917_OBE_NWU_RC_2`,
+trial 23, tasks_261014 task 5); errors if a listed trial has no row in `behDat`.
+`ecgExcludeSec` / `ecgExcludeNote` — breathingTask only (absent = off); `[N×2]` seconds of unreadable ECG on the
+session's own timeline + the criterion text, set per session in an explicit `switch selStr` case (currently
+`251110_Dupi_NMH_PC_2`, tasks_261014 task 7); honoured by `processECG` / `flagBadBreaths`, recorded in
+`outDat.ecgExclude` (§5, §6.6).
 
 **`guess` rows** halt for interactive verification before any save: `paramCheck` (rsp + macro choices),
 `paramCheckECG` (breath‑type ECG beats), and a deliberate onset‑gate `error` so a human inspects the figures,
@@ -223,6 +232,35 @@ condition recording for breathingTasks_separate; never edit per task):**
    against `config/eegLocs_standard_coords.csv`, attaches coords, detects + interpolates noisy channels
    (`removeNoiseChansVolt`), removes blinks on the good channels via ICA (`blinkRemoveWrapper`; blink‑IC
    auto‑selection with a manual fallback) when > 10 survive, and computes a Perrin surface Laplacian.
+   **Bad‑channel / bad‑time detector** (`removeNoiseChansVolt`; 2‑s trials; amplitude rules: 10‑ms (6‑sample)
+   p2p > 50 µV "noisy" or < 5 µV "flat" in ≥ 3 of a sliding 6‑trial block → interpolate that trial's flagged
+   channels when < 16; 80‑ms (41‑sample) p2p > 100 µV in > 50 % of trials → bad channel; trials with > 24 / > 8
+   channels over 100 µV and recording gaps (every channel flat) → `badTS`; a channel is bad when flagged in ≥ 60 %
+   of the judged trials or by the block rule in > 50 %). Mode `P.eegClean.mode` (optional, not a sheet column):
+   **`'fixed'` (default since 2026‑10‑14, tasks_261014 task 10)** — purged and gap trials go to `badTS` only, are
+   skipped by the block rule (each block = 6 consecutive *judged* trials, reaching past purges; with no purge the
+   legacy blocks) and excluded from every channel denominator; nothing is repaired inside gap / pass‑1‑purged trials
+   (so it removes no‑evidence flags; because the denominators and blocks are now the judged trials it can, in
+   principle, flag a channel bad in most of the judged trials that legacy missed, a single all‑flat trial is now
+   `badTS`, and a judged trial next to purges that collects ≥ 16 flags is no longer rebuilt by interpolation, so the
+   > 8‑channel purge can take it — 19‑session validation 2026‑10‑15: no channel added vs legacy, `badTS` up by
+   0.25–0.6 points in 2 sessions); when fewer than max(6, 10 %) of the trials are judged (rule U; 6 = one block, so a recording < 12 s is
+   always unjudgeable) every channel is returned bad, the legacy outcome for such recordings
+   (`EEGCleaningInfo.unjudgeable`); EEG with NaN/Inf errors (`removeNoiseChansVolt:nonFinite`); and the blink stage
+   follows the same rule — `blinkRemoveWrapper`'s own channel tests (≥ 700 µV range in ≥ 15 % of 2‑s epochs; ≥ 30 s
+   flat) ignore `badTS` epochs, and when they leave ≤ 10 good channels no ICA is run and the session gets the ≤ 10
+   outputs (`blinkRemoval = 0`, `dataLap = []`, `EEGCleaningInfo.blinkGate`; 2026‑10‑15, also in `'band'`);
+   **`'legacy'`** — the pre‑2026‑10‑14 rules verbatim, blink stage included (`removeNoiseChansVolt_legacy`): purges were written into
+   every channel's record, so a recording with ≥ 60 % purged trials lost all 30 channels (DB_3 O15, KS_2/KS_3,
+   BK/IN, …), and purged trials read as "flat"; **`'band'`** — `'fixed'` with the amplitude statistics computed on
+   a 1–40 Hz copy (flat / gap tests broadband; the data are not filtered), i.e. "bad in the analysis band" rather
+   than "carries EMG / line noise" — a policy option, not the default; each trial is judged on its own band content
+   (a neighbouring trial over a threshold is bridged out of the filter input, so a burst's filter ringing is not
+   counted next to it). Finals made before the change used the legacy rules (they have no `EEGCleaningInfo`); the
+   decision is recorded in `outDat.EEGCleaningInfo` (§6.3). **Deploy together:** `shared/removeNoiseChansVolt.m`,
+   `shared/removeNoiseChansVolt_legacy.m`, `shared/preprocess_eeg.m`, `shared/blinkRemoveWrapper.m`,
+   `tasks/breathingSeparate/concatSections.m` (`preprocess_eeg` errors on a stale detector or blink wrapper; the
+   detector warns when called without its `info` output).
    Blink‑IC rule since 2026‑10‑12 (`selectMode 'frontal'`): a candidate's average‑referenced map must peak at
    Fp1/Fp2 (≥ 2× its mean weight) and its time course must track mean(Fp1,Fp2) − common average below 10 Hz with
    |r| ≥ 0.6, else **no IC is removed** (blinkRemoval stays 1; sleep / eyes‑closed sections typically remove
@@ -252,8 +290,14 @@ condition recording for breathingTasks_separate; never edit per task):**
   `processECG` band‑passes the `ECG` channels 5–40 Hz, z‑scores (`buildECGz`), detects beats (`detectBeats`
   per `beatSpec`, min separation `fs/20`), filters inter‑beat intervals physiologically, and appends an
   interpolated **`RRint`** channel (optional per‑session `P.minIBI`, set in an `applyParams` `switch sessID` case —
-  currently only `251009_OBE_NWU_CP_1`, 0.7 s — prunes beats closer than that to the last kept beat and floors the
-  RR series); `flagBadBreaths` adds per‑breath QC.
+  currently only `251009_OBE_NWU_CP_1`, 0.7 s, plus `260831_OBE_NWU_CS_2` sleep 0.5 s via the sep per‑condition
+  `P.condMinIBI` — prunes beats closer than that to the last kept beat and floors the
+  RR series; optional per‑session `P.ecgExcludeSec` ([N×2] s, same `switch sessID` mechanism — currently only
+  `251110_Dupi_NMH_PC_2`, tasks_261014 task 7 — marks stretches with **unreadable ECG** (no readable regular beat pair for ≥ 4 s, or a burst of ≥ 4 consecutive sub-physiological beat intervals; currently 4 windows, whose edges stop just short of the neighbouring readable beats so those stay in the data): `processECG` drops the
+  beats inside them and leaves `RRint` NaN from the last kept RR stamp before a window to the first after it,
+  never interpolated across; `batch/ecgUnreadableWindows` is the measurement tool); `flagBadBreaths` adds
+  per‑breath QC and, for the breaths overlapping those windows, sets `maxRR`/`minRR`/`RR_max_min` to NaN
+  (`goodBreath` untouched).
 - **other breath‑type tasks** (movie / alt6 / paced / sep / vipassana) call `segmentBreaths_zlp` from their
   mains — vipassana only when its respiration viability probe passes (`probeRespViability_vipassana`;
   otherwise `respSkipped=2`, no `bmObj`) — and vipassana's block boundaries come from an artifact‑index +
@@ -293,6 +337,9 @@ in `outDat.data` (rows = channels, addressed by `outDat.labels`); everything els
 | `moreThan1` | 0/1 | "more than one sniff per trial"; **also the done‑sentinel** (1 = breathing/O15, 0 = cue/thresh) |
 
 O15‑only extras: `CSClist`, `OGdataDir`, `loadFile` (the `*LoadData*.m` used), `preProcScript`.
+Held‑button O15 sessions (§1) add `buttonDown` (table, one row per button‑down period: `trial, window, onset,
+offset` (500‑Hz samples), `durSec, onsetRaw, offsetRaw` (raw samples), `nFree`) and `ttlInfo` (the event‑channel
+parse: levels, threshold, rail fractions, `pulses` = every pulse with its role, `heldSniff` = the free‑sniff rule).
 
 vipassana‑only extras: `markers` (table of hand‑press event markers + the recording‑start marker,
 `description/sampleRaw/sample/minutes`), `artifactIndex` (the 1‑s EEG evidence trace `inferBlocks_vipassana`
@@ -312,6 +359,17 @@ firstRawSample`), `buttonPresses` (table `press, onsetRaw, releaseRaw, durationS
 inAnalysisWindow, onsetTrim, releaseTrim, sample, releaseSample, timeSec`; `*Raw` = untrimmed raw samples,
 `*Trim` = trimmed raw samples, `sample` = final 500‑Hz sample, NaN outside the analysis window), `pressInfo`
 (detector threshold / noise / unpaired releases), `segments`, `beatSpec`, `rspPolarityRSA`.
+
+breathingTasks_separate extras: `sections` (table `label, sourceFile, startSample, endSample` in final samples;
+plus, only when the session uses them (§1): `rspIDX, rspFlip` (channels differ), `beatSpec` (specs differ),
+`trimStartSec, trimEndSec, rawFirstSample, rawLastSample, rawSamples` (`P.condTrimSec`; final sample *s* of section
+*b* ↔ raw sample `(s − startSample(b))·origFS/fs + rawFirstSample(b)`, `trimNote`), `blinkRemoval, blinkSkipped`
+(`P.condBlinkRemoval`; `blinkNote`), `respSkipped` (0/2, `P.condRespSkip`; top‑level `respSkipped` 0 none / 1 some
+/ 2 all sections, mirroring vipassana's 2 = skipped, + `respNote`; a skipped section has no breaths, so with every
+section skipped `behDat` keeps its columns with zero rows), `minIBI` (s, NaN = not set; `P.condMinIBI`)), `eegQCPerSection` (per‑section `badChans`,
+`blinkRemoval`, `blinkICA`, `EEGCleaningInfo`, …; the top‑level EEG fields describe section 1, except
+`EEGCleaningInfo`, which is a session summary, §6.3), `rspSelectedNote` (rsp channels
+differ), `sepEchem` + `echemNote` (echem‑mode finals only).
 
 ### 6.2 Channel taxonomy in `outDat.data` (find rows by label)
 
@@ -350,7 +408,20 @@ channels with `cellfun(@(x) contains(x,'…'), outDat.labels)`.
 `eegLocs` (table `[32×8]`: `labels, X, Y, Z, theta, phi, X_flat, Y_flat`), `dataLap` (`[32×nSamp]` surface
 Laplacian, `[]` if ≤ 10 good channels), `dataLapFromInterp` (0/1 — Laplacian computed on an interpolated
 copy; mask `badChans` for per‑channel Laplacian analysis), `badChans` (cell of labels; broadband `data(1:32)`
-keeps their real values), `EEGInterpolation`, `EEGCleaning`, `blinkRemoval` (0/1).
+keeps their real values — except that in every 2‑s trial where the detector flagged < 16 channels it REPLACED
+those channels by a spline interpolation (`interpChan` = how many, not which; 2026‑10‑14 audit: 50–96 % of
+samples in many finals; `'fixed'` / `'band'` never repair inside gap / pass‑1‑purged trials)), `EEGInterpolation`, `EEGCleaning` (scalar 1), `blinkRemoval` (0/1),
+`EEGCleaningInfo` (since 2026‑10‑14, §5: `mode`, `version`, `unjudgeable` (rule U fired: fewer than max(6, 10 %)
+of trials judged, every channel bad), `detectorBad` / `exemptIgnored` (flagged Fp1/Fp2) / `blinkStageBad` (labels
+per stage), `nBad`, `nGoodForBlink`, `nGoodAfterBlinkStage`, `blinkGate` (fixed / band: the blink stage's tests
+left ≤ 10 good channels → no ICA, no `dataLap`), `fracBadTS`, `fracInterp`, and `detector` = the rule record —
+thresholds, per‑2‑s‑trial `trialCode` (0 judged, 1 gap, 2 / 3 / 4 purge), `nChanOverP2`, purge fractions,
+`nJudged` / `minJudged` / `nBlocksP1`,
+`bandRedo` (band: share of channel‑trials re‑judged without their over‑threshold neighbours), `outBad` /
+`chanRuleBad` / `p2ChanInitial` / `p2ChanFinal` labels, per‑channel flag fractions; breathingTasks_separate: the
+full record per section in `eegQCPerSection{b}.EEGCleaningInfo`, and the top‑level `EEGCleaningInfo` is a session
+summary — `mode`, `version`, `perSection = true`, `unjudgeable` (any section), `nBadPerSection`,
+`fracBadTSPerSection`, `note` — not section 1's record).
 
 > **KNOWN ISSUE (found 2026‑09‑27, not yet fixed):** `dataLap` is currently a common‑mode artefact, not a Laplacian.
 > `preprocess_eeg` feeds `laplacian_perrinX` (a spherical‑spline Laplacian that assumes electrodes on a sphere) the
@@ -370,10 +441,14 @@ onset, samples), `n` (trial), `wiTriali` (sniff index within trial), `TTLoffSet`
 (cue/thresh `cued`; O15 `start`/`free`/`confirm`). Then the task columns —
 cue: `cue` (1–10; `0` = no‑cue condition), `odor`, `response`, `respString`, `type`
 (`hit`/`miss`/`cr`/`fa`; `noCue` on `cue==0` trials); thresh: `odor` (1–3), `pleasantness`, `intensity`, `type` (`air`/`low`/`med`);
-O15: `target`, `response`, `expScore`. Finally `refine_onsets_with_phase` appends **`adjust`**,
+O15: `target`, `response`, `expScore` (+ `buttonWindow` in held‑button sessions: the `outDat.buttonDown` row a
+free sniff came from, NaN for start/confirm; its `TTLoffSet` = onset − period onset). Finally `refine_onsets_with_phase` appends **`adjust`**,
 **`finalOnset`** (phase‑refined onset — *use this for epoching*) and **`manOnset`** (NaN placeholder for
 manual QC). Sanity sizes from real Dupi files: cue ≈ `[40 × 14]`, thresh ≈ `[45 × 13]`, O15 ≈ `[81 × 12]`
 (one more column than before July 2026 because of `manOnset`); cue/thresh are one sniff per trial.
+A trial the reviewer dropped from a cue session (`P.dropTrials`, §3) is simply absent from `behDat` (like an
+undetected trial) and listed in `outDat.droppedTrials` (table `trial, reason`); `outDat.TTL` keeps every trial
+row, so `behDat.n` still indexes it. The field exists only on sessions with a drop.
 
 **breathing — per‑breath** (`build_behavior_table_breathingTask`, one row per detected breath):
 
@@ -408,12 +483,15 @@ the previous / to the next press onset, NaN beyond the first / last) and `nearSe
 
 - **O15** — table `[15 × 20]`: `trialStart, buttonPress, confirmSniff, free1 … free17` (NaN‑padded), built by
   `detect_ttls_O15` from the z‑scored `event` channel (30 trial marks expected; `ttlRemoveIdx` drops
-  aberrant ones).
+  aberrant ones). `buttonPress` = 2nd pulse of the press pair, `confirmSniff` = 1st pulse of the confirm pair,
+  `free1` = the start cue (its sniff is labelled `start`), `free2…` = the experimenter's sniff marks. Held‑button
+  sessions keep the same columns but `free2…` stay NaN: their free events are periods, in `outDat.buttonDown` (§6.1).
 - **thresh** — table `[45 × 3]`: `start (= sniff − 1000)`, `trial`, `sniff`.
 - **cue** — table `[nTrial × 3]`: `trialStart, response, sniff`.
 - **breathing** — **vector** of block‑boundary samples (or a 5‑min fallback `0:600000:end`). New breath‑based
   tasks keep this vector and may add a descriptive table alongside it (alternating6Blocks: block starts +
-  `blocks`; breathingTasks_separate: `[start_1 end_1 start_2 end_2 …]` + `sections`).
+  `blocks`; breathingTasks_separate: `[start_1 end_1 start_2 end_2 …]` + `sections` (§6.1; a trimmed section's
+  bounds are those of its kept raw stretch, `sections.rawFirstSample/rawLastSample`)).
 - **EmotionalMovieTask** — the exception: `TTL` is the clip table itself (`clipOnset, clipEnd, nPulses,
   valence`; `clipEnd` is NaN for the final clip).
 - **pacedBreathing** — vector of INFERRED block starts (no markers exist); the `blocks` table (`label, order,
@@ -440,6 +518,10 @@ the previous / to the next press onset, NaN beyond the first / last) and `nearSe
   `behDatFromBreaths` / the `build_behavior_table_*` builders, and downstream code — keep it whatever engine
   produces it (full column doc: the `shared/segmentBreaths_zlp.m` header).
 - `heartBeats` — ECG beat sample indices (`detectBeats` / `beatSpec`).
+- `ecgExclude` — only when the session has `P.ecgExcludeSec` (§5): `windowsSec` (the unreadable‑ECG windows,
+  s), `rrNaNSec` (the `RRint` NaN stretches, a bit wider), `nBeatsDropped`, `note` (the criterion),
+  `nBreathsAffected` / `breathIdx` (breaths whose `maxRR`/`minRR`/`RR_max_min` are NaN because of it).
+  Absent for every other session; `heartBeats` then already excludes the dropped beats.
 
 ---
 
@@ -502,9 +584,9 @@ the previous / to the next press onset, NaN beyond the first / last) and `nearSe
 | `config/` | `labPaths.m`, `applyParams.m` / `writeParams.m` / `setPreProcX.m` (+ its thin wrappers `writePreProcX.m` / `clearPreProcX.m`), `writeSheetSep.m` (breathingTasks_separate sheet writer), `writeSheetADmed.m` (ADmeditation summary cells in its own sheet), `sepConditionInfo.m` (the sep condition vocabulary), `eegLocs_standard_coords.csv` |
 | `pipelines/` | `preprocessAll.m` + the `*PreProc_main.m` entry points (one per task) |
 | `pipelines/makeOutDat/` | raw → intermediate ingestion (`breathing` / `cue` / `thresh` / `emotionalMovie` / `alternating6Blocks`) |
-| `shared/` | the shared signal core: `runSharedCore` (`downsample_data` → `preprocess_eeg` → `preprocess_macros`), `assembleOutDat`, `preprocess_respiration_wholetrace`, `detect_sniffs_from_TTLs`, `refine_onsets_with_phase`, `behDatFromSniffs`, `paramCheck` / `guessFigDir`, EEG/spike/onset helpers; the breath engine `segmentBreaths_zlp` (+ `prepBreathTrace_zlp`, `findInhaleOnsets_zlp`); the breath‑type stage helpers `behDatFromBreaths`, `appendBmFeatureCols`, `runECGStage`, `fillNaNHRV`, `isSessionDone` and the ECG/QC helpers `processECG` / `buildECGz` / `detectBeats` / `paramCheckECG` / `flagBadBreaths`; `findLoadDataScript` (LoadData provenance), `toTargetSamples` (raw → 500 Hz sample indices) |
-| `tasks/<task>/` | each task's `assembleRaw_<task>.m`, `build_behavior_table_<task>.m`, task helpers (breathing: `process_respiration_breathing`, `alignTargetBreathingTraceSimplify`, `plotBreathLengths`, `tidyImport_waveExp_matlab` (writes the processedBehavior CSV the breathing makeOutDat reads); cue: `outMat_to_table`; O15: `detect_ttls_O15`, `assembleOutDat_O15extras`; emotionalMovie: `detect_ttls_emotionalMovieTask`; alternating6Blocks: `alignLogToRaw`, `parse_mindfulBreathing`, `parse_sniffLogicLog`; breathingSeparate: `concatSections`; pacedBreathing: `inferBlocks_pacedBreathing`, `plotBlocks_pacedBreathing`; vipassana: `assembleRaw_vipassana`, `artifactIndex_vipassana`, `inferBlocks_vipassana`, `probeRespViability_vipassana`, `checkRspPolarityRSA`, `plotBlocks_vipassana`, `build_behavior_table_vipassana`; ADmeditation: `LoadData_ADmeditation_claude` (the study loader, deployed to the study folder), `assembleRaw_ADmeditation`, `detectButtonPresses_ADmeditation`, `build_behavior_table_ADmeditation`, `plotQC_ADmeditation`) |
-| `batch/` | reusable QC / maintenance tools (not pipeline steps): `probeMontage` (verify a new LoadData channel map against the data), `readBrainVision` / `probeMontageBV` (the BrainVision‑source counterparts of the raw reader / `probeMontage`, used by `vipassana`), `probeSessionParams` / `probeECGpolarity` (measure guess parameters), `qc4`–`qc8` audits and figure generators, `qualityCheckOverlays`, `resegmentAll_zlp`, `reconstructPacedBlocks`, `guessParamsFromRaw` (measured guess parameters from extracted raw files), `buildGuessReview.ps1` (guess-QC report from qc8 output; env `ZLP_QC8_OUT`, params `-IntroHtml -NewIds`; the report lives on R: under `Adam\Dupi_processing\guessReview_<date>\`, not in the repo) |
+| `shared/` | the shared signal core: `runSharedCore` (`downsample_data` → `preprocess_eeg` → `preprocess_macros`), `assembleOutDat`, `preprocess_respiration_wholetrace`, `detect_sniffs_from_TTLs`, `refine_onsets_with_phase`, `behDatFromSniffs`, `paramCheck` / `guessFigDir`, EEG/spike/onset helpers (the EEG detector `removeNoiseChansVolt` + `removeNoiseChansVolt_legacy`, deployed together with `preprocess_eeg` and `concatSections`, §5); the breath engine `segmentBreaths_zlp` (+ `prepBreathTrace_zlp`, `findInhaleOnsets_zlp`); the breath‑type stage helpers `behDatFromBreaths`, `appendBmFeatureCols`, `runECGStage`, `fillNaNHRV`, `isSessionDone` and the ECG/QC helpers `processECG` / `buildECGz` / `detectBeats` / `paramCheckECG` / `flagBadBreaths`; `findLoadDataScript` (LoadData provenance), `toTargetSamples` (raw → 500 Hz sample indices) |
+| `tasks/<task>/` | each task's `assembleRaw_<task>.m`, `build_behavior_table_<task>.m`, task helpers (breathing: `process_respiration_breathing`, `alignTargetBreathingTraceSimplify`, `plotBreathLengths`, `tidyImport_waveExp_matlab` (writes the processedBehavior CSV the breathing makeOutDat reads); cue: `outMat_to_table`; O15: `detect_ttls_O15`, `assembleOutDat_O15extras`, `parse_O15_events` (rail‑referenced event parse), `heldButtonFreeSniffs_O15` (held‑button free sniffs); emotionalMovie: `detect_ttls_emotionalMovieTask`; alternating6Blocks: `alignLogToRaw`, `parse_mindfulBreathing`, `parse_sniffLogicLog`; breathingSeparate: `concatSections`, `sepSectionRsp`, `sepSectionP` (one recording's per‑condition parameters); pacedBreathing: `inferBlocks_pacedBreathing`, `plotBlocks_pacedBreathing`; vipassana: `assembleRaw_vipassana`, `artifactIndex_vipassana`, `inferBlocks_vipassana`, `probeRespViability_vipassana`, `checkRspPolarityRSA`, `plotBlocks_vipassana`, `build_behavior_table_vipassana`; ADmeditation: `LoadData_ADmeditation_claude` (the study loader, deployed to the study folder), `assembleRaw_ADmeditation`, `detectButtonPresses_ADmeditation`, `build_behavior_table_ADmeditation`, `plotQC_ADmeditation`) |
+| `batch/` | reusable QC / maintenance tools (not pipeline steps): `probeMontage` (verify a new LoadData channel map against the data), `readBrainVision` / `probeMontageBV` (the BrainVision‑source counterparts of the raw reader / `probeMontage`, used by `vipassana`), `probeSessionParams` / `probeECGpolarity` (measure guess parameters), `ecgUnreadableWindows` (measure the unreadable‑ECG windows typed into `P.ecgExcludeSec`, §5), `qc4`–`qc8` audits and figure generators, `qualityCheckOverlays`, `resegmentAll_zlp`, `reconstructPacedBlocks`, `guessParamsFromRaw` (measured guess parameters from extracted raw files), `buildGuessReview.ps1` (guess-QC report from qc8 output; env `ZLP_QC8_OUT`, params `-IntroHtml -NewIds`; the report lives on R: under `Adam\Dupi_processing\guessReview_<date>\`, not in the repo) |
 | `external/` | vendored dependencies: `breathMetrics/` (fork qhyang42 @9791153; unmodified) |
 
 The pace × depth sweep analysis (`respiratorySweepAnalysis/`) now lives in its own repo, `../calibratedHRV`.

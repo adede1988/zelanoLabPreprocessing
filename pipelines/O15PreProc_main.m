@@ -16,8 +16,10 @@ EEGLOC  = readtable(L.eegLocCsv);   % load once, reuse
 %  when adding a new task. Sections marked TASK-SPECIFIC must be rewritten per task.
 %  TASK-SPECIFIC pieces for O15 (rewrite these for a new task):
 %    - assembleRaw_O15.m      (raw_O15 load + detect_ttls_O15 -> raw, TTL)
-%    - detect_ttls_O15.m      (photodiode -> TTL table)
+%    - detect_ttls_O15.m      (photodiode -> TTL table; held-button sessions via
+%                              parse_O15_events -> TTL + buttonDown periods)
 %    - assembleOutDat_O15extras.m  (O15-only outDat fields: CSClist, loadFile, ...)
+%    - heldButtonFreeSniffs_O15.m  (held-button sessions only: free sniffs)
 %    - build_behavior_table_O15.m
 %  Everything else is SHARED: applyParams, assembleOutDat, runSharedCore
 %  (downsample_data -> preprocess_eeg -> preprocess_macros),
@@ -92,6 +94,13 @@ for s = 1:numel(sessionIDs)
   R = preprocess_respiration_wholetrace(outDat); % fields: rsp, rsp_smooth, phase, onset_metric
 
   sniffs = detect_sniffs_from_TTLs(R, P, outDat);  % returns table or matrix
+  % held-button protocol (P.ttl.protocol = 'heldButton', tasks_261014 task 10):
+  % detect_ttls_O15 returned the button-down periods (outDat.buttonDown); the
+  % inhales inside them are the free sniffs
+  isHeld = isfield(outDat, 'buttonDown');
+  if isHeld
+      [sniffs, outDat] = heldButtonFreeSniffs_O15(sniffs, R, P, outDat);
+  end
 
     % --- Guess gate: under the run-on-guess override the save proceeds but
     %     paramSource stays guess (never promoted). ---
@@ -107,7 +116,7 @@ for s = 1:numel(sessionIDs)
 
 
   % ----- TASK-SPECIFIC (O15): behavior table from sniffs + raw behavior -----
-  outDat.behDat = build_behavior_table_O15(sniffs, raw.beh);
+  outDat.behDat = build_behavior_table_O15(sniffs, raw.beh, isHeld);
   % ----- end TASK-SPECIFIC -----
 
   outDat = refine_onsets_with_phase(outDat, R, P); % uses precomputed phase

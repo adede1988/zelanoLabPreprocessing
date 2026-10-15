@@ -26,13 +26,23 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
 %   sepConditionInfo: audioBook/audiobook/distractedBreathing -> 'audiobook',
 %   focusedBreathing_button[1|2] -> 'focusedBreathing_button', <cond>_run<N>
 %   -> <cond>'s label, ...) .data .labels .fs_raw .suffix .folderTime .srcFile
+%   .rawFirstSample .rawLastSample .rawSamples .trimSec
+%
+%   Optional per-condition trim (P.condTrimSec, [nCond x 2] aligned with
+%   P.conditions, set in an explicit applyParams case; tasks_261014 task 8):
+%   [start end] in seconds from the start of that condition's raw recording;
+%   only the raw samples k with start <= (k-1)/fs_raw < end are kept (NaN start
+%   = from the first sample, NaN end = to the last). Applied here, before any
+%   processing. .rawFirstSample/.rawLastSample give the kept range in the raw
+%   file's samples (1 / rawSamples when untrimmed); .trimSec the setting.
 
     rawRoot = fullfile(S.root, S.id, 'raw');
     d = dir(rawRoot);
     dirNames = {d([d.isdir]).name};
 
     raws = struct('condition', {}, 'label', {}, 'data', {}, 'labels', {}, ...
-                  'fs_raw', {}, 'suffix', {}, 'folderTime', {}, 'srcFile', {});
+                  'fs_raw', {}, 'suffix', {}, 'folderTime', {}, 'srcFile', {}, ...
+                  'rawFirstSample', {}, 'rawLastSample', {}, 'rawSamples', {}, 'trimSec', {});
     for c = 1:numel(P.conditions)
         cond = P.conditions{c};
         info = sepConditionInfo(cond);   % label + raw-folder rule (one shared list)
@@ -66,6 +76,20 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
         R.srcFile    = fpath;
         if any(isnan(R.data(:)))
             R.data = fillmissing(R.data, 'linear', 2, 'EndValues', 'nearest');
+        end
+        % per-condition trim (tasks_261014 task 8); untrimmed = the whole file
+        nRaw = size(R.data, 2);
+        R.rawFirstSample = 1;
+        R.rawLastSample  = nRaw;
+        R.rawSamples     = nRaw;
+        R.trimSec        = [NaN NaN];
+        if isfield(P, 'condTrimSec') && any(~isnan(P.condTrimSec(c, :)))
+            R.trimSec = P.condTrimSec(c, :);
+            [R.rawFirstSample, R.rawLastSample] = trimRange(R.trimSec, R.fs_raw, nRaw, S.id, cond);
+            R.data = R.data(:, R.rawFirstSample:R.rawLastSample);
+            fprintf('   %s: TRIM keeps raw samples %d-%d of %d (%.2f-%.2f s of %.2f s)\n', cond, ...
+                R.rawFirstSample, R.rawLastSample, nRaw, (R.rawFirstSample - 1) / R.fs_raw, ...
+                R.rawLastSample / R.fs_raw, nRaw / R.fs_raw);
         end
         ftDisp = 'unknown';
         if ~isnat(R.folderTime), ftDisp = char(string(R.folderTime)); end
@@ -104,6 +128,24 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
     end
     fprintf('%s: %d condition recordings, chronological order: %s\n', S.id, ...
         numel(raws), strjoin({raws.condition}, ' -> '));
+end
+
+function [first, last] = trimRange(trimSec, fs, nRaw, id, cond)
+% raw samples k (1-based) with trimSec(1) <= (k-1)/fs < trimSec(2); NaN = open
+% end. Strict: the window must lie inside the recording and keep >= 1 s.
+    t0 = trimSec(1); t1 = trimSec(2);
+    if isnan(t0), t0 = 0; end
+    first = floor(t0 * fs) + 1;
+    if isnan(t1)
+        last = nRaw;
+    else
+        assert(t1 * fs <= nRaw, 'assembleRaw_breathingTasks_separate:trim', ...
+            '%s %s: trim end %.3f s is beyond the recording (%.3f s)', id, cond, t1, nRaw / fs);
+        last = ceil(t1 * fs);
+    end
+    assert(first >= 1 && last - first + 1 >= fs, 'assembleRaw_breathingTasks_separate:trim', ...
+        '%s %s: trim [%g %g] s keeps less than 1 s of the %.3f-s recording', id, cond, ...
+        trimSec(1), trimSec(2), nRaw / fs);
 end
 
 function n = suffixOf(ncslabels)
