@@ -265,8 +265,8 @@ Atlas stop; `buildSweepTTL` now checks the log's events (all inside) instead of 
 | 261014_EEG_NWU_ZL | EmotionalMovieTask | EEG_breathing | 660 | same | same | run-on-guess (D4) | recording `_0001`; 180/180 clips matched to PsychoPy (zthresh −3, 4 detections dropped, 1 clock segment, residual median 5 ms) |
 
 Run outcome (2026-10-15, lab desktop, `ZLP_ALLOW_GUESS_RUN=1`, branch `respiratorySweep-261008`; the sweep final as re-run
-under the final breath-merge rule at 5d40ada, ZL has no lead bumps so 494548c gives the same result; verified by
-`verify1015b.m` / `verify1015.m`; `Data Preprocessed = X`). QC page: @@QCURL@@.
+under the breath-merge rule at 5d40ada; ZL has no lead bumps, so the final rule (40a645e) gives the same result; verified by
+`verify1015b.m` / `verify1015.m`; `Data Preprocessed = X`). QC page: https://claude.ai/artifact/V1vir9QyKFR8uyvxKLm8RV.
 
 | Subject ID | Task | final | breaths (good) | in blocks / clips | beats / HR | badChans | badTS | notes |
 |---|---|---|---|---|---|---|---|---|
@@ -281,12 +281,13 @@ under the final breath-merge rule at 5d40ada, ZL has no lead bumps so 494548c gi
   volume since the last one — `shared/mergeIncompleteExhales` after the locked engine, every respiratorySweep session from
   now on (CLAUDE.md §1: pause blips, lead bumps, per-inhale 20 % test, zero flow = max(dwell level, 60-s mean)). Validated
   on synthetic regressions and on the share of SniffLogic target cycles holding exactly one onset: AL 83.5 → 87.5 %,
-  ZL 96.9 → 97.9 %, RC 83.2 → 85.3 %, IS 91.7 → 93.9 % (engine → rule).
-- **AL sweep re-run** with the rule (494548c): @@ALROW@@. EEG (Oz O2, badTS 17.6 % — the 'fixed' detector since the
+  ZL 96.9 → 97.9 %, RC 83.2 → 85.6 %, IS 91.7 → 93.9 % (engine → rule). Known limit: an engine onset placed partway up
+  an inhale leaves that inhale's start in the previous window (AL 1557.4 s: the breath starts at 1551.2 s).
+- **AL sweep re-run** with the rule (40a645e): engine 974 → 932 breaths (742 good; 13 blips incl. 4 lead bumps, 29 inhales merged; 751 in blocks; 29 breaths hold 2 inhales, none > 20 s; b18 median 7.4 → 4.6 /min). EEG (Oz O2, badTS 17.6 % — the 'fixed' detector since the
   vipassana merge) and ECG (6679 beats) unchanged. Backups (lab) `E:\reprocBackup_261015_sweep\261007_EEG_NWU_AL\`:
-  pre-rule original (974 breaths), `v1rule\` (first rule version, 938), `interim5d40ada\` (932).
+  pre-rule original (974 breaths), `v1rule\` (first rule version, 938), `interim5d40ada\` and `interim494548c\` (932 each, onsets differ).
 - **RC / IS not re-run** (curated 2026-10-09, before the rule existed): the rule would take RC 1277 → 1237 and IS
-  1148 → 1131 breaths. Offered to the user.
+  1148 → 1131 breaths (target-cycle score RC 83.2 → 85.6 %). Offered to the user.
 
 ## ADmeditation (2026-10-08) — promoted to curated 2026-10-09
 
