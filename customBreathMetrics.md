@@ -193,6 +193,18 @@ durations and time-to-peak are seconds.
   take `peaks`/`troughs` from its outputs, not from prep's.
 - `cySpan` must be provided for recordings containing the paced cyclicSigh
   block; without it the double inhale is segmented as two breaths.
+- Task-level merges run AFTER the engine and leave it untouched (the engine stays
+  LOCKED): `tasks/breathing/mergeCyclicSighBreaths.m` (breathingTask cyclicSigh
+  blocks, refractory proportional to the cycle period, 2026-10-12) and
+  `shared/mergeIncompleteExhales.m` (respiratorySweep, 2026-10-15: engine onsets
+  with neither an inhale nor an exhale in their window, and small pulses that
+  only lead into a rest, join the breath before; an inhale is not a new breath
+  when the exhale since the previous inhale is < 20 % of that inhale - signal
+  areas below / above zero flow, zero flow = the higher of the trace's dwell
+  level and its 60-s mean; bm's exhaleVolumes integrate |trace|, so a dip that
+  stays above zero flow would still count as an exhale).
+  Both rewrite bmObj rows and subset `bmFeatures.bmObjBreathIdx`; the bm feature
+  arrays are not rebuilt, so `bm_*` of a merged breath describe its first pulse.
 - Sessions without a usable ECG keep NaN HRV columns (`goodBreath`,
   `maxRR`, `minRR`, `RR_max_min`); breaths whose QC window falls off a
   recording edge are NaN (not 0) as of 2026-08-29.

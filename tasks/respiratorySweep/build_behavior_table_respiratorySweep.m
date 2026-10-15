@@ -24,10 +24,12 @@ function outDat = build_behavior_table_respiratorySweep(outDat)
 %                 never straddles a block edge; nSubPeaks = local maxima with
 %                 prominence >= 15% of the breath amplitude, 100-ms smoothing)
 %     nInhalePulses      inhale pulses merged into this breath by mergeIncompleteExhales
-%                 (1 = none); exhaleInhaleRatio = the breath's area below / above zero
-%                 flow (NaN when the merge step did not run)
+%                 (1 = none); breathInhaleArea / breathExhaleArea = the whole breath's
+%                 signal area above / below zero flow (sensor units x ms) and
+%                 exhaleInhaleRatio = their ratio (NaN when the merge step did not run)
 %     bm_*        breathMetrics features (appendBmFeatureCols; for a merged breath
-%                 they describe its first major pulse only)
+%                 they describe its FIRST pulse only - its exhale-side features describe
+%                 the dip between the pulses; use breathInhaleArea / breathExhaleArea)
 %   Ratings: outDat.ratings (long table, parse_sweepRatings), outDat.baseEmotion
 %   (the 'baseline' set) and outDat.postSweepEmotion (the 'postSweep' set), one
 %   row each in the alternating6Blocks baseEmotion layout (task / noseMouth /
@@ -102,9 +104,13 @@ function outDat = build_behavior_table_respiratorySweep(outDat)
     % ---- breath merge (mergeIncompleteExhales): pulses per breath + its exhale / inhale ratio ----
     if isfield(outDat, 'breathMerge') && numel(outDat.breathMerge.nPulses) == n
         behDat.nInhalePulses = outDat.breathMerge.nPulses(:);
+        behDat.breathInhaleArea = outDat.breathMerge.inhaleArea(:);
+        behDat.breathExhaleArea = outDat.breathMerge.exhaleArea(:);
         behDat.exhaleInhaleRatio = outDat.breathMerge.exInRatio(:);
     else
         behDat.nInhalePulses = ones(n, 1);
+        behDat.breathInhaleArea = nan(n, 1);
+        behDat.breathExhaleArea = nan(n, 1);
         behDat.exhaleInhaleRatio = nan(n, 1);
     end
 
