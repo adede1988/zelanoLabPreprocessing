@@ -371,6 +371,11 @@ function out = applyParams(task, sel, xlsxPath)
             % SniffLogic log(s) + the session notes (buildSweepTTL) and stores
             % it in the raw file; there is no makeOutDat (raw loaded directly).
             P = ecgParams(P, row, cHasM, cBeat, false, '1,0,gt,3.5');   % EEG_breathing: no macros
+            % breath-merge rule (user 2026-10-15, every respiratorySweep session): an inhale is
+            % not a new breath unless the exhale since the last counted inhale is >= 20 % of that
+            % inhale (shared/mergeIncompleteExhales, run after the locked engine); a minor first
+            % pulse (< 30 % of the run's highest peak) is a pause bump and goes to the breath before
+            P.sweepOpts = struct('mergeExhaleFrac', 0.20, 'mergeMinorFrac', 0.30);
 
         case 'sep'
             % breathingTasks_separate (Tasks_260824.md Task 9 / D12): the

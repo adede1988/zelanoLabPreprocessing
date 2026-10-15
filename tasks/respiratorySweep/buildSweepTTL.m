@@ -109,9 +109,20 @@ function [TTL, info, logTrace] = buildSweepTTL(rsp, fsRaw, sessID, logPaths, sto
         if A.reviewNeeded
             flags(end+1, 1) = sprintf('log%d alignment overlap |r| %.2f < 0.60 (REVIEW)', k, A.rLocal); %#ok<AGROW>
         end
-        assert(al(k).rawStartSec > -60 && al(k).rawEndSec < durRaw + 60, 'buildSweepTTL:outside', ...
-            '%s: log %s maps to raw %.1f-%.1f s, outside the %.1f-s recording - alignment is wrong', ...
-            sessID, al(k).file, al(k).rawStartSec, al(k).rawEndSec, durRaw);
+        % the log's EVENTS must land inside the recording; the log itself may run past
+        % it (SniffLogic kept logging ~5 min after Atlas stopped in 261014_EEG_NWU_ZL)
+        evT = [];
+        if ~isempty(Lg.audio), evT = Lg.audio(:)'; end
+        if height(Lg.blocks) > 0, evT = [evT, Lg.blocks.tStart(:)', Lg.blocks.tEnd(:)']; end %#ok<AGROW>
+        evRaw = Lg.rawSec(evT(isfinite(evT)));
+        assert(min(evRaw) > -5 && max(evRaw) < durRaw + 5, 'buildSweepTTL:outside', ...
+            '%s: log %s events map to raw %.1f-%.1f s, outside the %.1f-s recording - alignment is wrong', ...
+            sessID, al(k).file, min(evRaw), max(evRaw), durRaw);
+        if al(k).rawStartSec < -60 || al(k).rawEndSec > durRaw + 60
+            flags(end+1, 1) = sprintf(['log%d runs from %.0f s to %.0f s on the raw clock, beyond the %.0f-s ' ...
+                'recording (its events are inside; the log outlasted the recording)'], k, al(k).rawStartSec, ...
+                al(k).rawEndSec, durRaw); %#ok<AGROW>
+        end
     end
     assert(~isempty(logs), 'buildSweepTTL:noLogs', '%s: no SniffLogic log with events', sessID);
     flips = unique([al.rspFlip]);

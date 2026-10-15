@@ -128,6 +128,14 @@ for s = 1:numel(sessionIDs)
     rspDat = outDat.data(isRsp, :);
     rspDat = rspDat(P.rspIDX, :) .* P.rspFlip;
     [outDat.bmObj, outDat.bmFeatures] = segmentBreaths_zlp(rspDat, outDat.fs);
+    % (2026-10-15, user) one breath per inhale-exhale cycle: an inhale with no exhale
+    % (>= mergeExhaleFrac of the inhale) since the last counted one is merged into it -
+    % double inhales / pulse chains at the slow paces; the LOCKED engine is untouched
+    [outDat.bmObj, outDat.bmFeatures, outDat.breathMerge] = mergeIncompleteExhales(outDat.bmObj, ...
+        outDat.bmFeatures, rspDat, outDat.fs, P.sweepOpts.mergeExhaleFrac, P.sweepOpts.mergeMinorFrac);
+    fprintf('%s: breath merge %d -> %d breaths (%d pulses merged, %d minor pulses to the breath before)\n', ...
+        S.id, outDat.breathMerge.nBefore, outDat.breathMerge.nAfter, outDat.breathMerge.nMerged, ...
+        outDat.breathMerge.nMinorReassigned);
     outDat.moreThan1 = 1;
     outDat.rspIDX  = P.rspIDX;
     outDat.rspFlip = P.rspFlip;
