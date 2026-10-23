@@ -307,7 +307,9 @@ else
     %find behavioral folder: 
     subFolders = dir([datPre{datPrei(sessi)} sessionIDs{sessi}]);
     subFolders = subFolders([subFolders.isdir]);
-    idx = cellfun(@(x) contains(x, 'ehavior'), {subFolders.name});
+    % 2026-10-23: a behavioural VIDEO folder (BehavioralVideo ..., added July 2026) never holds
+    % result files: it is not a candidate
+    idx = cellfun(@(x) contains(x, 'ehavior') && ~contains(lower(x), 'video'), {subFolders.name});
     idx = find(idx); 
     if length(idx) ~= 1
         error('behavioral data folder not uniquely identified!')

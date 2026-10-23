@@ -167,7 +167,10 @@ for sessi = 1:numel(sessionIDs)
         % remove '.' and '..'
         subFolders = subFolders(~ismember({subFolders.name}, {'.','..'}));
 
-        behFolderIdx = find(contains(lower({subFolders.name}), 'ehavior'));
+        % 2026-10-23: since July 2026 many sessions also hold a behavioural VIDEO folder
+        % (BehavioralVideo / BehaviorVideo / Behavioral_video ...); it never holds result files
+        subNames = lower({subFolders.name});
+        behFolderIdx = find(contains(subNames, 'ehavior') & ~contains(subNames, 'video'));
         if ~isscalar(behFolderIdx)
             error('PEA loader: behavioral folder not uniquely identified for %s under %s (found %d matches).', ...
                 sessID, fullfile(datPre{datPrei(sessi)}, sessID), numel(behFolderIdx));
