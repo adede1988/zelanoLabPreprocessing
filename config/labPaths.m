@@ -14,18 +14,23 @@ function L = labPaths()
 %
 %   ---- Base fields (machine-specific; the only things you set per machine) ----
 %     .codePre    GitHub repos root that contains ZelanoLabScripts/,
-%                 slowBreathing/, closed-loop-respiration/  (TRAILING filesep)
+%                 closed-loop-respiration/ and experiment_EEGsync/ (their
+%                 processedBehavior\ folders, written by
+%                 tasks/breathing/tidyImport_waveExp_matlab, feed
+%                 breathingTask_makeOutDat)  (TRAILING filesep)
 %     .eeglab     eeglab folder to addpath(genpath(...))
 %     .labCommon  R:\...\Lab_Common base for shared lab data  (TRAILING filesep)
 %     .gdrive     Google-Drive "My Drive" base (TRAILING filesep), used only for
 %                 the breathing target-trace files; '' if not present here.
 %     .fieldtrip  FieldTrip root to addpath (must contain external/brainstorm for
 %                 the FOOOF analyses); optional ('' / unset) on machines that don't
-%                 run the cue/O15 FOOOF analyses. Used by cue_init_paths/o15_init_paths.
+%                 run the cue/O15 FOOOF analyses.
 %
 %   ---- Derived fields (built from the bases; never set these per machine) -----
-%     .repo .eegLocCsv .slowBreathing .closedLoopResp .procBehavior .figPath
+%     .repo .eegLocCsv .procBehavior .figPath
 %     .adminXlsx .rootDupi .rootOBE .rootEEG .behCue .behThresh .targTraceDir
+%     .behOdorDetection  (odor_detection task folder: detectNoOdor results + cuelists)
+%     .rootADmed .adMedXlsx  (ADmeditation study folder + its own tracking sheet)
 %     .labCommonCanon  (the Lab_Common prefix as stored in dataTracking.xlsx;
 %                       lets loaders rebase the sheet's absolute paths onto a
 %                       machine whose labCommon differs)
@@ -65,7 +70,7 @@ function L = labPaths()
                 ['Unknown machine (USERNAME="%s", COMPUTERNAME="%s").\n' ...
                  'Add a case to labPaths.m (paths must end with a filesep where shown):\n\n' ...
                  '    case ''%s''\n' ...
-                 '        L.codePre   = ''<...>\\GitHub\\'';     %% holds ZelanoLabScripts, slowBreathing, closed-loop-respiration\n' ...
+                 '        L.codePre   = ''<...>\\GitHub\\'';     %% holds ZelanoLabScripts, closed-loop-respiration, experiment_EEGsync\n' ...
                  '        L.eeglab    = ''<...>\\eeglab2026.0.0'';\n' ...
                  '        L.labCommon = ''R:\\Neurology\\Zelano_Lab\\Lab_Common\\'';\n' ...
                  '        L.gdrive    = ''G:\\My Drive\\'';        %% '''''''' if Google Drive is not mapped here\n' ...
@@ -81,6 +86,7 @@ end
 function L = deriveLabPaths(L)
 % Fill in everything that is a function of the four base paths. Keeping this in
 % one place means a new machine only ever sets the bases.
+    persistent warnedOverride   % ZLP_ADMIN_XLSX override warned once per session
 
     reqd = {'codePre', 'eeglab', 'labCommon', 'gdrive'};
     for i = 1:numel(reqd)
@@ -89,7 +95,7 @@ function L = deriveLabPaths(L)
                 'Base field "%s" is missing (check your labPaths case or labPaths_local).', reqd{i});
         end
     end
-    if ~isfield(L, 'fieldtrip'), L.fieldtrip = ''; end   % optional; cue_init_paths/o15_init_paths validate
+    if ~isfield(L, 'fieldtrip'), L.fieldtrip = ''; end   % optional; callers validate before use
 
     cp = L.codePre;
     lc = L.labCommon;
@@ -97,8 +103,6 @@ function L = deriveLabPaths(L)
     % code side (all under the GitHub repos root)
     L.repo           = fileparts(fileparts(mfilename('fullpath')));  % this repo root (config/ is one level down)
     L.eegLocCsv      = fullfile(L.repo, 'config', 'eegLocs_standard_coords.csv');
-    L.slowBreathing  = fullfile(L.repo, 'external', 'slowBreathing');   % vendored
-    L.closedLoopResp = fullfile(L.repo, 'external', 'closed-loop-respiration');
     L.procBehavior   = fullfile(L.repo, 'processedBehavior');   % per-breath CSV output (repo-local)
 
     % lab-common data side. Roots used in raw string concatenation downstream
@@ -115,11 +119,35 @@ function L = deriveLabPaths(L)
         % scripts use this path directly and error if it is unreachable.
         L.adminXlsx = fullfile(lc, 'Admin', 'Data', 'dataTracking.xlsx');
     end
+    % Per-process override: ZLP_ADMIN_XLSX points every sheet reader/writer at
+    % another copy (e.g. a staging copy while the master is held open in Excel;
+    % merge the staged cells back into the master afterwards). Warned once.
+    ov = getenv('ZLP_ADMIN_XLSX');
+    if ~isempty(ov)
+        if isempty(warnedOverride)
+            warning('labPaths:adminXlsxOverride', ...
+                'dataTracking sheet overridden by ZLP_ADMIN_XLSX -> %s', ov);
+            warnedOverride = true;
+        end
+        L.adminXlsx = ov;
+    end
     L.rootDupi  = [lc 'Dupi\'];
     L.rootOBE   = [lc 'OBEControl\'];
     L.rootEEG   = [lc 'AllStudyData\EEGbreathing\'];
+    % ADmeditation (added 2026-10-08): Adam's repeated meditation recordings
+    % live in their own study folder and are tracked in their OWN sheet, not
+    % in dataTracking.xlsx. applyParams / writeParams / setPreProcX switch to
+    % L.adMedXlsx for that task only. ZLP_ADMED_XLSX overrides it per process
+    % (a staging copy), like ZLP_ADMIN_XLSX does for the master.
+    L.rootADmed = [lc 'AllStudyData\AD_repeatRecordings\'];
+    L.adMedXlsx = fullfile(lc, 'Admin', 'Data', 'dataTracking_AD_meditation.xlsx');
+    ovA = getenv('ZLP_ADMED_XLSX');
+    if ~isempty(ovA), L.adMedXlsx = ovA; end
     L.behCue    = fullfile(lc, 'OBE_task_backup', 'tasks', 'olf_cuetask', 'results', 'olf_cuetask_results');
     L.behThresh = fullfile(lc, 'OBE_task_backup', 'tasks', 'pea_threshold', 'results');
+    % odor-detection task folder (detectNoOdor: results\results_OBE_Odor_detection\<id>\
+    % + participants\<id>_cuelist\)
+    L.behOdorDetection = fullfile(lc, 'OBE_task_backup', 'tasks', 'odor_detection');
 
     % Google Drive side (breathing target traces only)
     if isempty(L.gdrive)

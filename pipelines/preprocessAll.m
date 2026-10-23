@@ -17,9 +17,14 @@
 % NOTES
 %  - GUESS sessions need interactive verification (paramCheck / onset gate) and
 %    will halt a batch. Curate them first; pending guess rows are flagged below.
-%  - Memory (16 GB): each task runs all its sessions in one MATLAB process. If you
-%    hit "Out of memory", run one task at a time, or use the per-session
-%    _dev/run_* harnesses (they clear big vars each iteration).
+%  - Memory: a raw session is multi-GB and each task runs all its sessions in
+%    one MATLAB process. If you hit "Out of memory", run one task per MATLAB
+%    process (matlab -batch "<task>PreProc_main"); every main also takes
+%    ZLP_MAIN_ONLY=<comma-separated ids> (and every *_makeOutDat
+%    ZLP_MAKEOUTDAT_ONLY) to restrict the sweep (CLAUDE.md sections 7-8).
+%  - Coverage: EmotionalMovieTask and alternating6Blocks are REPORTED but not
+%    run here, and breathingTasks_separate is neither - run their pipelines
+%    directly.
 % ---------------------------------------------------------------------------
 
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
@@ -53,6 +58,23 @@ end
 if pendingReport().pacedBreathing.n > 0     % pacedBreathing has no makeOutDat (raw loaded directly)
     run('pacedBreathingPreProc_main.m');
 end
+if pendingReport().vipassana.n > 0     % vipassana has no makeOutDat (raw loaded directly)
+    run('vipassanaPreProc_main.m');
+end
+if pendingReport().respiratorySweep.n > 0     % respiratorySweep has no makeOutDat (event table in the raw file)
+    run('respiratorySweepPreProc_main.m');
+end
+if pendingReport().detectNoOdor.n > 0
+    run('detectNoOdor_makeOutDat.m');
+    run('detectNoOdorPreProc_main.m');
+end
+if pendingReport().cueTask3.n > 0
+    run('cueTask3_makeOutDat.m');
+    run('cueTask3PreProc_main.m');
+end
+if pendingReport().airPuff.n > 0     % airPuff has no makeOutDat (raw loaded directly)
+    run('airPuffPreProc_main.m');
+end
 
 fprintf('\npreprocessAll: done. Re-run (report only) to confirm the backlog cleared.\n');
 
@@ -61,7 +83,7 @@ fprintf('\npreprocessAll: done. Re-run (report only) to confirm the backlog clea
 
 function rep = pendingReport()
 % Build, per task, the list of raw-extracted sessions not yet marked preprocessed.
-    tasks = {'breathingTask', 'cueTask', 'threshTask', 'O15', 'EmotionalMovieTask', 'alternating6Blocks', 'pacedBreathing'};
+    tasks = {'breathingTask', 'cueTask', 'threshTask', 'O15', 'EmotionalMovieTask', 'alternating6Blocks', 'pacedBreathing', 'vipassana', 'respiratorySweep', 'detectNoOdor', 'cueTask3', 'airPuff'};
     xlsx  = resolveSheet();
     C     = readcell(xlsx, 'Sheet', 'Sheet1');
 
@@ -178,6 +200,11 @@ function k = taskKey(task)
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
+        case 'vipassana',          k = 'vip';
+        case 'respiratorysweep',   k = 'sweep';
+        case 'detectnoodor',       k = 'dno';
+        case 'cuetask3',           k = 'cue3';
+        case 'airpuff',            k = 'airPuff';
         otherwise,                 k = '';
     end
 end
@@ -193,6 +220,11 @@ function k = canonTask(t)
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
+        case 'vipassana',          k = 'vip';
+        case 'respiratorysweep',   k = 'sweep';
+        case 'detectnoodor',       k = 'dno';
+        case 'cuetask3',           k = 'cue3';
+        case 'airpuff',            k = 'airPuff';
         otherwise,                 k = '';
     end
 end

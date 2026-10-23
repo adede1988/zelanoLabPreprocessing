@@ -5,14 +5,23 @@ function outDat = build_behavior_table_emotionalMovieTask(outDat)
 %
 %   D10 (Tasks_260824.md): breathing-layout per-breath table plus clip columns;
 %   ONLY breaths whose inhale onset falls inside a clip window are kept —
-%   between-clip and otherwise unassociated breaths are dropped. The final clip
-%   has no defined end (the old pipeline's clip-end rule is "next onset -
-%   1.6 s"; there is no next onset), so its breaths are among the dropped and
-%   this is reported.
+%   between-clip and otherwise unassociated breaths are dropped. Without a
+%   PsychoPy clip log the final clip has no defined end (the old pipeline's
+%   clip-end rule is "next onset - 1.6 s"; there is no next onset), so its
+%   breaths are among the dropped and this is reported; with the log,
+%   matchClipsToPsychoPy ends it at its PsychoPy movie.stopped.
 %
-%   Consumes outDat.bmObj / outDat.bmFeatures (segmentBreaths_breathMetrics)
+%   Consumes outDat.bmObj / outDat.bmFeatures (segmentBreaths_zlp)
 %   and outDat.TTL (clip table in fs=500 samples). bmObj col 12 gets the clip
 %   valence code (1 neutral / 2 happy / 3 sad, matching the old pipeline).
+%
+%   Clip columns per breath: clipIndex (row of outDat.TTL), clipValence
+%   (category), clipOnset, then clipFile, clipVidLenSec, clipNormValence,
+%   clipNormArousal, clipNormImpact from the PsychoPy clip log (clip length in s
+%   and the DEVO2 per-clip mean ratings, not the participant's ratings - see
+%   matchClipsToPsychoPy); these are "" / NaN when the session has no PsychoPy
+%   log or its intermediate predates 2026-10-12 (the norms need a fresh
+%   makeOutDat), so every session's table has the same columns.
 
     bmObj = outDat.bmObj;
     T = outDat.TTL;
@@ -35,6 +44,7 @@ function outDat = build_behavior_table_emotionalMovieTask(outDat)
     bmObj(keep, 12) = T.nPulses(clipIdx(keep));   % valence code, old convention
 
     % trim to in-clip breaths and renumber
+    mergeRows = find(keep);        % row of outDat.breathMerge behind each kept breath
     bmObj = bmObj(keep, :);
     clipIdx = clipIdx(keep);
     bmObj(:, 14) = 1:size(bmObj, 1);
@@ -43,66 +53,38 @@ function outDat = build_behavior_table_emotionalMovieTask(outDat)
     end
     outDat.bmObj = bmObj;
 
-    % ---- breathing-layout table (build_behavior_table_breathingTask core) ----
-    behDat = table();
-    tim = (1:size(outDat.data, 2)) / outDat.fs;
-    idx = arrayfun(@(x) find(x <= tim, 1), bmObj(:, 2));
-    behDat.sniffOnset = idx;
-    behDat.finalOnset = idx;
-    behDat.manOnset   = nan(size(idx));
-    behDat.condition  = bmObj(:, 12);
-    behDat.Yonset     = bmObj(:, 1);
-    behDat.inhaleMax  = bmObj(:, 3);
-    behDat.inMaxTim   = arrayfun(@(x) find(x <= tim, 1), bmObj(:, 4));
-    behDat.Yend       = bmObj(:, 5);
-    behDat.endTim     = arrayfun(@(x) find(x <= tim, 1), bmObj(:, 6));
-    behDat.length     = bmObj(:, 7);
-    behDat.amp        = bmObj(:, 8);
-    behDat.exhaleMin  = bmObj(:, 10);
-    behDat.exMinTim   = arrayfun(@(x) find(x <= tim, 1), bmObj(:, 11));
-    behDat.index      = bmObj(:, 14);
+    % ---- breathing-layout table (shared 14 base columns) ----
+    behDat = behDatFromBreaths(bmObj, size(outDat.data, 2), outDat.fs);
 
     % clip columns (D10)
     behDat.clipIndex   = clipIdx;
     behDat.clipValence = T.valence(clipIdx);
     behDat.clipOnset   = T.clipOnset(clipIdx);
+    % clip identity + DEVO2 norms from the PsychoPy log ("" / NaN without it)
+    nB = numel(clipIdx);
+    if ismember('fileName', T.Properties.VariableNames)
+        behDat.clipFile = T.fileName(clipIdx);
+    else
+        behDat.clipFile = strings(nB, 1);
+    end
+    normCols = {'vidLenSec', 'clipVidLenSec'; 'normValence', 'clipNormValence'; ...
+                'normArousal', 'clipNormArousal'; 'normImpact', 'clipNormImpact'};
+    for k = 1:size(normCols, 1)
+        if ismember(normCols{k, 1}, T.Properties.VariableNames)
+            behDat.(normCols{k, 2}) = T.(normCols{k, 1})(clipIdx);
+        else
+            behDat.(normCols{k, 2}) = NaN(nB, 1);
+        end
+    end
     % block-type column in the breathing convention (also keeps flagBadBreaths
     % happy, which reads behDat.task)
     behDat.task = cellstr(T.valence(clipIdx));
 
     outDat.behDat = behDat;
 
+    % ---- breath merge (applyBreathMerge): pulses per breath + exhale / inhale areas ----
+    outDat = appendBreathMergeCols(outDat, mergeRows);
+
     % ---- breathMetrics per-breath features as bm_* columns (D8e) ----
-    if isfield(outDat, 'bmFeatures') && isfield(outDat.bmFeatures, 'bmObjBreathIdx')
-        F  = outDat.bmFeatures;
-        bi = F.bmObjBreathIdx(:);
-        if numel(bi) == height(outDat.behDat)
-            perBreath = {'inhaleOnsets', 'exhaleOnsets', 'inhaleOffsets', 'exhaleOffsets', ...
-                         'inhalePeaks', 'exhaleTroughs', 'peakInspiratoryFlows', ...
-                         'troughExpiratoryFlows', 'inhaleTimeToPeak', 'exhaleTimeToTrough', ...
-                         'inhaleVolumes', 'exhaleVolumes', 'inhaleDurations', 'exhaleDurations', ...
-                         'inhalePauseOnsets', 'exhalePauseOnsets', ...
-                         'inhalePauseDurations', 'exhalePauseDurations', ...
-                         'inhaleVolumesRaw', 'exhaleVolumesRaw'};
-            for f = 1:numel(perBreath)
-                fld = perBreath{f};
-                if isfield(F, fld) && numel(F.(fld)) >= max(bi)
-                    v = F.(fld)(:);
-                    outDat.behDat.(['bm_' fld]) = v(bi);
-                end
-            end
-            if isfield(F, 'shapeFeatures') && istable(F.shapeFeatures) ...
-                    && height(F.shapeFeatures) >= max(bi)
-                sv = F.shapeFeatures.Properties.VariableNames;
-                for f = 1:numel(sv)
-                    if strcmp(sv{f}, 'breath_id'), continue; end
-                    v = F.shapeFeatures.(sv{f});
-                    outDat.behDat.(['bm_' sv{f}]) = v(bi);
-                end
-            end
-        else
-            warning('build_behavior_table_emotionalMovieTask:bmMisaligned', ...
-                '%s: feature map misaligned; bm_* columns skipped', outDat.sessID);
-        end
-    end
+    outDat = appendBmFeatureCols(outDat, 'build_behavior_table_emotionalMovieTask');
 end

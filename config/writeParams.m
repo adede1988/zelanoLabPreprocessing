@@ -48,7 +48,8 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
 %     rspIDX rspFlip hasEEG spikeClean spikeThresh spikeWin macroRemove
 %     paramSource hasMacros beatSpec respThresh cuedBackBuff adjWin
 %     ttlRemoveIdx (<- P.ttl.removeTrialMarksIdx) ttlNote (<- P.ttl.note)
-%   Non-serialisable fields (getBeats, ttlMap, pd) are ignored by design.
+%     ttlProtocol (<- P.ttl.protocol: oldTTL / heldButton; O15)
+%   Non-serialisable fields (getBeats, pd) are ignored by design.
 
     % ---------------- options ----------------
     opt.Verbose           = true;
@@ -61,9 +62,7 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
     opt = parseOpts(opt, varargin);
     sheet = opt.Sheet;
 
-    if nargin < 3 || isempty(xlsxPath)
-        xlsxPath = resolveDefaultXlsx();
-    end
+    useDefaultXlsx = nargin < 3 || isempty(xlsxPath);   % resolved once the task is known
 
     sessID = strtrim(asChar(sessID));
     if isempty(sessID)
@@ -82,6 +81,16 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
     tkey = taskKey(taskName);
     if isempty(tkey)
         error('writeParams:badTask', 'Unknown task "%s".', taskName);
+    end
+    if useDefaultXlsx
+        if strcmp(tkey, 'adMed')
+            % ADmeditation is tracked in its own sheet (labPaths().adMedXlsx);
+            % only the param columns that sheet carries are written
+            L = labPaths();
+            xlsxPath = L.adMedXlsx;
+        else
+            xlsxPath = resolveDefaultXlsx();
+        end
     end
 
     % ---------------- read sheet ----------------
@@ -178,6 +187,10 @@ function info = writeParams(P, sessID, xlsxPath, varargin)
                         'ttlRemoveIdx', 'list', @() P.ttl.removeTrialMarksIdx);
         E = addEntry(E, isfield(P.ttl,'note'), ...
                         'ttlNote',      'str',  @() P.ttl.note);
+        % O15 free-sniff protocol (G3a 2026-10-20): canonical spelling, the
+        % pre-2026-10-20 code name 'pressPulse' written as 'oldTTL'
+        E = addEntry(E, isfield(P.ttl,'protocol'), ...
+                        'ttlProtocol',  'str',  @() canonO15Protocol(P.ttl.protocol));
     end
 
     % ---------------- diff & write ----------------
@@ -448,6 +461,14 @@ function s = boolStr(b)
     if b, s = 'TRUE'; else, s = 'FALSE'; end
 end
 
+function s = canonO15Protocol(v)
+% O15 ttlProtocol value as written to the sheet: 'pressPulse' (the code's name
+% for the legacy press-pulse parse until 2026-10-20) -> 'oldTTL'; anything else
+% unchanged (applyParams validates on read).
+    s = strtrim(asChar(v));
+    if strcmpi(s, 'pressPulse'), s = 'oldTTL'; end
+end
+
 % ---- shared read primitives (kept identical to applyParams) ----
 
 function tf = isBlank(v)
@@ -517,6 +538,18 @@ function k = canonTask(t)
             k = 'alt6';
         case {'pacedbreathing'}
             k = 'paced';
+        case {'vipassana'}
+            k = 'vip';
+        case {'admeditation'}
+            k = 'adMed';
+        case {'respiratorysweep'}
+            k = 'sweep';
+        case {'detectnoodor'}
+            k = 'dno';
+        case {'cuetask3'}
+            k = 'cue3';
+        case {'airpuff'}
+            k = 'airPuff';
         otherwise
             k = '';
     end
@@ -533,6 +566,12 @@ function k = taskKey(task)
         case 'emotionalmovietask', k = 'movie';
         case 'alternating6blocks', k = 'alt6';
         case 'pacedbreathing',     k = 'paced';
+        case 'vipassana',          k = 'vip';
+        case 'admeditation',       k = 'adMed';
+        case 'respiratorysweep',   k = 'sweep';
+        case 'detectnoodor',       k = 'dno';
+        case 'cuetask3',           k = 'cue3';
+        case 'airpuff',            k = 'airPuff';
         otherwise,                 k = '';
     end
 end

@@ -44,21 +44,9 @@ function raw = assembleRaw_pacedBreathing(S)
     % wall-clock gap before each) - optional, used to flag breaths at the seams
     if isfield(dat, 'segments'), raw.segments = dat.segments; end
 
-    % which LoadData script produced the raw file (provenance, as in O15)
-    d = dir(fullfile(S.root, S.id, '*LoadData*.m'));
-    d = d(~startsWith({d.name}, '._'));          % ignore macOS AppleDouble junk
-    if numel(d) == 1
-        raw.loadFile = d.name;
-    else
-        d2 = d(contains({d.name}, 'pacedBreathing'));
-        if numel(d2) == 1
-            raw.loadFile = d2.name;
-        else
-            raw.loadFile = '';
-            warning('assembleRaw_pacedBreathing:loadFile', ...
-                '%s: LoadData script not identified uniquely (%d candidates)', S.id, numel(d));
-        end
-    end
+    % which LoadData script produced the raw file (provenance, as in O15;
+    % shared lookup - curDat.loadFile first, never fatal)
+    raw.loadFile = findLoadDataScript(raw.OGdataDir, 'pacedBreathing', dat);
 
     assert(size(raw.data, 1) == numel(raw.labels), ...
         'assembleRaw_pacedBreathing: %d data rows vs %d labels', size(raw.data, 1), numel(raw.labels));

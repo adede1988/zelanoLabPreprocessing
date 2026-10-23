@@ -5,7 +5,8 @@ function [outDat, targTraces] = alignTargetBreathingTraceSimplify(outDat, targTr
 %
 % Inputs
 %   outDat    : struct with .fs, .data, .labels, .behDat
-%   codePre   : base path to code repo (prefix for 'closed-loop-respiration\data')
+%   targTraceDir : folder holding the target-trace CSVs
+%                  (labPaths().targTraceDir = <gdrive>\cZelano\breathingDataFiles)
 %
 % Outputs
 %   outDat     : updated struct with new channel 'targTrace'
@@ -310,47 +311,5 @@ function [outDat, targTraces] = alignTargetBreathingTraceSimplify(outDat, targTr
     end
     outDat.labels{end+1}  = 'targTrace';
 
-     %% Per-condition plots: respiration vs target trace
-    % One figure per condition (cndi = 3:nCond → nCond-2 figures)
-    % if ~isempty(rspDat)
-    % 
-    % 
-    % 
-    %     for cndi = 3:nCond
-    %         % Segment indices for this condition in the full-session rspDat
-    %         startIdx = outDat.TTL(cndi)+1; 
-    %         endIdx   = outDat.TTL(cndi+1);
-    % 
-    %         if startIdx > numel(rspDat)
-    %             warning('alignTargetBreathingTrace:RespTooShort', ...
-    %                     'rspDat too short for condition %d (startIdx=%d). Skipping plot.', ...
-    %                     cndi, startIdx);
-    %             continue;
-    %         end
-    % 
-    %         endIdx = min(endIdx, numel(rspDat));
-    %         segLen = endIdx - startIdx + 1;
-    % 
-    %         segRsp  = rspDat(startIdx:endIdx);
-    %         segTarg = targTraces(startIdx:endIdx);
-    % 
-    %         t = (0:segLen-1) / outDat.fs;
-    % 
-    %         figure('visible', false, 'position', [0,0,1000,500]);
-    %         yyaxis left;
-    %         plot(t, segRsp);
-    %         ylabel('Respiration');
-    % 
-    %         yyaxis right;
-    %         plot(t, segTarg);
-    %         ylabel('Target trace (a.u.)');
-    %         xlim([100 130])
-    %         xlabel('Time (s)');
-    %         title(sprintf('Condition %d: Respiration vs Target Trace (%s)', ...
-    %                       cndi, sessionID), ...
-    %               'Interpreter','none');
-    %         saveas(gcf,fullfile(outDat.figs, ['shadowResp' num2str(cndi) '.jpg']));
-    %     end
-    % end
 
 end

@@ -13,4 +13,5 @@ function raw = assembleRaw_emotionalMovieTask(S)
         ['%s: the preProc file is a processed FINAL (has moreThan1), not a ' ...
          'makeOutDat intermediate. Back it up and delete it before rerunning.'], S.id);
     if isfield(od, 'TTL'), raw.TTL = od.TTL; end
+    if isfield(od, 'clipCheck'), raw.clipCheck = od.clipCheck; end   % PsychoPy cross-check (matchClipsToPsychoPy)
 end

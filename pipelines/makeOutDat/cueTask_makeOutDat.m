@@ -16,7 +16,6 @@ while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2
 end
 addpath(genpath(zlpRoot));
 L          = labPaths();
-codePre    = L.codePre;
 behDatPath = L.behCue;
 addpath(genpath(L.repo))
 addpath(genpath(L.eeglab))
@@ -30,8 +29,7 @@ sessionIDs = cfg.sessionIDs;
 datPre     = cfg.datPre;
 datPrei    = cfg.datPrei;
 newSet     = cfg.newIDs;
-rspIDX     = cfg.rspIDX;
-rspFlip    = cfg.rspFlip;
+fsTarget   = 500;   % final sample rate (applyParams P.fs_target): TTLs are stored in these samples
 
 % targeted-run filter (2026-09-01): comma-separated session ids in
 % ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
@@ -56,11 +54,17 @@ if sum(cellfun(@(x) strcmp(sessionIDs{sessi}, x), newSet))==1
     datFolders = dir([datPre{datPrei(sessi)} sessionIDs{sessi} ...
                        '\raw\']);
 
-    idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor'), {datFolders.name});
+    % standard folder(s) raw_cueTaskOdor, or raw_cueTaskOdor1 + 2 for the
+    % two-run sessions; a *_echem twin is a different recording and must
+    % never be picked up (it would be stitched in as a second run)
+    idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor') && ~contains(lower(x), 'echem'), {datFolders.name});
     if ~any(idx)
-        % 260720_OBE_NWU_KA_2 shipped its cue raw as raw_cueTask (same task,
-        % nonstandard folder name); the preProc output name stays standard
-        idx = cellfun(@(x) strcmpi(x, 'raw_cueTask'), {datFolders.name});
+        % 260720_OBE_NWU_KA_2 shipped its cue raw as raw_cueTask, and
+        % 260827_OBE_NWU_RX_2 / 260831_OBE_NWU_CS_2 as raw_odorCueTask (same
+        % task, nonstandard folder names - exact names only, never *_echem);
+        % the preProc output name stays standard
+        idx = cellfun(@(x) any(strcmpi(x, {'raw_cueTask', 'raw_odorCueTask'})), {datFolders.name});
+        assert(sum(idx) <= 1, 'cue raw folder ambiguous for %s: several of raw_cueTask / raw_odorCueTask', sessionIDs{sessi});
     end
     idx = find(idx);
 
@@ -104,6 +108,10 @@ if sum(cellfun(@(x) strcmp(sessionIDs{sessi}, x), newSet))==1
         outDat.CSClist = dat1.ncslabels; 
         outDat.fs = dat1.rawData.fsample; 
         outDat.sessID = sessionIDs{sessi}; 
+        % a raw file whose event channel was rebuilt from the task result files
+        % (dead DAQ input, e.g. 260824_OBE_NWU_EZ_1) documents it in
+        % curDat.surrogateTTL; carry it into the intermediate and the final
+        if isfield(dat1, 'surrogateTTL'), outDat.surrogateTTL = dat1.surrogateTTL; end
 
         
         %process the TTL pulses for dat 1: 
@@ -285,7 +293,7 @@ if sum(cellfun(@(x) strcmp(sessionIDs{sessi}, x), newSet))==1
                 ri = ri+1; 
             end
         end
-        TTLs =round(TTLs ./ 4);
+        TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
 
         outDat.behDat = behDat; 
         outDat.data = dat1.rawData.trial{1};
@@ -308,10 +316,15 @@ else
     datFolders = dir([datPre{datPrei(sessi)} sessionIDs{sessi} ...
                        '\raw\']);
 
-    idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor'), {datFolders.name});
+    % standard folder(s) raw_cueTaskOdor, or raw_cueTaskOdor1 + 2 for the
+    % two-run sessions; a *_echem twin is a different recording and must
+    % never be picked up (it would be stitched in as a second run)
+    idx = cellfun(@(x) contains(x, 'raw_cueTaskOdor') && ~contains(lower(x), 'echem'), {datFolders.name});
     if ~any(idx)
-        % nonstandard raw_cueTask folder name (same task) - see new-set branch
-        idx = cellfun(@(x) strcmpi(x, 'raw_cueTask'), {datFolders.name});
+        % nonstandard raw_cueTask / raw_odorCueTask folder names (same task,
+        % exact names only) - see new-set branch
+        idx = cellfun(@(x) any(strcmpi(x, {'raw_cueTask', 'raw_odorCueTask'})), {datFolders.name});
+        assert(sum(idx) <= 1, 'cue raw folder ambiguous for %s: several of raw_cueTask / raw_odorCueTask', sessionIDs{sessi});
     end
     idx = find(idx);
     
@@ -327,7 +340,12 @@ else
         dat2 = load([datFolders(idx(2)).folder '\' ...
                      datFolders(idx(2)).name  '\' ...
                      datFolders(idx(2)).name  '.mat']);
-        dat2 = dat2.curDat; 
+        dat2 = dat2.curDat;
+        % recording gaps arrive as NaN from newer FieldTrip (2026-09-25
+        % re-extractions of FM / SJ / BG): fill them as the new-set branch does,
+        % otherwise the photodiode z-score below is all-NaN and finds no TTLs
+        dat1 = fillRawNaNs(dat1, 12000);
+        dat2 = fillRawNaNs(dat2, 12000);
 
         %behavioral data loading
         switch sessionIDs{sessi}
@@ -394,8 +412,18 @@ else
 
             otherwise
 
-                %find the behavioral files: 
+                %find the behavioral files:
                 behDir = dir([behFold.folder, '\' behFold.name '\olf_cue']);
+                if isempty(behDir)
+                    % 2026-09-25: 240822_OBE_NMH_FM / 241016_OBE_NWU_BG keep
+                    % the odor-cue results outside an olf_cue folder - take
+                    % the run1/run2 odor results .txt from anywhere under the
+                    % behavioral folder, never from *backup* / echem copies
+                    % (the filters below still demand exactly two .txt)
+                    behDir = [dir(fullfile(behFold.folder, behFold.name, '**', '*_run1_cuelist_odor_results.txt')); ...
+                              dir(fullfile(behFold.folder, behFold.name, '**', '*_run2_cuelist_odor_results.txt'))];
+                    behDir(contains(lower({behDir.folder}), {'backup', 'echem'})) = [];
+                end
                 %eliminate echem and imagine files
                 idx = cellfun(@(x) contains(x, 'echem'), {behDir.name});
                 idx = find(idx);
@@ -506,7 +534,7 @@ else
             TTLs = nan(20, 3); 
             TTLs(:,1) = cueTTLs; 
             TTLs(:,2) = sniffTTLs; 
-                TTLs =round(TTLs ./ 4);
+                TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
         else
             try
                 xline(responseTTLs, 'color', 'k', 'linewidth',2)
@@ -519,7 +547,7 @@ else
                 TTLs(:,1) = cueTTLs; 
                 TTLs(:,2) = sniffTTLs; 
                 TTLs(:,3) = responseTTLs;  
-                TTLs =round(TTLs ./ 4);
+                TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
             catch 
                 TTLs = nan(20, 3); 
                 ri = 1; 
@@ -534,7 +562,7 @@ else
                         ri = ri+1; 
                     end
                 end
-                TTLs =round(TTLs ./ 4);
+                TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
                 warning('missed response TTLs')
                 
             end
@@ -609,7 +637,7 @@ else
             TTLs2 = nan(20, 3); 
             TTLs2(:,1) = cueTTLs; 
             TTLs2(:,2) = sniffTTLs; 
-                TTLs2 =round(TTLs2 ./ 4);
+                TTLs2 = toTargetSamples(TTLs2, outDat.fs, fsTarget);
         else
             try
                 xline(responseTTLs, 'color', 'k', 'linewidth',2)
@@ -622,12 +650,14 @@ else
                 TTLs2(:,1) = cueTTLs; 
                 TTLs2(:,2) = sniffTTLs; 
                 TTLs2(:,3) = responseTTLs;  
-                TTLs2 =round(TTLs2 ./ 4);
+                TTLs2 = toTargetSamples(TTLs2, outDat.fs, fsTarget);
             catch 
-                TTLs2 = nan(20, 3); 
-                ri = 1; 
-                for tt = 1:size(behDat1,1)
-                    if isempty(behDat1.response_str{tt})
+                TTLs2 = nan(20, 3);
+                ri = 1;
+                % run 2's TTLs follow run 2's behaviour (cleanup C16: this
+                % used behDat1, pairing run-2 pulses with run-1 responses)
+                for tt = 1:size(behDat2,1)
+                    if isempty(behDat2.response_str{tt})
                         TTLs2(tt,1) = cueTTLs(tt); 
                         TTLs2(tt,2) = sniffTTLs(tt); 
                     else
@@ -637,7 +667,7 @@ else
                         ri = ri+1; 
                     end
                 end
-                TTLs2 =round(TTLs2 ./ 4);
+                TTLs2 = toTargetSamples(TTLs2, outDat.fs, fsTarget);
                 warning('missed response TTLs')
                 
             end
@@ -646,7 +676,7 @@ else
 
         %combine everything! 
         L1 = size(dat1.rawData.trial{1},2);
-        TTLs2 = TTLs2 + round(L1/4); 
+        TTLs2 = TTLs2 + toTargetSamples(L1, outDat.fs, fsTarget); 
 
         TTLs = [TTLs; TTLs2]; 
         comboDat = [dat1.rawData.trial{1}, ...
@@ -658,9 +688,9 @@ else
 
         figure
         plot(photoDiode)
-        xline(TTLs(:,1).*4, 'color', 'magenta')
-        xline(TTLs(:,2).*4, 'color', 'green')
-        xline(TTLs(:,3).*4, 'color', 'k')
+        xline(TTLs(:,1).*(outDat.fs/fsTarget), 'color', 'magenta')
+        xline(TTLs(:,2).*(outDat.fs/fsTarget), 'color', 'green')
+        xline(TTLs(:,3).*(outDat.fs/fsTarget), 'color', 'k')
         
         outDat.behDat = behDat; 
         outDat.data = comboDat;
@@ -845,49 +875,23 @@ else
                 ri = ri+1; 
             end
         end
-        TTLs =round(TTLs ./ 4);
+        TTLs = toTargetSamples(TTLs, outDat.fs, fsTarget);
 
         outDat.behDat = behDat; 
         outDat.data = dat1.rawData.trial{1};
     end
 end
-    %process behavioral data into hit/miss/cr/fa
-    outDat.behDat.type = repmat("hit", size(outDat.behDat,1),1); 
-    idx = find(outDat.behDat.cue==outDat.behDat.odor & ...
-                       strcmp(outDat.behDat.response_str,'No'));
-    outDat.behDat.type(idx) = repmat("miss", length(idx),1); 
-    idx = find(outDat.behDat.cue~=outDat.behDat.odor & ...
-                       strcmp(outDat.behDat.response_str,'No'));
-    outDat.behDat.type(idx) = repmat("cr", length(idx),1); 
-    idx = find(outDat.behDat.cue~=outDat.behDat.odor & ...
-                       strcmp(outDat.behDat.response_str,'Yes'));
-    outDat.behDat.type(idx) = repmat("fa", length(idx),1);  
-    idx = find(cellfun(@(x) isempty(x), outDat.behDat.response_str));
-    outDat.behDat.type(idx) = repmat("skip", length(idx),1);
-    % No-cue condition (Tasks_260824.md D9): the raw file codes cue==0 for
-    % no-cue trials; hit/miss/cr/fa are undefined there, so they get their own
-    % outcome value. The cue column keeps the 0. The photodiode structure is
-    % unchanged on no-cue trials (trial-start/sniff/response pulses all
-    % present - verified on SP_2/RC_1/KA_2, batch/task6_probeNoCueTTL.m).
-    idx = find(outDat.behDat.cue == 0);
-    outDat.behDat.type(idx) = repmat("noCue", length(idx),1);
-  
+    %process behavioral data into hit/miss/cr/fa (+ skip, and noCue on the
+    %no-cue trials, Tasks_260824.md D9): the rule lives in tasks/cue/
+    %cueTrialType (moved there unchanged 2026-10-16; cueTask3 uses it too)
+    outDat.behDat.type = cueTrialType(outDat.behDat);
+
     
     outDat.task = "cueTask"; 
     outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
-    tmp = dir([datPre{datPrei(sessi)} sessionIDs{sessi}]);
-    tmp = tmp(cellfun(@(x) contains(x, '.m'), {tmp.name}));
-    tmp = tmp(cellfun(@(x) contains(x, 'LoadData'), {tmp.name}));
-    if size(tmp,1) == 1
-        outDat.loadFile = tmp.name;
-    else 
-        tmp = tmp(cellfun(@(x) contains(x, 'AD.m'), {tmp.name}));
-        if size(tmp,1) == 1
-            outDat.loadFile = tmp.name;
-        else 
-            error('load file not identified uniquely')
-        end
-    end
+    % LoadData provenance (shared lookup; never fatal - the intermediate's
+    % loadFile is not carried into the final)
+    outDat.loadFile = findLoadDataScript(outDat.OGdataDir, 'cueTask', dat1);
     outDat.preProcScript = 'cueTask_makeOutDat.m';
     if datPrei(sessi) == 1
         outDat.type = 'Dupi'; 

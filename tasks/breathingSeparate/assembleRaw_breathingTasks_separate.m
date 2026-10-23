@@ -4,10 +4,13 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
 %   raws = assembleRaw_breathingTasks_separate(S, P)
 %
 %   For every in-scope condition row of the session (P.conditions, from
-%   applyParams), loads raw\raw_<condition>\raw_<condition>.mat (folder found
-%   case-insensitively), requires identical labels and sampling rate across
-%   files (error otherwise), and returns a struct array ordered
-%   chronologically by recording start (D12b).
+%   applyParams), loads the single .mat of the condition's raw folder -
+%   raw\raw_<condition>\ as a rule, with the documented older aliases and
+%   the exact raw_<condition>_run<N> folders of repeated runs; the rules and
+%   the section labels live in config/sepConditionInfo (folder names matched
+%   case-insensitively, exactly one folder required) - requires identical
+%   labels and sampling rate across files (error otherwise), and returns a
+%   struct array ordered chronologically by recording start (D12b).
 %
 %   Ordering evidence (ft_appenddata drops the Neuralynx hdr, so
 %   FirstTimeStamp is unavailable): (1) the Neuralynx channel-file SUFFIX
@@ -19,21 +22,34 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
 %   combined key is not strictly ordered. Single-file sessions need no
 %   ordering.
 %
-%   Each element: .condition (sheet Task value) .label (D12c canonical:
-%   audioBook/audiobook/distractedBreathing -> 'audiobook', rest verbatim)
-%   .data .labels .fs_raw .suffix .folderTime .srcFile
+%   Each element: .condition (sheet Task value) .label (D12c canonical, from
+%   sepConditionInfo: audioBook/audiobook/distractedBreathing -> 'audiobook',
+%   focusedBreathing_button[1|2] -> 'focusedBreathing_button', <cond>_run<N>
+%   -> <cond>'s label, ...) .data .labels .fs_raw .suffix .folderTime .srcFile
+%   .rawFirstSample .rawLastSample .rawSamples .trimSec
+%
+%   Optional per-condition trim (P.condTrimSec, [nCond x 2] aligned with
+%   P.conditions, set in an explicit applyParams case; tasks_261014 task 8):
+%   [start end] in seconds from the start of that condition's raw recording;
+%   only the raw samples k with start <= (k-1)/fs_raw < end are kept (NaN start
+%   = from the first sample, NaN end = to the last). Applied here, before any
+%   processing. .rawFirstSample/.rawLastSample give the kept range in the raw
+%   file's samples (1 / rawSamples when untrimmed); .trimSec the setting.
 
     rawRoot = fullfile(S.root, S.id, 'raw');
     d = dir(rawRoot);
     dirNames = {d([d.isdir]).name};
 
     raws = struct('condition', {}, 'label', {}, 'data', {}, 'labels', {}, ...
-                  'fs_raw', {}, 'suffix', {}, 'folderTime', {}, 'srcFile', {});
+                  'fs_raw', {}, 'suffix', {}, 'folderTime', {}, 'srcFile', {}, ...
+                  'rawFirstSample', {}, 'rawLastSample', {}, 'rawSamples', {}, 'trimSec', {});
     for c = 1:numel(P.conditions)
         cond = P.conditions{c};
-        condNorm = lower(strrep(cond, ' ', ''));
-        hit = find(cellfun(@(nm) ~isempty(regexp(lower(nm), ...
-              ['^raw_' regexptranslate('escape', condNorm) '\d*$'], 'once')), dirNames));
+        info = sepConditionInfo(cond);   % label + raw-folder rule (one shared list)
+        assert(~isempty(info), 'assembleRaw_breathingTasks_separate:condition', ...
+            '%s: "%s" is not a breathingTasks_separate condition', S.id, cond);
+        hit = find(cellfun(@(nm) any(cellfun(@(rx) ~isempty(regexp(lower(nm), rx, 'once')), ...
+              info.rawRegex)), dirNames));
         assert(numel(hit) == 1, ...
             'assembleRaw_breathingTasks_separate:rawFolder', ...
             '%s: expected exactly 1 raw folder for condition "%s", found %d', ...
@@ -49,7 +65,7 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
         % struct-array assignment below
         R = struct();
         R.condition  = cond;
-        R.label      = canonicalCondLabel(cond);
+        R.label      = info.label;
         R.data       = cd0.rawData.trial{1};
         % outLabs cells can hold string objects; downstream (strjoin, isequal
         % across sections) needs plain char vectors
@@ -60,6 +76,20 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
         R.srcFile    = fpath;
         if any(isnan(R.data(:)))
             R.data = fillmissing(R.data, 'linear', 2, 'EndValues', 'nearest');
+        end
+        % per-condition trim (tasks_261014 task 8); untrimmed = the whole file
+        nRaw = size(R.data, 2);
+        R.rawFirstSample = 1;
+        R.rawLastSample  = nRaw;
+        R.rawSamples     = nRaw;
+        R.trimSec        = [NaN NaN];
+        if isfield(P, 'condTrimSec') && any(~isnan(P.condTrimSec(c, :)))
+            R.trimSec = P.condTrimSec(c, :);
+            [R.rawFirstSample, R.rawLastSample] = trimRange(R.trimSec, R.fs_raw, nRaw, S.id, cond);
+            R.data = R.data(:, R.rawFirstSample:R.rawLastSample);
+            fprintf('   %s: TRIM keeps raw samples %d-%d of %d (%.2f-%.2f s of %.2f s)\n', cond, ...
+                R.rawFirstSample, R.rawLastSample, nRaw, (R.rawFirstSample - 1) / R.fs_raw, ...
+                R.rawLastSample / R.fs_raw, nRaw / R.fs_raw);
         end
         ftDisp = 'unknown';
         if ~isnat(R.folderTime), ftDisp = char(string(R.folderTime)); end
@@ -98,6 +128,24 @@ function raws = assembleRaw_breathingTasks_separate(S, P)
     end
     fprintf('%s: %d condition recordings, chronological order: %s\n', S.id, ...
         numel(raws), strjoin({raws.condition}, ' -> '));
+end
+
+function [first, last] = trimRange(trimSec, fs, nRaw, id, cond)
+% raw samples k (1-based) with trimSec(1) <= (k-1)/fs < trimSec(2); NaN = open
+% end. Strict: the window must lie inside the recording and keep >= 1 s.
+    t0 = trimSec(1); t1 = trimSec(2);
+    if isnan(t0), t0 = 0; end
+    first = floor(t0 * fs) + 1;
+    if isnan(t1)
+        last = nRaw;
+    else
+        assert(t1 * fs <= nRaw, 'assembleRaw_breathingTasks_separate:trim', ...
+            '%s %s: trim end %.3f s is beyond the recording (%.3f s)', id, cond, t1, nRaw / fs);
+        last = ceil(t1 * fs);
+    end
+    assert(first >= 1 && last - first + 1 >= fs, 'assembleRaw_breathingTasks_separate:trim', ...
+        '%s %s: trim [%g %g] s keeps less than 1 s of the %.3f-s recording', id, cond, ...
+        trimSec(1), trimSec(2), nRaw / fs);
 end
 
 function n = suffixOf(ncslabels)
@@ -139,26 +187,5 @@ function t = provenanceTime(rd)
                 for k = 1:numel(p), q{end+1} = p(k); end %#ok<AGROW>
             end
         end
-    end
-end
-
-function lab = canonicalCondLabel(cond)
-    switch lower(strrep(cond, ' ', ''))
-        case {'audiobook', 'distractedbreathing'}
-            lab = 'audiobook';
-        case 'focusedbreathing'
-            lab = 'focusedBreathing';
-        case 'sleep'
-            lab = 'sleep';
-        case 'sleepwithodor'
-            lab = 'sleepWithOdor';
-        case 'restingbaseline'
-            lab = 'restingBaseline';
-        case {'focusedbreathing_button1', 'focusedbreathing_button2'}
-            lab = 'focusedBreathing_button';   % two OBE takes: same label, distinct section idx + sourceFile
-        case 'focusedbreathing_button_mouth'
-            lab = 'focusedBreathing_mouth';
-        otherwise
-            error('unknown condition "%s"', cond);
     end
 end

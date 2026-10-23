@@ -4,7 +4,6 @@ clear
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end, zlpRoot=zlpP; end, addpath(genpath(zlpRoot));
 L            = labPaths();
 addpath(genpath(L.repo))
-addpath(genpath(L.slowBreathing))
 addpath(genpath(L.eeglab))
 
 figPath      = L.figPath;
@@ -22,8 +21,11 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 %    - assembleRaw_pacedBreathing.m        (raw_pacedBreathing.mat, no makeOutDat)
 %    - inferBlocks_pacedBreathing.m        (blocks table + breathing-style TTL)
 %    - build_behavior_table_pacedBreathing.m (per-breath + regularity extras)
-%  Breath segmentation: shared segmentBreaths_zlp. ECG via the breathing
-%  path (EEG_breathing sessions carry ECG1-3).
+%  Breath segmentation: shared segmentBreaths_zlp + the shared incomplete-exhale
+%  merge (applyBreathMerge). The blocks are inferred from the ENGINE's breaths, before
+%  the merge (decision 2026-10-23); the merge only shrinks the per-breath table
+%  (blocksOfMergedBreaths_pacedBreathing gives each merged breath its block). ECG via
+%  the breathing path (EEG_breathing sessions carry ECG1-3).
 % =====================================================================
 
 cfg        = applyParams('pacedBreathing','main');
@@ -37,7 +39,6 @@ if ~isempty(mainOnlyEnv)
     onlyIDs = strtrim(strsplit(mainOnlyEnv, ',')); onlyIDs = onlyIDs(~cellfun(@isempty, onlyIDs));
 end
 
-success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
     if ~isempty(onlyIDs) && ~any(strcmpi(onlyIDs, sessionIDs{s}))
@@ -52,7 +53,9 @@ for s = 1:numel(sessionIDs)
     P = applyParams('pacedBreathing', S.id);
     isGuess = ~strcmpi(strtrim(P.paramSource), 'curated');
     P.allowGuessRun = allowGuessRunEnv && strcmp(P.type, 'EEG');   % D4
-    P.figDir = S.fig;
+    % task subfolder (= assembleOutDat's outDat.figs) so the paramCheck PNGs of the
+    % session's different breath-type tasks cannot overwrite each other (C12)
+    P.figDir = fullfile(S.fig, P.task);
     if isGuess && allowGuessRunEnv && ~P.allowGuessRun
         disp(['SKIP (guess, not run per D4): ' S.id])
         continue
@@ -61,14 +64,9 @@ for s = 1:numel(sessionIDs)
     % --- done-check ---
     preDir = fullfile(S.root, S.id, 'preProc');
     fpath  = fullfile(preDir, [S.id '_pacedBreathingpreproc.mat']);
-    if exist(fpath, 'file')
-        chk = load(fpath); fn = fieldnames(chk); chk = chk.(fn{1});
-        if isfield(chk, 'moreThan1') && isfield(chk, 'bmFeatures')
-            disp(['Done with ' S.id ' ; ' num2str(s)])
-            clear chk
-            continue
-        end
-        clear chk
+    if isSessionDone(fpath, {'moreThan1', 'bmFeatures'})
+        disp(['Done with ' S.id ' ; ' num2str(s)])
+        continue
     end
 
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
@@ -83,9 +81,10 @@ for s = 1:numel(sessionIDs)
 
     if isGuess, [outDat, P] = paramCheck(outDat, P); end
 
-    outDat = downsample_data(outDat, P.fs_target);
-    if P.hasEEG, outDat = preprocess_eeg(outDat, EEGLOC, P); end
-    if P.hasMacros, outDat = preprocess_macros(outDat, P); end
+    outDat = runSharedCore(outDat, P, EEGLOC);   % shared: downsample, EEG, macros
+    % respiration carry (full EEG rerun, 2026-10-22): with ZLP_CARRY_FROM set (the previous final) its rsp rows
+    % replace the pipeline's own before the breaths are segmented; without it this line does nothing
+    [outDat, CS] = carryRespFromFinal(outDat, P);
     disp(['........................spike and blink ', sessionIDs{s}])
 
     % ===== TASK-SPECIFIC (pacedBreathing) =====
@@ -108,45 +107,32 @@ for s = 1:numel(sessionIDs)
     outDat.rspIDX  = P.rspIDX;
     outDat.rspFlip = P.rspFlip;
 
-    % blocks are inferred from the breaths (no markers); labels positional
+    % blocks are inferred from the ENGINE's breaths (no markers; labels positional), BEFORE the merge rule below
+    % (decision 2026-10-23: the merge changes the per-breath table only; blocks / TTL / labels stay what the
+    % inference gives on the engine breaths, as in every final made before the merge rule)
+    bmEngine = outDat.bmObj;
     [outDat.blocks, outDat.TTL, outDat.blockInference] = ...
-        inferBlocks_pacedBreathing(outDat.bmObj, outDat.fs, size(outDat.data, 2), P.pacedOpts);
-    outDat.bmObj(:, 12) = outDat.blockInference.blkOfBreath;   % condition = block index
-    plotBlocks_pacedBreathing(outDat, rspDat);                  % QC figure -> outDat.figs
+        inferBlocks_pacedBreathing(bmEngine, outDat.fs, size(outDat.data, 2), P.pacedOpts);
+    % (2026-10-22, user) the incomplete-exhale merge rule, after the engine: an inhale joins the previous breath
+    % when the exhale since it is < 20 % of it (shared/mergeIncompleteExhales; outDat.breathMerge)
+    outDat = applyBreathMerge(outDat, rspDat, P);
+    % condition = block index: the merged breath takes the block of its first engine breath (outDat.blockMergeInfo)
+    [outDat.bmObj(:, 12), outDat.blockMergeInfo] = blocksOfMergedBreaths_pacedBreathing(outDat.breathMerge, ...
+        outDat.blockInference.blkOfBreath, height(outDat.blocks));
+    plotBlocks_pacedBreathing(outDat, rspDat, bmEngine);        % QC figure -> outDat.figs (shows the breaths the blocks came from)
 
     outDat = build_behavior_table_pacedBreathing(outDat);
 
     % ECG with NaN-HRV fallback on detection failure (flagged for review)
-    ecgDone = false;
-    try
-        % viability probe (as in breathingTasks_separate): an implausible beat
-        % rate means no usable cardiac signal - NaN HRV, not garbage RRint
-        [ECGzP, sepP] = buildECGz(outDat);
-        bpmP = numel(P.getBeats(ECGzP, sepP)) / (size(outDat.data, 2) / outDat.fs / 60);
-        clear ECGzP
-        assert(bpmP >= 20, '%s: beat detection implausible (%.1f bpm)', S.id, bpmP);
-        if isGuess, P = paramCheckECG(outDat, P); end
-        outDat = processECG(outDat, P);
-        outDat = flagBadBreaths(outDat);
-        outDat.ecgSkipped = 0;
-        ecgDone = true;
-    catch MEecg
-        warning('%s: ECG processing failed (%s) - HRV set to NaN, REVIEW', ...
-            S.id, MEecg.message);
-        outDat.ecgSkipped = 2;
-    end
-    if ~ecgDone
-        n = height(outDat.behDat);
-        outDat.behDat.goodBreath = nan(n, 1);
-        outDat.behDat.maxRR      = nan(n, 1);
-        outDat.behDat.minRR      = nan(n, 1);
-        outDat.behDat.RR_max_min = nan(n, 1);
-    end
+    [outDat, P] = runECGStage(outDat, P, isGuess, S.id);
     disp(['........................breath behave heart ', sessionIDs{s}])
 
     R = preprocess_respiration_wholetrace(outDat);
     plot_sniff_epochs(outDat, R);
     % ===== end TASK-SPECIFIC =====
+
+    % carry: the carried rows must have survived to here; the previous final's post-hoc fields are kept
+    outDat = carryFinishFromFinal(outDat, CS);
 
     % --- Guess gate (D4 pattern; never promotes paramSource) ---
     if isGuess
@@ -171,7 +157,6 @@ for s = 1:numel(sessionIDs)
     writePreProcX(P, S.id);
 
     catch ME
-        success(s) = 0;
         disp(['fail for ', sessionIDs{s}, ': ', ME.message]); disp(getReport(ME, 'extended', 'hyperlinks', 'off'))
     end
     close all

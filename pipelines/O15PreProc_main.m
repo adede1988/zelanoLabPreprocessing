@@ -3,7 +3,6 @@ clear
 % ---- machine paths (everything machine-specific comes from labPaths) ----
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L       = labPaths();
-codePre = L.codePre;
 addpath(genpath(L.repo))
 addpath(genpath(L.eeglab))
 
@@ -12,16 +11,21 @@ EEGLOC  = readtable(L.eegLocCsv);   % load once, reuse
 
 % =====================================================================
 %  O15 preprocessing -- main pipeline
-%  Sections marked TASK-SHARED are identical across all four pipelines
-%  (breathing / cue / thresh / O15); do NOT edit them when adding a new task.
-%  Sections marked TASK-SPECIFIC must be rewritten per task.
+%  Sections marked TASK-SHARED call the shared functions every *PreProc_main
+%  uses (runSharedCore + the shared stage helpers); do NOT edit or copy them
+%  when adding a new task. Sections marked TASK-SPECIFIC must be rewritten per task.
 %  TASK-SPECIFIC pieces for O15 (rewrite these for a new task):
 %    - assembleRaw_O15.m      (raw_O15 load + detect_ttls_O15 -> raw, TTL)
-%    - detect_ttls_O15.m      (photodiode -> TTL table)
+%    - detect_ttls_O15.m      (photodiode -> TTL table; held-button sessions via
+%                              parse_O15_events -> TTL + buttonDown periods)
 %    - assembleOutDat_O15extras.m  (O15-only outDat fields: CSClist, loadFile, ...)
+%    - heldButtonFreeSniffs_O15.m  (held-button sessions only: free sniffs)
+%    - resolveHeldButtonSniffs_O15.m  (held-button only: one free sniff per
+%                              inhale after the refinement + trial figures)
 %    - build_behavior_table_O15.m
-%  Everything else is SHARED: applyParams, downsample_data, preprocess_eeg,
-%  preprocess_macros, preprocess_respiration_wholetrace, detect_sniffs_from_TTLs,
+%  Everything else is SHARED: applyParams, assembleOutDat, runSharedCore
+%  (downsample_data -> preprocess_eeg -> preprocess_macros),
+%  preprocess_respiration_wholetrace, detect_sniffs_from_TTLs,
 %  refine_onsets_with_phase, paramCheck, writeParams, writePreProcX, plot_sniff_epochs.
 % =====================================================================
 
@@ -82,12 +86,10 @@ for s = 1:numel(sessionIDs)
   outDat.TTL = TTL;
 
   
-  outDat = downsample_data(outDat, P.fs_target);
-
-  if P.hasEEG, outDat = preprocess_eeg(outDat, EEGLOC, P); end
-
-
-  outDat = preprocess_macros(outDat, P);
+  outDat = runSharedCore(outDat, P, EEGLOC);   % shared: downsample, EEG, macros
+  % respiration carry (full EEG rerun, 2026-10-22): with ZLP_CARRY_FROM set (the previous final) its rsp rows
+  % replace the pipeline's own before the sniff detection reads them; without it this line does nothing
+  [outDat, CS] = carryRespFromFinal(outDat, P);
   disp(['........................spike and blink ', sessionIDs{s}])
     
   %there's more than one sniff per trial
@@ -97,6 +99,16 @@ for s = 1:numel(sessionIDs)
   R = preprocess_respiration_wholetrace(outDat); % fields: rsp, rsp_smooth, phase, onset_metric
 
   sniffs = detect_sniffs_from_TTLs(R, P, outDat);  % returns table or matrix
+  % held-button protocol (P.ttl.protocol = 'heldButton', tasks_261014 task 10):
+  % detect_ttls_O15 returned the button-down periods (outDat.buttonDown); the
+  % inhales inside them are the free sniffs
+  isHeld = isfield(outDat, 'buttonDown');
+  if isHeld
+      [sniffs, outDat] = heldButtonFreeSniffs_O15(sniffs, R, P, outDat);
+  end
+
+    % carry: the carried rows must have survived to here; the previous final's post-hoc fields are kept
+    outDat = carryFinishFromFinal(outDat, CS);
 
     % --- Guess gate: under the run-on-guess override the save proceeds but
     %     paramSource stays guess (never promoted). ---
@@ -112,11 +124,17 @@ for s = 1:numel(sessionIDs)
 
 
   % ----- TASK-SPECIFIC (O15): behavior table from sniffs + raw behavior -----
-  outDat.behDat = build_behavior_table_O15(sniffs, raw.beh);
+  outDat.behDat = build_behavior_table_O15(sniffs, raw.beh, isHeld);
   % ----- end TASK-SPECIFIC -----
 
   outDat = refine_onsets_with_phase(outDat, R, P); % uses precomputed phase
-  
+  % held-button: one free sniff per inhale - rows the refinement put on the
+  % same onset are merged (one inhale) or re-refined inside their own inhale
+  % (two inhales); every other row is unchanged (2026-10-21)
+  if isHeld
+      outDat = resolveHeldButtonSniffs_O15(outDat, R, P);
+  end
+
   plot_sniff_epochs(outDat, R);
   disp(['........................breath behave ', sessionIDs{s}])
   if ~isfolder(fullfile(outDat.OGdataDir,  'preProc'))

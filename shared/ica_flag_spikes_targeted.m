@@ -43,6 +43,9 @@ p.addParameter('Notch', 60, @(x) isempty(x) || (isscalar(x) && x>0));
 % p.addParameter('HiFreqBand', [70 300], @(x)isnumeric(x)&&numel(x)==2);
 p.addParameter('Method', 'runica', @(s)ischar(s)||isstring(s));
 p.addParameter('knownIC', [],  @(x) isempty(x) || (isscalar(x) && x>0))
+% Seed for the random draws below (non-spike snippet centres, snippet order);
+% preprocess_macros passes zlpSeed(sessID | stage | section). Empty = 0.
+p.addParameter('Seed', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x) && isfinite(x) && x >= 0 && x < 2^32))
 
 % p.addParameter('KurtosisMin', 10, @isscalar);
 % p.addParameter('SparsityMin', 0.85, @isscalar);
@@ -69,6 +72,20 @@ data = data - trialMeans;  %per trial mean center
 [C,T,N] = size(data);
 X = reshape(data, C, T*N);              % C x samples
 out = struct();
+
+% Reproducible random draws (2026-10-22). Everything random below is seeded
+% from S.Seed: the non-spike snippet centres (sample_nonspike_onsets), the
+% snippet order (randsample) and, through 'rndreset','no', EEGLAB's runica
+% (which otherwise seeds itself from the clock; it cannot take a per-session
+% seed, so it starts from the legacy generator state 0 - a function of its
+% input only). The caller's global generator state is restored on exit.
+rngSeed = S.Seed; if isempty(rngSeed), rngSeed = 0; end
+rngKeep = rng;
+rngGuard = onCleanup(@() rng(rngKeep));
+rng(rngSeed, 'twister');
+out.rng = struct('seed', rngSeed, 'generator', 'twister', ...
+    'seededDraws', 'sample_nonspike_onsets, randsample', ...
+    'runica', 'rndreset no (legacy rand state 0)', 'globalRngRestored', true);
 
 % -------------------- Preprocess --------------------
 % remove channel DC
@@ -139,7 +156,7 @@ end
 
 % EEGLAB expects (channels x frames)
 % Extended ICA helps for super-/sub-Gaussian comps
-[weights, sphere] = runica(allSnips, 'pca', C, 'extended', 1, 'verbose', 'off');
+[weights, sphere] = runica(allSnips, 'pca', C, 'extended', 1, 'verbose', 'off', 'rndreset', 'no');
 W = weights * sphere;               % unmixing (IC x C)
 Sact = W * X;                       % IC x samples
 A = pinv(W);                        % mixing (C x IC)

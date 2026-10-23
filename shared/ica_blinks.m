@@ -45,6 +45,22 @@ p.addParameter('Method', 'runica', @(s)ischar(s)||isstring(s));
 p.addParameter('knownIC', [],  @(x) isempty(x) || (isscalar(x) && x>0))
 p.addParameter('blinkChan', 1,  @(x) isempty(x) || (isscalar(x) && x>0))
 p.addParameter('targIC', [],  @(x) isempty(x) || (isscalar(x) && x>0))
+% Blink-IC selection (2026-10-12, guess review 261008: JN_3 / ZF_1 / HM_2 /
+% CS_2 removed a non-blink IC). 'legacy' = the IC most correlated with the
+% raw (reference-montage, >2 Hz, un-notched) blinkChan trace, z > 2 - in
+% blink-poor data (sleep, eyes closed, small blinks) that trace is dominated
+% by common-mode / reference-site activity and line noise, so a central or
+% diffuse IC was removed. 'frontal' = among ICs whose average-referenced map
+% peaks at a frontal-polar channel (frontIdx) with frontal-polar weight >=
+% minFrontRatio x the mean |weight|, the one most correlated (<= 10 Hz) with
+% blinkRef (frontal-polar mean minus common average); removed only if that
+% |r| >= minRefCorr, else NOTHING is removed (no blink IC in these data).
+p.addParameter('selectMode', 'legacy', @(s) any(strcmpi(s, {'legacy', 'frontal'})))
+p.addParameter('blinkRef', [], @(x) isempty(x) || isvector(x))
+p.addParameter('frontIdx', [], @(x) isempty(x) || isnumeric(x))
+p.addParameter('selFs', [], @(x) isempty(x) || (isscalar(x) && x>0))
+p.addParameter('minFrontRatio', 2, @isscalar)
+p.addParameter('minRefCorr', 0.6, @isscalar)
 
 % p.addParameter('KurtosisMin', 10, @isscalar);
 % p.addParameter('SparsityMin', 0.85, @isscalar);
@@ -71,6 +87,16 @@ data = data - trialMeans;  %per trial mean center
 [C,T,N] = size(data);
 X = reshape(data, C, T*N);              % C x samples
 out = struct();
+% Reproducible ICA (2026-10-22). EEGLAB's runica seeds its generator from the
+% clock by default, so every run drew a different decomposition. 'rndreset',
+% 'no' starts it from the legacy generator state 0, which makes the
+% decomposition a function of the data alone (it cannot take a per-session
+% seed; EEGLAB 2025.0.0 on the lab desktop accepts 'yes'/'no' or 0/1 here, not
+% 'on'/'off'). runica leaves the caller's global generator switched to the
+% legacy one, so the caller's generator state is restored after the call.
+out.rng = struct('runica', 'rndreset no (legacy rand state 0)', 'seed', 0, ...
+    'globalRngRestored', true, ...
+    'note', 'runica cannot be seeded per session; the same data give the same decomposition');
 
 % -------------------- Preprocess --------------------
 % remove channel DC
@@ -108,11 +134,14 @@ switch method
 case "runica"
     % EEGLAB expects (channels x frames)
     % Extended ICA helps for super-/sub-Gaussian comps
+    rngKeep = rng;                      % the caller's generator state, put back after runica
+    rngGuard = onCleanup(@() rng(rngKeep));
     if ~isempty(targIC)
-        [weights, sphere] = runica(Xtrain, 'pca', targIC, 'extended', 1, 'verbose', 'off');
+        [weights, sphere] = runica(Xtrain, 'pca', targIC, 'extended', 1, 'verbose', 'off', 'rndreset', 'no');
     else
-        [weights, sphere] = runica(Xtrain, 'pca', C, 'extended', 1, 'verbose', 'off');
+        [weights, sphere] = runica(Xtrain, 'pca', C, 'extended', 1, 'verbose', 'off', 'rndreset', 'no');
     end
+    clear rngGuard                      % restores the generator now
     W = weights * sphere;               % unmixing (IC x C)
     Sact = W * X;                       % IC x samples
     A = pinv(W);                        % mixing (C x IC)
@@ -143,8 +172,49 @@ plotK = sum(abs(blinkGuess)>.1);
 plotidx = find(abs(blinkGuess)>.1); 
 blinkGuess = abs(blinkGuess); 
 zMax = (max(blinkGuess) - mean(blinkGuess)) ./ std(blinkGuess);
-if zMax > 2
-    [~, S.knownIC] = max(blinkGuess);
+[~, legacyIC] = max(blinkGuess);
+noneFound = false;
+sel = struct('mode', lower(char(S.selectMode)), 'legacyIC', legacyIC, ...
+    'legacyZ', zMax, 'legacyCorr', blinkGuess(legacyIC), 'IC', [], ...
+    'refCorr', NaN, 'frontRatio', NaN, 'peakIdx', NaN, 'reason', '');
+if strcmpi(S.selectMode, 'frontal') && ~isempty(S.blinkRef) && ~isempty(S.frontIdx) && isempty(S.knownIC)
+    aRef = A - mean(A, 1);                               % average-referenced maps
+    fr = mean(abs(aRef(S.frontIdx, :)), 1) ./ max(mean(abs(aRef), 1), eps);
+    [~, pk] = max(abs(aRef), [], 1);
+    ref = S.blinkRef(:);
+    Sc = Sact(1:K, :);
+    if ~isempty(S.selFs)
+        [bl, al] = butter(4, 10/(S.selFs/2), 'low');
+        ref = filtfilt(bl, al, ref);
+        Sc = filtfilt(bl, al, Sc.').';
+    end
+    rr = abs(corr(Sc.', ref)).';
+    elig = ismember(pk, S.frontIdx) & fr >= S.minFrontRatio;
+    sel.refCorrAll = rr; sel.frontRatioAll = fr; sel.peakIdxAll = pk;
+    sel.kurtAll = kurtosis(Sc, 1, 2).';                 % blink ICs are sparse (heavy-tailed)
+    if numel(S.frontIdx) == 2                          % Fp1/Fp2 weight symmetry (same sign, min/max)
+        a1 = aRef(S.frontIdx(1), :); a2 = aRef(S.frontIdx(2), :);
+        sel.fpSymAll = (sign(a1) == sign(a2)) .* min(abs(a1), abs(a2)) ./ max(max(abs(a1), abs(a2)), eps);
+    else
+        sel.fpSymAll = nan(1, K);
+    end
+    sel.mapAll = aRef;
+    sel.eligAll = elig;
+    if any(elig)
+        cand = find(elig);
+        [rb, j] = max(rr(cand));
+        ic = cand(j);
+        sel.refCorr = rb; sel.frontRatio = fr(ic); sel.peakIdx = pk(ic);
+        if rb >= S.minRefCorr
+            S.knownIC = ic; sel.IC = ic; sel.reason = 'frontal IC correlated with blinkRef';
+        else
+            noneFound = true; sel.reason = sprintf('best frontal IC r=%.2f < %.2f', rb, S.minRefCorr);
+        end
+    else
+        noneFound = true; sel.reason = 'no IC with a frontal-polar map';
+    end
+elseif zMax > 2
+    S.knownIC = legacyIC; sel.IC = legacyIC; sel.reason = 'legacy: max corr with blinkChan, z>2';
 end
 
 % Manual override for batch re-runs: force a specific blink IC via env var
@@ -152,10 +222,16 @@ end
 envIC = str2double(getenv('ZLP_BLINK_IC'));
 if ~isnan(envIC) && envIC >= 1 && envIC <= K
     S.knownIC = round(envIC);
+    noneFound = false; sel.IC = S.knownIC; sel.reason = 'ZLP_BLINK_IC override';
 end
+out.select = sel;
 % -------------------- Plot all ICs & select one --------------------
 %% ADDED: quick visualization and selection prompt
-if isempty(S.knownIC)
+if noneFound
+    % frontal selection found no blink IC: remove nothing (falls through to
+    % the "nothing to remove" branch below)
+    badIC = [];
+elseif isempty(S.knownIC)
     isBatch = batchStartupOptionUsed || ~usejava('desktop');
     if plotK > 0 && isBatch
         % Non-interactive run and no IC clearly matches the blink channel:

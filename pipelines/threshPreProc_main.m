@@ -3,7 +3,6 @@ clear
 % ---- machine paths (everything machine-specific comes from labPaths) ----
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L       = labPaths();
-codePre = L.codePre;
 addpath(genpath(L.repo))
 addpath(genpath(L.eeglab))
 
@@ -14,17 +13,19 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 
 % =====================================================================
 %  threshTask preprocessing -- main pipeline
-%  TASK-SHARED sections are identical across all four pipelines; do NOT edit
-%  them when adding a new task. TASK-SPECIFIC sections must be rewritten.
+%  TASK-SHARED sections call the shared functions every *PreProc_main uses
+%  (runSharedCore + the shared stage helpers); do NOT edit or copy them when
+%  adding a new task. TASK-SPECIFIC sections must be rewritten.
 %  TASK-SPECIFIC pieces for threshTask (rewrite these for a new task):
 %    - assembleRaw_threshTask.m    (raw load -> raw struct)
 %    - threshPreProc_makeOutDat.m  (PEA photodiode/behavior ingestion)
 %    - the per-trial sniff-TTL table rebuild in the loop below
 %    - build_behavior_table_threshTask.m
-%  Everything else is SHARED: applyParams, assembleOutDat, downsample_data,
-%  preprocess_eeg, preprocess_macros, preprocess_respiration_wholetrace,
-%  detect_sniffs_from_TTLs, refine_onsets_with_phase, paramCheck, writeParams,
-%  writePreProcX, plot_sniff_epochs.
+%  Everything else is SHARED: applyParams, assembleOutDat, runSharedCore
+%  (downsample_data -> preprocess_eeg -> preprocess_macros),
+%  preprocess_respiration_wholetrace, detect_sniffs_from_TTLs,
+%  refine_onsets_with_phase, paramCheck, writeParams, writePreProcX,
+%  plot_sniff_epochs.
 % =====================================================================
 
 cfg        = applyParams('threshTask','main');
@@ -80,6 +81,13 @@ for s = 1:numel(sessionIDs)
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
     raw    = assembleRaw_threshTask(S);   % <-- TASK-SPECIFIC: edit/replace for a new task
     outDat = assembleOutDat(raw, S, P);    % shared
+    % multi-run design (2026-10-15, e.g. 261008_INR_NWU_SS_1): keep its
+    % documentation; absent in every legacy session
+    threshDesign = [];
+    if isfield(raw, 'threshDesign')
+        threshDesign = raw.threshDesign;
+        outDat.threshDesign = threshDesign;
+    end
 
     % Guessed params: verify rsp channel + macro/spike choices interactively
     if isGuess, [outDat, P] = paramCheck(outDat, P); end
@@ -87,17 +95,23 @@ for s = 1:numel(sessionIDs)
     outDat.rspFlip = P.rspFlip;
      disp(['........................Loaded ', sessionIDs{s}])
   % trialStarts, buttonPresses, sniffMarks    
-    outDat = downsample_data(outDat, P.fs_target);
-    if P.hasEEG, outDat = preprocess_eeg(outDat, EEGLOC, P); end
-    outDat = preprocess_macros(outDat, P);
-    
+    outDat = runSharedCore(outDat, P, EEGLOC);   % shared: downsample, EEG, macros
+    % respiration carry (full EEG rerun, 2026-10-22): with ZLP_CARRY_FROM set (the previous final) its rsp rows
+    % replace the pipeline's own before the sniff detection reads them; without it this line does nothing
+    [outDat, CS] = carryRespFromFinal(outDat, P);
+
   disp(['........................spike and blink ', sessionIDs{s}])
     R = preprocess_respiration_wholetrace(outDat); % fields: rsp, rsp_smooth, phase, onset_metric
 
     % ----- TASK-SPECIFIC (threshTask): rebuild a 45-trial sniff-TTL table
-    %       (start = sniff-1000 samples) before the shared sniff detector -----
-    trial = 1:45;
+    %       (start = sniff-1000 samples) before the shared sniff detector;
+    %       one row per trial of the intermediate (45 legacy, the behaviour's
+    %       trial count in the multi-run design, e.g. 80) -----
     sniff = outDat.TTL.sniff;
+    trial = 1:numel(sniff);
+    if isempty(threshDesign) && numel(sniff) ~= 45
+        error('threshTask: legacy intermediate with %d sniff TTLs (expected 45).', numel(sniff));
+    end
     x = table(sniff(:)-1000, trial(:), sniff(:), ...
         'variablenames', {'start', 'trial', 'sniff'});
     outDat.TTL = x;
@@ -110,7 +124,7 @@ for s = 1:numel(sessionIDs)
 
 
     % ----- TASK-SPECIFIC (threshTask): behavior table from sniffs + raw behavior -----
-    outDat.behDat = build_behavior_table_threshTask(sniffs, raw.beh);
+    outDat.behDat = build_behavior_table_threshTask(sniffs, raw.beh, threshDesign);
     % ----- end TASK-SPECIFIC -----
 
     outDat = refine_onsets_with_phase(outDat, R, P); % uses precomputed phase
@@ -119,6 +133,9 @@ for s = 1:numel(sessionIDs)
     plot_sniff_epochs(outDat, R);
    outDat.moreThan1 = 0;
   disp(['........................breath behave ', sessionIDs{s}])
+
+    % carry: the carried rows must have survived to here; the previous final's post-hoc fields are kept
+    outDat = carryFinishFromFinal(outDat, CS);
 
     % --- Guess gate: stop before writing back / saving so the user can verify
     %     onset detection in the saved figures first. Under the run-on-guess

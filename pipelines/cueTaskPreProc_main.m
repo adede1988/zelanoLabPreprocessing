@@ -3,7 +3,6 @@ clear
 % ---- machine paths (everything machine-specific comes from labPaths) ----
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L       = labPaths();
-codePre = L.codePre;
 addpath(genpath(L.repo))
 addpath(genpath(L.eeglab))
 
@@ -14,17 +13,19 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 
 % =====================================================================
 %  cueTask preprocessing -- main pipeline
-%  TASK-SHARED sections are identical across all four pipelines; do NOT edit
-%  them when adding a new task. TASK-SPECIFIC sections must be rewritten.
+%  TASK-SHARED sections call the shared functions every *PreProc_main uses
+%  (runSharedCore + the shared stage helpers); do NOT edit or copy them when
+%  adding a new task. TASK-SPECIFIC sections must be rewritten.
 %  TASK-SPECIFIC pieces for cueTask (rewrite these for a new task):
 %    - assembleRaw_cueTask.m  (raw load -> raw struct)
 %    - cueTask_makeOutDat.m   (photodiode/behavior ingestion -> _cueTaskPreProc.mat)
 %    - outMat_to_table.m      (cue behavioral .mat -> table; used by makeOutDat)
 %    - build_behavior_table_cueTask.m
-%  Everything else is SHARED: applyParams, assembleOutDat, downsample_data,
-%  preprocess_eeg, preprocess_macros, preprocess_respiration_wholetrace,
-%  detect_sniffs_from_TTLs, refine_onsets_with_phase, paramCheck, writeParams,
-%  writePreProcX, plot_sniff_epochs.
+%  Everything else is SHARED: applyParams, assembleOutDat, runSharedCore
+%  (downsample_data -> preprocess_eeg -> preprocess_macros),
+%  preprocess_respiration_wholetrace, detect_sniffs_from_TTLs,
+%  refine_onsets_with_phase, paramCheck, writeParams, writePreProcX,
+%  plot_sniff_epochs.
 % =====================================================================
 
 cfg        = applyParams('cueTask','main');
@@ -80,19 +81,17 @@ for s = 1:numel(sessionIDs)
     if isGuess
         [outDat, P] = paramCheck(outDat, P);
     end
-    outDat.rspIDX = P.rspIDX;
-    outDat.rspFlip = P.rspFlip;
-
 
     % --- Assemble: TASK-SPECIFIC loader + shared assembler ---
     raw    = assembleRaw_cueTask(S);    % <-- TASK-SPECIFIC: edit/replace for a new task
     outDat = assembleOutDat(raw, S, P);  % shared
      disp(['........................Loaded ', sessionIDs{s}])
   % trialStarts, buttonPresses, sniffMarks    
-    outDat = downsample_data(outDat, P.fs_target);
-    if P.hasEEG, outDat = preprocess_eeg(outDat, EEGLOC, P); end
-    outDat = preprocess_macros(outDat, P);
-    
+    outDat = runSharedCore(outDat, P, EEGLOC);   % shared: downsample, EEG, macros
+    % respiration carry (full EEG rerun, 2026-10-22): with ZLP_CARRY_FROM set (the previous final) its rsp rows
+    % replace the pipeline's own before the sniff detection reads them; without it this line does nothing
+    [outDat, CS] = carryRespFromFinal(outDat, P);
+
   disp(['........................spike and blink ', sessionIDs{s}])
     R = preprocess_respiration_wholetrace(outDat); % fields: rsp, rsp_smooth, phase, onset_metric
 
@@ -104,9 +103,20 @@ for s = 1:numel(sessionIDs)
 
     % ----- TASK-SPECIFIC (cueTask): behavior table from sniffs + raw behavior -----
     outDat.behDat = build_behavior_table_cueTask(sniffs, raw.beh);
+    % trials the reviewer dropped (P.dropTrials, set per session in
+    % applyParams; default none): their sniff rows leave behDat, the audit
+    % record goes to outDat.droppedTrials (trial, reason)
+    if ~isempty(P.dropTrials)
+        [outDat.behDat, outDat.droppedTrials] = dropTrials_cueTask( ...
+            outDat.behDat, P.dropTrials, P.dropTrialsReason);
+        disp(['dropped trial(s) ' mat2str(P.dropTrials(:)') ' from behDat: ' P.dropTrialsReason])
+    end
     % ----- end TASK-SPECIFIC -----
 
     outDat = refine_onsets_with_phase(outDat, R, P); % uses precomputed phase
+
+    % carry: the carried rows must have survived to here; the previous final's post-hoc fields are kept
+    outDat = carryFinishFromFinal(outDat, CS);
 
     % --- Guess gate: stop before promoting/saving so the user can verify the
     %     onset figures first. Under the run-on-guess override the save

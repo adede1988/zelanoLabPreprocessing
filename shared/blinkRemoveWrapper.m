@@ -1,5 +1,31 @@
-function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
-                                                            chanIDX, fs, interpChan)
+function [out, badChan, blinkIndicator, selInfo] = blinkRemoveWrapper(outDat, ...
+                                                            chanIDX, fs, interpChan, opts)
+% opts (optional struct, from preprocess_eeg / P.blinkSelect):
+%   .selectMode  'frontal' (default since 2026-10-12) | 'legacy' (the pre-
+%                2026-10-12 pick: IC most correlated with raw Fp1, z > 2)
+%   .minFrontRatio (2) / .minRefCorr (0.6)   frontal-selection thresholds
+%                (calibrated 2026-10-12 on 16 sections of 9 sessions: blink
+%                ICs |r| 0.83-0.99, frontal non-blink ICs <= 0.51)
+% selInfo = ica_blinks' selection record (+ labels), stored by preprocess_eeg
+% as outDat.blinkICA.
+%   .badTS       (from preprocess_eeg) samples in trials removeNoiseChansVolt
+%                rejected; the ICA training window avoids them
+%   .chanTestBadTS  true = the two bad-channel tests below (high range, flat)
+%                ignore the .badTS epochs / samples: purged trials and
+%                recording gaps are not evidence against one channel (the
+%                'fixed' / 'band' detector's rule). preprocess_eeg sets it
+%                with those detector modes (2026-10-15, tasks_261014 task 10);
+%                absent / false = every epoch counts (as before).
+%   .minGood     when the bad-channel tests leave fewer than minGood good
+%                channels, nothing is run: out = the input rows 1:32, no
+%                blinkIndicator, selInfo = struct('skipped', true, 'reason',
+%                ..., 'nGoodLeft', n). preprocess_eeg passes 11 with the
+%                'fixed' / 'band' detector (blink ICA and the Laplacian need
+%                > 10 good channels); absent = no such check (as before).
+    if nargin < 5 || isempty(opts), opts = struct(); end
+    if ~isfield(opts, 'selectMode'), opts.selectMode = 'frontal'; end
+    if ~isfield(opts, 'minFrontRatio'), opts.minFrontRatio = 2; end
+    if ~isfield(opts, 'minRefCorr'), opts.minRefCorr = 0.6; end
 
     data = outDat.data(chanIDX, :); 
     origIs2D = ismatrix(data);
@@ -38,9 +64,23 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
     
     % Epoch is "bad" if range >= 700 µV
     epochBad = epochRange >= highRangeThresh;       % logical [nCh x nEpochs]
-    
-    % Channel is bad if >= 15% of its epochs are bad
-    badHighDev = (sum(epochBad, 2) ./ nEpochs) >= epochFracThresh;   % [nCh x 1]
+
+    % opts.chanTestBadTS: epochs / samples in the detector's badTS are left
+    % out of both channel tests (the 2-s epochs here coincide with the
+    % detector's 2-s trials: both start at sample 1)
+    tsMask = false(1, size(data, 2));
+    if isfield(opts, 'chanTestBadTS') && ~isempty(opts.chanTestBadTS) && opts.chanTestBadTS && ...
+            isfield(opts, 'badTS') && numel(opts.badTS) == size(data, 2)
+        tsMask = reshape(opts.badTS ~= 0, 1, []);
+    end
+    keepEp = ~any(reshape(tsMask(1:nEpochs*epochSamples), epochSamples, nEpochs), 1);
+
+    % Channel is bad if >= 15% of its (counted) epochs are bad
+    if all(keepEp)
+        badHighDev = (sum(epochBad, 2) ./ nEpochs) >= epochFracThresh;   % [nCh x 1]
+    else
+        badHighDev = (sum(epochBad(:, keepEp), 2) ./ max(1, nnz(keepEp))) >= epochFracThresh;
+    end
     
     
     %% ---------- Criterion 2: flat periods (> 100 ms within ±1 µV) ----------
@@ -52,10 +92,17 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
     flatTotalSamples   = round(flatTotalSecThresh * fs);
     
     badFlat = false(C,1);
-    
+    % Samples where EVERY channel is flat are a recording gap (zero-filled
+    % acquisition pause), not a dead channel: they must not count toward any
+    % one channel's flat time (2026-10-12, 260805_EEG_NWU_CA: a ~208-s
+    % all-channel gap flagged all 28 channels, both blink channels included,
+    % so blink removal was skipped). Sessions without such a gap are
+    % unaffected.
+    allFlat = all(abs(data) <= flatAmpThresh, 1);
+
     for ch = 1:C
         x = data(ch,:);                         % 1 x nSamp
-        isFlat = abs(x) <= flatAmpThresh;       % logical
+        isFlat = abs(x) <= flatAmpThresh & ~allFlat & ~tsMask;   % logical
     
         if ~any(isFlat)
             continue;                           % no flat segments at all
@@ -82,7 +129,21 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
     badChan = find(badHighDev | badFlat);% channels failing either criterion
     badChannelsHighDev = find(badHighDev);
     badChannelsFlat    = find(badFlat);
-    
+
+    % opts.minGood: too few good channels left for blink ICA / the Laplacian
+    if isfield(opts, 'minGood') && ~isempty(opts.minGood) && C - numel(badChan) < opts.minGood
+        out = outDat.data(1:32, :);
+        blinkIndicator = [];
+        selInfo = struct('skipped', true, 'nGoodLeft', C - numel(badChan), 'reason', ...
+            sprintf(['blink-stage channel tests left %d of %d channels good (< %d): blink ICA ' ...
+                     'not run'], C - numel(badChan), C, opts.minGood));
+        if isfield(opts, 'chanTestBadTS')
+            selInfo.chanTestBadTS = any(tsMask);
+            selInfo.chanTestEpochsIgnored = nnz(~keepEp);
+        end
+        return
+    end
+
     if ismember(blinkChan, badChan)
         if ismember(C, badChan)
             error('no available blink chan!')
@@ -149,8 +210,20 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
         selEnd   = size(trainDat, 2); 
 
     else
-        cand         = 1:500:(length(test) - winLen); 
-        blinkCounts  = arrayfun(@(x) sum(test(x:x+winLen)), cand); 
+        cand         = 1:500:(length(test) - winLen);
+        % keep the training window off trials removeNoiseChansVolt rejected
+        % outright (badTS): the blink-band indicator below also fires on
+        % large artifacts, so an artifact-rich stretch could be chosen and
+        % the ICA would spend components on it (2026-10-12, 260625_OBE_NWU_HM_2
+        % sleep: window over two ~1500 uV all-channel transients). Windows
+        % with the fewest badTS samples stay candidates; no badTS = unchanged.
+        if ~strcmpi(opts.selectMode, 'legacy') && isfield(opts, 'badTS') && ...
+                numel(opts.badTS) == numel(test) && any(opts.badTS)
+            cb = cumsum([0; double(opts.badTS(:) ~= 0)]);
+            badCounts = cb(cand + winLen + 1) - cb(cand);
+            cand = cand(badCounts == min(badCounts));
+        end
+        blinkCounts  = arrayfun(@(x) sum(test(x:x+winLen)), cand);
         interpCounts = arrayfun(@(x) mean(interpChan(x:x+winLen)), cand); 
         sel = find(blinkCounts > prctile(blinkCounts, 75) & ...
                    blinkCounts < prctile(blinkCounts, 90)); 
@@ -181,7 +254,40 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
     
 
 
-    out = ica_blinks(trainDatHP, 'blinkChan', blinkChan, 'targIC', k);
+    % frontal-polar reference for the IC selection: mean of the good Fp1/Fp2
+    % minus the common average of the good channels (removes the common-mode
+    % / reference-site signal that dominates the raw Fp1 trace)
+    goodLbl = string(outDat.labels(chanIDX));
+    frontIdx = find(ismember(goodLbl, ["Fp1" "Fp2"]));
+    blinkRef = mean(trainDatHP(frontIdx, :), 1) - mean(trainDatHP, 1);
+    out = ica_blinks(trainDatHP, 'blinkChan', blinkChan, 'targIC', k, ...
+        'selectMode', opts.selectMode, 'blinkRef', blinkRef, ...
+        'frontIdx', frontIdx, 'selFs', fs, ...
+        'minFrontRatio', opts.minFrontRatio, 'minRefCorr', opts.minRefCorr);
+    selInfo = out.select;
+    selInfo.rng = out.rng;       % how the ICA's randomness was fixed (ica_blinks, 2026-10-22)
+    if isfield(opts, 'chanTestBadTS')
+        % record (and proof for preprocess_eeg that this version honoured
+        % the option): were badTS epochs left out of the channel tests
+        selInfo.chanTestBadTS = any(tsMask);
+        selInfo.chanTestEpochsIgnored = nnz(~keepEp);
+    end
+    selInfo.labels = cellstr(goodLbl);
+    selInfo.trainStartSample = selStart;
+    selInfo.removedLabel = '';
+    if ~isempty(out.badICs)
+        [~, pkR] = max(abs(out.A(:, out.badICs(1)) - mean(out.A(:, out.badICs(1)))));
+        selInfo.removedLabel = char(goodLbl(pkR));
+    end
+    fprintf('%s blink IC (%s): %s | legacy pick IC%d (r=%.2f z=%.1f) | removed: %s\n', ...
+        outDat.sessID, selInfo.mode, selInfo.reason, selInfo.legacyIC, ...
+        selInfo.legacyCorr, selInfo.legacyZ, mat2str(out.badICs));
+    try
+        plotBlinkSelection(out, trainDatHP, blinkRef, frontIdx, goodLbl, ...
+            outDat.eegLocs.X_flat(chanIDX), outDat.eegLocs.Y_flat(chanIDX), fs, outDat);
+    catch MEp
+        warning('%s: blink QC figure failed: %s', outDat.sessID, MEp.message);
+    end
 
     if isfield(out, 'ambiguous') && out.ambiguous
         % Batch run could not auto-select a blink IC. Save a candidate-vs-blink
@@ -210,6 +316,11 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
         miniTopo(out.A(:,out.badICs(1)), outDat.eegLocs.X_flat(chanIDX), outDat.eegLocs.Y_flat(chanIDX)); 
       
         saveas(ax,fullfile(outDat.figs, 'removedBlink.jpg'));
+        close(ax);
+    elseif exist(fullfile(outDat.figs, 'removedBlink.jpg'), 'file')
+        % nothing removed: a removedBlink.jpg left by an earlier run would
+        % claim otherwise (blinkICA.jpg documents the decision)
+        try, delete(fullfile(outDat.figs, 'removedBlink.jpg')); catch, end
     end
 
     %% ---------- Apply the spatial filter to the BROADBAND data ----------
@@ -227,4 +338,48 @@ function [out, badChan, blinkIndicator] = blinkRemoveWrapper(outDat, ...
     else
         out = newEphys; 
     end
+end
+
+
+function plotBlinkSelection(out, trHP, blinkRef, frontIdx, goodLbl, xf, yf, fs, outDat)
+% QC figure blinkICA.jpg (always saved): average-referenced maps (sign set so
+% the frontal-polar weight is positive) of the removed IC, the legacy pick
+% and the best frontal candidate, with 30 s of their activations against the
+% frontal-polar reference (blinkRef) from the ICA training window.
+    sel = out.select;
+    Sact = out.W * (trHP - mean(trHP, 2));
+    aRef = out.A - mean(out.A, 1);
+    sgn = @(v) v * sign(sum(v(frontIdx)) + eps);
+    show = {};
+    if ~isempty(out.badICs), show(end+1, :) = {out.badICs(1), 'REMOVED'}; end
+    show(end+1, :) = {sel.legacyIC, 'legacy pick'};
+    if isfield(sel, 'refCorrAll') && isempty(out.badICs)
+        cand = find(sel.eligAll);
+        if ~isempty(cand)
+            [~, j] = max(sel.refCorrAll(cand)); show(end+1, :) = {cand(j), 'best frontal (kept)'};
+        end
+    end
+    f = figure('Visible', 'off', 'Color', 'w', 'Position', [0 0 1400 800]);
+    nS = size(show, 1);
+    for s = 1:nS
+        subplot(2, 3, s);
+        miniTopo(sgn(aRef(:, show{s, 1})), xf, yf);
+        [~, pk] = max(abs(aRef(:, show{s, 1})));
+        r = NaN; if isfield(sel, 'refCorrAll'), r = sel.refCorrAll(show{s, 1}); end
+        title(sprintf('%s: IC%d (peak %s, r_{ref}=%.2f)', show{s, 2}, show{s, 1}, goodLbl(pk), r));
+    end
+    w = 1:min(size(trHP, 2), 30*fs); t = w/fs;
+    zs = @(x) (x - mean(x)) / max(std(x), eps);
+    subplot(2, 1, 2); hold on
+    plot(t, zs(blinkRef(w)), 'k');
+    for s = 1:nS
+        plot(t, zs(sign(sum(aRef(frontIdx, show{s, 1})) + eps) * Sact(show{s, 1}, w)) - 6*s);
+    end
+    yticks(-6*(nS:-1:0)); yticklabels([flip(show(:, 2)'), {'Fp - avg'}]);
+    xlabel('s (ICA training window)'); xlim(t([1 end]));
+    sgtitle(sprintf('%s blink IC selection (%s): %s', outDat.sessID, sel.mode, sel.reason), ...
+        'Interpreter', 'none');
+    if ~exist(outDat.figs, 'dir'), mkdir(outDat.figs); end
+    saveas(f, fullfile(outDat.figs, 'blinkICA.jpg'));
+    close(f);
 end

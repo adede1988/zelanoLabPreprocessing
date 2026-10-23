@@ -1,15 +1,19 @@
-function plotBlocks_pacedBreathing(outDat, rspDat)
+function plotBlocks_pacedBreathing(outDat, rspDat, bmObj)
 %PLOTBLOCKS_PACEDBREATHING  QC figure for the inferred pacedBreathing blocks.
 %
 %   plotBlocks_pacedBreathing(outDat, rspDat)
+%   plotBlocks_pacedBreathing(outDat, rspDat, bmObj)
 %
 %   Saves <outDat.figs>\blocks_inferred.jpg: per-breath rate and amplitude
 %   over the recording (from bmObj) with the inferred blocks shaded and
 %   labelled (order / positional label / median rate), plus the whole
 %   respiration trace with the block starts (TTL) marked. Review this figure
 %   before trusting the block labels - they are inferred, not recorded.
+%   bmObj (optional): the breaths to plot; the main passes the ENGINE's
+%   breaths, the ones the blocks were inferred from (before the incomplete-
+%   exhale merge); default outDat.bmObj.
 
-    bmObj = outDat.bmObj;
+    if nargin < 3 || isempty(bmObj), bmObj = outDat.bmObj; end
     B = outDat.blocks;
     fs = outDat.fs;
     tMin = bmObj(:, 2) / 60;

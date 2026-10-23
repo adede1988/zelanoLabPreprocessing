@@ -25,7 +25,15 @@ sessionIDs = cfg.sessionIDs;
 datPre     = cfg.datPre;
 datPrei    = cfg.datPrei;
 
+% ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
+onlyEnv = strtrim(getenv('ZLP_MAKEOUTDAT_ONLY'));
+onlyList = {};
+if ~isempty(onlyEnv), onlyList = strtrim(strsplit(onlyEnv, ',')); onlyList = onlyList(~cellfun(@isempty, onlyList)); end
+
 for sessi = 1:length(sessionIDs)
+    if ~isempty(onlyList) && ~any(strcmpi(onlyList, sessionIDs{sessi}))
+        continue
+    end
     disp(['Working on: ' sessionIDs{sessi}])
     try
 
@@ -47,6 +55,10 @@ for sessi = 1:length(sessionIDs)
     outDat.fs      = dat.rawData.fsample;
     outDat.sessID  = sessionIDs{sessi};
     outDat.data    = dat.rawData.trial{1};
+    % LoadData provenance (shared lookup; never fatal - the intermediate's
+    % loadFile is not carried into the final)
+    outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
+    outDat.loadFile  = findLoadDataScript(outDat.OGdataDir, 'EmotionalMovieTask', dat);
     clear dat
 
     % old-pipeline NaN handling: drop trailing/detached NaN columns flagged on
@@ -62,7 +74,7 @@ for sessi = 1:length(sessionIDs)
         outDat.data = fillmissing(outDat.data, 'linear', 2, 'EndValues', 'nearest');
     end
 
-    outDat.behDat = table();      % this task has no behavioral file
+    outDat.behDat = table();      % per-breath table built by the main; the PsychoPy clip log (below) feeds TTL
     if datPrei(sessi) == 1
         outDat.type = 'Dupi';
     elseif datPrei(sessi) == 2
@@ -70,24 +82,26 @@ for sessi = 1:length(sessionIDs)
     else
         outDat.type = 'EEG';
     end
-    outDat.OGdataDir = [datPre{datPrei(sessi)} sessionIDs{sessi}];
-    tmp = dir([datPre{datPrei(sessi)} sessionIDs{sessi}]);
-    tmp = tmp(cellfun(@(x) contains(x, 'LoadData') & endsWith(x, '.m'), {tmp.name}));
-    if size(tmp, 1) == 1
-        outDat.loadFile = tmp.name;
-    else
-        tmp2 = tmp(cellfun(@(x) contains(x, 'EmotionalMovieTask'), {tmp.name}));
-        if size(tmp2, 1) == 1
-            outDat.loadFile = tmp2.name;
-        else
-            error('load file not identified uniquely')
-        end
-    end
     outDat.preProcScript = 'emotionalMovieTask_makeOutDat.m';
 
     % ---- photodiode -> clip table (fs_target sample space) ----
     P = applyParams('emotionalMovieTask', sessionIDs{sessi});
     outDat.TTL = detect_ttls_emotionalMovieTask(outDat, P, fullfile(figPath, sessionIDs{sessi}));
+    % PsychoPy cross-check (2026-10-08): when the session's PsychoPy clip log is
+    % in <id>\behavioralData\ (or, for the 2025 OBE layout, <id>\BehaviorResults\
+    % emotionClips\), keep only photodiode clips that match a played clip
+    % (valence from the log, threshold chosen by agreement) - see
+    % matchClipsToPsychoPy. Sessions without the log keep the photodiode table.
+    csvPath = findPsychoPyClipLog_emotionalMovie(fullfile(datPre{datPrei(sessi)}, sessionIDs{sessi}), sessionIDs{sessi});
+    if ~isempty(csvPath)
+        [outDat.TTL, outDat.clipCheck] = matchClipsToPsychoPy(outDat, P, ...
+            csvPath, fullfile(figPath, sessionIDs{sessi}));
+        % the movieClipTTLs figure shows the last threshold tried: redraw it at the chosen one
+        Pc = P; Pc.pd.zthresh = outDat.clipCheck.zthresh;
+        detect_ttls_emotionalMovieTask(outDat, Pc, fullfile(figPath, sessionIDs{sessi}));
+    else
+        disp('   no PsychoPy clip log (behavioralData, BehaviorResults\emotionClips) - photodiode clip table not cross-checked, no clip identity / norms')
+    end
     fprintf('   %d clips: %d neutral / %d happy / %d sad\n', height(outDat.TTL), ...
         sum(outDat.TTL.valence == "neutral"), sum(outDat.TTL.valence == "happy"), ...
         sum(outDat.TTL.valence == "sad"));

@@ -26,10 +26,42 @@ function outDat = refine_onsets_with_phase(outDat, R, P)
         outDat.behDat.finalOnset = zeros(nSniffs,1);
     end
 
+    % Train mode (opt-in, P.sniffTrain; cueTask3 2026-10-16): each sniff of a
+    % rapid train (detect_sniffs_from_TTLs train mode) gets the same
+    % steepest-rise rule as below, but between its own inhale trough and peak
+    % (behDat.inhaleTrough / inhalePeak, at most P.adjWin samples back from the
+    % peak) instead of in the adjWin before the respiration-phase peak: that
+    % 1-Hz phase follows the whole train, not the single sniffs, and its window
+    % reaches back into the previous sniff's rise. Absent / empty P.sniffTrain
+    % = the legacy rule, unchanged.
+    trainMode = isfield(P, 'sniffTrain') && ~isempty(P.sniffTrain);
+    if trainMode && ~all(ismember({'inhaleTrough', 'inhalePeak'}, outDat.behDat.Properties.VariableNames))
+        error('refine_onsets_with_phase:noInhaleBounds', ...
+            'P.sniffTrain is set but behDat has no inhaleTrough / inhalePeak columns.');
+    end
+
     T = numel(R.rspPhase);
     for sniffi = 1:nSniffs
         s0 = outDat.behDat.sniffOnset(sniffi);
         if ~isfinite(s0) || s0<=0, continue; end
+
+        if trainMode
+            lo = outDat.behDat.inhaleTrough(sniffi);
+            hi = outDat.behDat.inhalePeak(sniffi);
+            a  = max(hi - P.adjWin, lo);
+            if hi - a < 21          % too short for the 20-sample rise test
+                outDat.behDat.adjust(sniffi)     = 0;
+                outDat.behDat.finalOnset(sniffi) = s0;
+                continue;
+            end
+            seg = R.smoothR(a:hi);
+            difVals = seg(1:end-20) - seg(21:end);   % 20-sample drop (negative = rise)
+            [~, minidx] = min(difVals);
+            onset = a - 20 + minidx;                 % same offset as the legacy rule below
+            outDat.behDat.adjust(sniffi)     = onset - s0;
+            outDat.behDat.finalOnset(sniffi) = max(1, min(T, onset));
+            continue;
+        end
 
         % segment around the sniff (clip to bounds)
         segStart = max(1, s0 - preSamp);

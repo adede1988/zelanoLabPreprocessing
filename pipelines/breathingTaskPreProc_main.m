@@ -3,13 +3,11 @@ clear
 % ---- machine paths (everything machine-specific comes from labPaths) ----
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L            = labPaths();
-codePre      = L.codePre;
 addpath(genpath(L.repo))
-addpath(genpath(L.slowBreathing))
 addpath(genpath(L.eeglab))
-% NB: breathMetrics (vendored in external/breathMetrics) is the per-breath
-% segmentation engine via shared/segmentBreaths_breathMetrics — on the path
-% through the repo genpath above
+% NB: per-breath segmentation is the LOCKED shared/segmentBreaths_zlp engine
+% (breathMetrics, vendored in external/breathMetrics, computes the features;
+% spec customBreathMetrics.md) - both on the path through the repo genpath above
 
 targTraceDir = L.targTraceDir;
 figPath      = L.figPath;
@@ -19,8 +17,9 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 
 % =====================================================================
 %  breathingTask preprocessing -- main pipeline
-%  TASK-SHARED sections are identical across all four pipelines; do NOT edit
-%  them when adding a new task. TASK-SPECIFIC sections must be rewritten.
+%  TASK-SHARED sections call the shared functions every *PreProc_main uses
+%  (runSharedCore + the shared stage helpers); do NOT edit or copy them when
+%  adding a new task. TASK-SPECIFIC sections must be rewritten.
 %  Breathing is the richest task: it alone has ECG/HRV and target-trace alignment.
 %  TASK-SPECIFIC pieces for breathingTask (rewrite these for a new task):
 %    - assembleRaw_breathingTask.m           (raw load -> raw struct)
@@ -28,11 +27,14 @@ set(0, 'defaultfigurewindowstyle', 'normal')
 %    - process_respiration_breathing.m       (per-breath metrics, bmObj)
 %    - alignTargetBreathingTraceSimplify.m   (paced/shadow target-trace alignment)
 %    - build_behavior_table_breathingTask.m
-%    - processECG.m / buildECGz.m / paramCheckECG.m   (ECG beat detection + HRV)
-%    - flagBadBreaths.m, plotBreathLengths.m
-%  Everything else is SHARED: applyParams, assembleOutDat, downsample_data,
-%  preprocess_eeg, preprocess_macros, preprocess_respiration_wholetrace,
-%  paramCheck, writeParams, writePreProcX, plot_sniff_epochs.
+%    - plotBreathLengths.m
+%  Everything else is SHARED: applyParams, assembleOutDat, runSharedCore
+%  (downsample_data -> preprocess_eeg -> preprocess_macros),
+%  preprocess_respiration_wholetrace, segmentBreaths_zlp, behDatFromBreaths /
+%  appendBmFeatureCols (inside the behavior-table builder), paramCheck,
+%  writeParams, writePreProcX, plot_sniff_epochs, and the ECG/QC
+%  helpers every breath-type task uses (processECG / buildECGz / detectBeats /
+%  paramCheckECG for beat detection + HRV, flagBadBreaths).
 % =====================================================================
 
 cfg        = applyParams('breathingTask','main');
@@ -49,7 +51,6 @@ mainOnlyEnv = getenv('ZLP_MAIN_ONLY');
 mainOnlyList = {};
 if ~isempty(mainOnlyEnv), mainOnlyList = strtrim(strsplit(mainOnlyEnv, ',')); end
 
-success = ones(length(sessionIDs),1);
 for s = 1:numel(sessionIDs)
     try
     disp(['working on ', sessionIDs{s}])
@@ -85,7 +86,9 @@ for s = 1:numel(sessionIDs)
     % paramSource never promoted)
     P.allowGuessRun = allowGuessRunEnv && (strcmp(P.type, 'EEG') || ...
         strcmp(getenv('ZLP_ALLOW_GUESS_RUN_ALL'), '1'));
-    P.figDir = S.fig;
+    % task subfolder (= assembleOutDat's outDat.figs) so the paramCheck PNGs of the
+    % session's different breath-type tasks cannot overwrite each other (C12)
+    P.figDir = fullfile(S.fig, P.task);
 
     % D4 batch runs: guess sessions that are NOT allowed to run are skipped
     % before the multi-GB raw load (interactive runs still hit the gates)
@@ -102,24 +105,20 @@ for s = 1:numel(sessionIDs)
     % Guessed params: verify rsp channel + macro/spike choices interactively
     if isGuess, [outDat, P] = paramCheck(outDat, P); end
 
-    outDat = downsample_data(outDat, P.fs_target);
+    outDat = runSharedCore(outDat, P, EEGLOC);   % shared: downsample, EEG, macros
+    % respiration carry (full EEG rerun, 2026-10-22): with ZLP_CARRY_FROM set (the previous final) its rsp rows
+    % (+ targTrace, reconstructedBlocks) replace the pipeline's own; without it this line does nothing
+    [outDat, CS] = carryRespFromFinal(outDat, P);
 
-    if P.hasEEG, outDat = preprocess_eeg(outDat, EEGLOC, P); end
-
-    if P.hasMacros, outDat = preprocess_macros(outDat, P); end
-    
-    
     disp(['........................spike and blink ', sessionIDs{s}])
 
     % ===== TASK-SPECIFIC (breathing): per-breath metrics + target trace +
     %       behavior table + ECG/HRV + breath QC. (preprocess_respiration_wholetrace
     %       and plot_sniff_epochs below are shared helpers reused for plotting.) =====
     outDat = process_respiration_breathing(outDat, P);
-    if isfield(outDat, 'TTL')
-        TaskBreaks = [outDat.TTL/outDat.fs size(outDat.data,2)/outDat.fs];
-    else
-        TaskBreaks = 0:300:max(outDat.behDat.order)*300-10; 
-    end
+    % outDat.TTL always exists here (assembleRaw_breathingTask adds the
+    % 5-min-window fallback when the intermediate has none)
+    TaskBreaks = [outDat.TTL/outDat.fs size(outDat.data,2)/outDat.fs];
     for cndi = 1:length(TaskBreaks)
        
         outDat.bmObj(outDat.bmObj(:,2)>TaskBreaks(cndi),12) = cndi; 
@@ -131,9 +130,13 @@ for s = 1:numel(sessionIDs)
 
     if strcmp(S.id, '250811_Dupi_NMH_TPB_1')
         disp(['TPB 1 had target trace problems'])
+    elseif ~isempty(CS) && outDat.carry.targTraceCarried
+        % the previous final's target trace came with the carry (it is the one the breaths were
+        % judged against; the alignment is not redone)
+        disp('target trace carried from the previous final - alignment skipped')
     else
         % This doesn't work for the wave breathing task really at all: 
-        [outDat, targTraces] = alignTargetBreathingTraceSimplify(outDat, targTraceDir);
+        outDat = alignTargetBreathingTraceSimplify(outDat, targTraceDir);
     end
     outDat = build_behavior_table_breathingTask(outDat, outDat.bmObj);
 
@@ -153,6 +156,9 @@ for s = 1:numel(sessionIDs)
 
     plotBreathLengths(outDat, R)
     % ===== end TASK-SPECIFIC (breathing) =====
+
+    % carry: the carried rows must have survived to here; the previous final's post-hoc fields are kept
+    outDat = carryFinishFromFinal(outDat, CS);
 
     % --- Guess gate: stop before writing back / exporting / saving so the user
     %     can verify the rsp, macro, ECG and breath figures first. Under the D4
@@ -181,7 +187,6 @@ for s = 1:numel(sessionIDs)
     writePreProcX(P, S.id);   % mark Data Preprocessed = X in dataTracking.xlsx
 
     catch ME
-        success(s) = 0;
         disp(['fail for ', sessionIDs{s}, ': ', ME.message])
         % full stack (2026-08-31): message-only reporting made remote
         % debugging needlessly slow - twice

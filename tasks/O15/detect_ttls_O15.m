@@ -31,7 +31,24 @@ function [outTTLs, raw] = detect_ttls_O15(raw, P)
 
         raw.data = rawData;
 
-
+    % Free-sniff protocol: P.ttl.protocol = the sheet's ttlProtocol column via
+    % applyParams (G3a 2026-10-20; tasks_261014 task 10 introduced it).
+    % 'heldButton' -> heldButtonTTLs below. 'oldTTL' - also its pre-2026-10-20
+    % name 'pressPulse', or no protocol field at all (a P built before the
+    % field existed) - = the legacy z-score path below, unchanged. Any other
+    % value errors.
+    proto = 'oldTTL';
+    if isfield(P, 'ttl') && isfield(P.ttl, 'protocol'), proto = char(P.ttl.protocol); end
+    switch proto
+        case 'heldButton'
+            [outTTLs, raw] = heldButtonTTLs(raw, P, photoDiode);
+            return
+        case {'oldTTL', 'pressPulse'}
+            % legacy path below
+        otherwise
+            error('detect_ttls_O15:badProtocol', ...
+                'unknown P.ttl.protocol "%s" (expected oldTTL or heldButton)', proto);
+    end
 
 
 
@@ -80,22 +97,48 @@ function [outTTLs, raw] = detect_ttls_O15(raw, P)
         
     end
 
-    confirmMarks = []; 
-    for tt = 1:length(trialMarks)
-        if tt < length(trialMarks)
-            idx = find(sniffMarks>trialMarks(tt) & ...
-                sniffMarks<trialMarks(tt+1));
-        else
-            idx = find(sniffMarks>trialMarks(tt));
-        end
-        if length(idx) == 2
-            if sniffMarks(idx(2))- sniffMarks(idx(1)) < raw.fs_raw
-                confirmMarks = [confirmMarks sniffMarks(idx(1))];
-                sniffMarks(idx) = []; 
-            end
-        end
+    % Confirm-pair rule, P.ttl.confirmRule (set per session in an explicit
+    % applyParams O15 switch case; G3d 2026-10-21):
+    %   'window' (default: field absent or empty; the lab's rule since
+    %            2026-06-25/26, ZelanoLabScripts) - the confirm pair = exactly
+    %            two sniff marks < 1 s apart between consecutive trial marks
+    %   'pairs'  (the rule before it) - every two consecutive sniff marks
+    %            < 1 s apart, wherever they are. Needed by
+    %            250929_Dupi_NMH_GH_2, whose final (parsed 2026-06-25) used it.
+    % Either way the first pulse of the pair is the confirm mark.
+    confirmRule = 'window';
+    if isfield(P.ttl, 'confirmRule') && ~isempty(P.ttl.confirmRule)
+        confirmRule = char(P.ttl.confirmRule);
     end
-    
+    switch confirmRule
+        case 'window'
+            confirmMarks = [];
+            for tt = 1:length(trialMarks)
+                if tt < length(trialMarks)
+                    idx = find(sniffMarks>trialMarks(tt) & ...
+                        sniffMarks<trialMarks(tt+1));
+                else
+                    idx = find(sniffMarks>trialMarks(tt));
+                end
+                if length(idx) == 2
+                    if sniffMarks(idx(2))- sniffMarks(idx(1)) < raw.fs_raw
+                        confirmMarks = [confirmMarks sniffMarks(idx(1))];
+                        sniffMarks(idx) = [];
+                    end
+                end
+            end
+        case 'pairs'
+            confirmMarks = sniffMarks(diff(sniffMarks) < raw.fs_raw);
+            idx = find(diff(sniffMarks) < raw.fs_raw);
+            sniffMarks([idx, idx+1]) = [];
+        otherwise
+            error('detect_ttls_O15:badConfirmRule', ...
+                'unknown P.ttl.confirmRule "%s" (expected window or pairs)', confirmRule);
+    end
+
+    % (The 2026-10-12 DB_3-only 'confirmAfterPress' rule that stood here is
+    % retired: it read DB_3's trials one event out of phase. DB_3 runs the
+    % held-button protocol instead - see heldButtonTTLs below.)
     % confirmMarks = sniffMarks(diff(sniffMarks)<raw.fs_raw);
     % idx = find(diff(sniffMarks)<raw.fs_raw);
     % sniffMarks([idx, idx+1]) = []; 
@@ -161,7 +204,96 @@ function [outTTLs, raw] = detect_ttls_O15(raw, P)
     outTTLs.free14= TTLs(:,17); 
     outTTLs.free15= TTLs(:,18); 
     outTTLs.free16= TTLs(:,19); 
-    outTTLs.free17= TTLs(:,20); 
+    outTTLs.free17= TTLs(:,20);
 
 
+end
+
+
+function [outTTLs, raw] = heldButtonTTLs(raw, P, photoDiode)
+%HELDBUTTONTTLS  O15 TTL table for the held-button protocol (tasks_261014 task 10).
+%   The experimenter holds the button down while the odor bottle is under the
+%   participant's nose (recordings from 2026-07-09 on, the first being
+%   251030_Dupi_NMH_DB_3; sheet ttlProtocol = heldButton) instead of tapping
+%   once per observed sniff. Those holds occupy ~25 % of the samples on the
+%   (rail-clipped, AC-coupled) event channel, so the legacy z-score threshold
+%   finds no pulses and the hold widths exceed maxPulseSamp. parse_O15_events
+%   parses the channel on median/rail-referenced levels instead, using the
+%   fixed widths of the programmatic pulses (start / cue / press pair /
+%   confirm pair).
+%
+%   TTL table: same columns as the legacy path (trialStart, buttonPress,
+%   confirmSniff, free1..free17; samples at P.fs_target). free1 = the start
+%   cue (as in the legacy path, where it is the first sniff mark of the trial
+%   and detect_sniffs_from_TTLs labels its sniff 'start'); free2..free17 stay
+%   NaN - the free events are button-DOWN PERIODS, returned in raw.buttonDown
+%   (-> outDat.buttonDown), and heldButtonFreeSniffs_O15 turns the inhales
+%   inside them into the 'free' sniffs.
+
+    if ~isempty(P.ttl.removeTrialMarksIdx)
+        error('detect_ttls_O15:heldButton', ...
+            'removeTrialMarksIdx is not supported with the held-button protocol');
+    end
+    opts = struct;
+    if isfield(P.ttl, 'heldOpts'), opts = P.ttl.heldOpts; end
+    opts.expectedTrials = P.ttl.expectedTrialCount / 2;   % 2 trial marks per trial (start, press)
+    [ev, pulses, info] = parse_O15_events(photoDiode, raw.fs_raw, opts);
+
+    k = raw.fs_raw / P.fs_target;
+    nT = numel(ev.trialStart);
+    TTLs = nan(nT, 20);
+    TTLs(:,1) = ev.trialStart;
+    TTLs(:,2) = ev.press;
+    TTLs(:,3) = ev.confirm;
+    TTLs(:,4) = ev.cue;
+    TTLs = round(TTLs ./ k);
+    names = [{'trialStart', 'buttonPress', 'confirmSniff'}, ...
+             arrayfun(@(x) sprintf('free%d', x), 1:17, 'UniformOutput', false)];
+    outTTLs = array2table(TTLs, 'VariableNames', names);
+
+    % button-down periods (one row per hold; samples at P.fs_target and raw)
+    nW = cellfun(@(x) size(x, 1), ev.free);
+    bd = zeros(0, 2); trialIdx = zeros(0, 1); winIdx = zeros(0, 1);
+    for t = 1:nT
+        bd = [bd; ev.free{t}];                         %#ok<AGROW>
+        trialIdx = [trialIdx; repmat(t, nW(t), 1)];    %#ok<AGROW>
+        winIdx = [winIdx; (1:nW(t))'];                 %#ok<AGROW>
+    end
+    BD = table;
+    BD.trial     = trialIdx;
+    BD.window    = winIdx;
+    BD.onset     = round(bd(:,1) ./ k);
+    BD.offset    = round(bd(:,2) ./ k);
+    BD.durSec    = (bd(:,2) - bd(:,1)) ./ raw.fs_raw;
+    BD.onsetRaw  = bd(:,1);
+    BD.offsetRaw = bd(:,2);
+    raw.buttonDown = BD;
+    info.protocol = 'heldButton';
+    info.fs_raw = raw.fs_raw;
+    info.pulses = pulses;          % every pulse with its role (raw samples)
+    raw.ttlInfo = info;
+
+    % QC figure (TTLs.jpg, same file as the legacy path)
+    hF = figure('visible', 'off', 'position', [0, 0, 1800, 500]);
+    hold on
+    dec = 10;
+    tt = (0:dec:numel(photoDiode)-1) ./ raw.fs_raw;
+    yl = [min(photoDiode) max(photoDiode)];
+    for i = 1:height(BD)
+        patch([BD.onsetRaw(i) BD.offsetRaw(i) BD.offsetRaw(i) BD.onsetRaw(i)] ./ raw.fs_raw, ...
+            yl([1 1 2 2]), [1 .7 .3], 'EdgeColor', 'none', 'FaceAlpha', .5)
+    end
+    plot(tt, photoDiode(1:dec:end), 'color', [.4 .4 .4])
+    xlim([0 tt(end)])
+    xline(ev.trialStart ./ raw.fs_raw, 'color', 'magenta')
+    xline(ev.cue ./ raw.fs_raw, 'color', 'green')
+    xline(ev.press ./ raw.fs_raw, 'color', 'black')
+    xline(ev.confirm ./ raw.fs_raw, 'color', 'red')
+    yline(info.thresh, '--')
+    xlabel('time (s)')
+    title({sprintf('%s TTLs (held-button): %d trials, %d button-down periods (%.0f s held)', ...
+        raw.sessID, nT, height(BD), sum(BD.durSec)), ...
+        'magenta start, green cue, black press, red confirm, orange = button held'}, 'interpreter', 'none')
+    saveas(hF, fullfile(raw.paths.fig, 'TTLs.jpg'));
+    close(hF)
 end

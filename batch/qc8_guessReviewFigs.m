@@ -23,10 +23,12 @@
 %     sheet params, conditions, beat counts, notes).
 %
 % Output tree: E:\reprocBackup_260824\guessReview\figs\<task>\<id>\
-% Env: ZLP_QC8_ONLY = comma list of session ids (blank = all guess rows).
+% Env: ZLP_QC8_ONLY = comma list of session ids (blank = all guess rows);
+%      ZLP_QC8_OUT  = output root (default above).
 
 L = labPaths();
-OUT = 'E:\reprocBackup_260824\guessReview\figs';
+OUT = getenv('ZLP_QC8_OUT');
+if isempty(OUT), OUT = 'E:\reprocBackup_260824\guessReview\figs'; end
 if ~isfolder(OUT), mkdir(OUT); end
 
 onlyEnv = getenv('ZLP_QC8_ONLY');
@@ -41,7 +43,8 @@ TASKS = { ...
  'O15',                     false, '*O15*preproc*.mat',             {'O15'}; ...
  'EmotionalMovieTask',      true,  '*EmotionalMovieTask*.mat',      {'EmotionalMovieTask', 'emotionalMovieTask'}; ...
  'alternating6Blocks',      true,  '*alternating6Blocks*.mat',      {'alternating6Blocks'}; ...
- 'breathingTasks_separate', true,  '*breathingTasks_separate*.mat', {'breathingTasks_separate'}};
+ 'breathingTasks_separate', true,  '*breathingTasks_separate*.mat', {'breathingTasks_separate'}; ...
+ 'pacedBreathing',          true,  '*pacedBreathingpreproc*.mat',   {'pacedBreathing'}};
 
 for tt = 1:size(TASKS, 1)
     [tkey, isBreathFam, finPat, figAliases] = TASKS{tt, :};
@@ -101,6 +104,14 @@ for tt = 1:size(TASKS, 1)
             labs = cellfun(@(x) char(string(x)), od.labels, 'UniformOutput', false);
 
             % ---------------- flags from the final ----------------
+            if isfield(od, 'surrogateTTL')
+                st = od.surrogateTTL;
+                if isstruct(st) && isfield(st, 'summary')
+                    info.notes{end+1} = ['FLAG: SURROGATE markers (no DAQ pulses were recorded): ' char(st.summary)];
+                else
+                    info.notes{end+1} = 'FLAG: SURROGATE markers (no DAQ pulses were recorded) - see outDat.surrogateTTL';
+                end
+            end
             if isfield(od, 'blinkRemoval')
                 info.blinkRemoval = od.blinkRemoval;
                 if ~od.blinkRemoval
@@ -300,6 +311,13 @@ for tt = 1:size(TASKS, 1)
                         'interbeatHist*', 'breathLengths*', 'HeartByBreathLengths*', ...
                         'shadowResp*', 'removedBlink*', 'blinkAmbiguous*', ...
                         'macrosRaw*', 'macroSpikeRemoval*', '*logAlign*', '*movieClipTTLs*'};
+                    % since cleanup C12 the breath-type mains save paramCheck
+                    % PNGs into the task subfolder; root-level ones are then
+                    % legacy output that another task of the session may have
+                    % overwritten - harvest them only when the subfolder has none
+                    if any(contains(copied, 'paramCheck'))
+                        pats = pats(~strcmp(pats, '*paramCheck*'));
+                    end
                     for p = 1:numel(pats)
                         hits = dir(fullfile(base, pats{p}));
                         hits = hits(~[hits.isdir]);
@@ -313,6 +331,19 @@ for tt = 1:size(TASKS, 1)
                     end
                 end
                 info.nHarvested = numel(copied);
+                % preprocess_macros makes macroSpikeRemoval.jpg only when the targeted
+                % ICA actually ran; with spikeClean=false (or too few spikes) a copy in
+                % the session figure folder is a STALE leftover of an earlier run, so
+                % do not show it as if it described this final
+                if isfield(info, 'spikeSamplesAltered') && info.spikeSamplesAltered == 0
+                    stale = dir(fullfile(outDir, 'macroSpikeRemoval*'));
+                    for h = 1:numel(stale)
+                        delete(fullfile(stale(h).folder, stale(h).name));
+                    end
+                    if ~isempty(stale)
+                        info.notes{end+1} = 'macroSpikeRemoval figure omitted: no spike removal applied in this final (spikeCleanVec all ones); the figure on disk is from an earlier run';
+                    end
+                end
                 recompressDir(outDir);
             catch ME2
                 info.notes{end+1} = ['figure harvest failed: ' ME2.message];

@@ -10,7 +10,7 @@ function outDat = process_respiration_breathing(outDat, P)
     % locked engine merges the paced double inhale at the SEGMENTATION level
     % (keep-first-within-5s peak rule inside the span), which replaces the
     % legacy post-hoc bmObj row merge that used to live in this function.
-    cySpan = [];
+    cySpan = []; cyBlocks = [];
     if ismember('cndName', outDat.behDat.Properties.VariableNames)
         orderIdx = arrayfun(@(x) find(outDat.behDat.order == x, 1), ...
                             unique(outDat.behDat.order));
@@ -35,6 +35,17 @@ function outDat = process_respiration_breathing(outDat, P)
                         endIdx = outDat.TTL(outDat.behDat.order(orderIdx(jj+1)));
                     end
                     cySpan = [startIdx endIdx];
+                    % per-block ranges for the task-level refractory below
+                    for kk = ii:jj
+                        bs = outDat.TTL(outDat.behDat.order(orderIdx(kk)));
+                        if bs == 0, bs = 1; end
+                        if kk == length(orderIdx)
+                            be = length(rspDat);
+                        else
+                            be = outDat.TTL(outDat.behDat.order(orderIdx(kk+1)));
+                        end
+                        cyBlocks(end+1, :) = [bs be]; %#ok<AGROW>
+                    end
                     break
                 end
             end
@@ -50,9 +61,9 @@ function outDat = process_respiration_breathing(outDat, P)
 
     % LOCKED per-breath engine (QC round 4, rev12b 2026-08-28): conservative
     % prep x kneeBacktrack; breathMetrics computes the per-breath features
-    % from our landmarks. Legacy engines kept in the repo for comparison:
-    %   bmObj = breathTemplates4(rspDat, outDat.fs);
-    %   [bmObj, bmFeatures] = segmentBreaths_breathMetrics(rspDat, outDat.fs);
+    % from our landmarks. The legacy engines (slowBreathing's breathTemplates4
+    % and the "v3b" segmentBreaths_breathMetrics) were removed from the repo in
+    % the cleanup; recover them from git history for a comparison rerun.
     [bmObj, bmFeatures] = segmentBreaths_zlp(rspDat, outDat.fs, [], [], cySpan);
     %col 1: onset Y value        col 8: amp (peak Y - avg of two ends)
     %col 2: onset tim            col 9: idx of peak
@@ -62,7 +73,23 @@ function outDat = process_respiration_breathing(outDat, P)
     %col 6: end tim              col13: empty
     %col 7: length               col14: index
 
+    % (2026-10-12, HW review) one breath per cyclicSigh CYCLE: the engine's
+    % keep-first blocks only a fixed 5 s after a peak; a top-up sub-peak later
+    % than that (HW cyclicSigh3) became its own breath. Task-level refractory
+    % proportional to the block's cycle period; the LOCKED engine is untouched.
+    if ~isempty(cyBlocks)
+        [bmObj, bmFeatures, cyInfo] = mergeCyclicSighBreaths(bmObj, bmFeatures, rspDat, outDat.fs, cyBlocks);
+        outDat.cyclicSighRefractory = cyInfo;
+        fprintf('process_respiration_breathing: cyclicSigh refractory merged %s sub-breaths (periods %s s)\n', ...
+            mat2str(cyInfo.nMerged'), mat2str(round(cyInfo.periodUsed', 1)));
+    end
     bmObj(:, 14) = 1:size(bmObj, 1);
     outDat.bmObj = bmObj;
     outDat.bmFeatures = bmFeatures;
+
+    % (2026-10-22, user) the incomplete-exhale merge rule, after the engine and
+    % after the cyclicSigh refractory above: that one is block-specific and
+    % design-driven (one breath per cyclic-sigh cycle), the generic rule then
+    % judges the breaths that are left. Sets outDat.breathMerge.
+    outDat = applyBreathMerge(outDat, rspDat, P);
 end

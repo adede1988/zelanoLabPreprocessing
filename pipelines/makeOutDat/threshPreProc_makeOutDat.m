@@ -10,7 +10,6 @@ clear
 % the path before calling labPaths().
 zlpHere=fileparts(mfilename('fullpath')); zlpRoot=zlpHere; while exist(fullfile(zlpRoot,'config','labPaths.m'),'file')~=2, zlpP=fileparts(zlpRoot); if strcmp(zlpP,zlpRoot), error('zelanoLabPreprocessing root not found'); end; zlpRoot=zlpP; end; addpath(genpath(zlpRoot));
 L                 = labPaths();
-codePre           = L.codePre;
 
 % Centralized behavioral results location for "newSet" participants
 behDatPath_newSet = L.behThresh;
@@ -25,7 +24,6 @@ behDatPath_newSet = L.behThresh;
 %% Toolboxes / paths
 addpath(genpath(L.repo))
 addpath(genpath(L.eeglab))
-addpath(genpath(L.slowBreathing))
 
 set(0, 'defaultfigurewindowstyle', 'docked')
 
@@ -35,8 +33,6 @@ sessionIDs = cfg.sessionIDs;
 datPre     = cfg.datPre;
 datPrei    = cfg.datPrei;
 newSet     = cfg.newIDs;
-rspIDX     = cfg.rspIDX;
-rspFlip    = cfg.rspFlip;
 
 % targeted-run filter (2026-09-01): comma-separated session ids in
 % ZLP_MAKEOUTDAT_ONLY restrict the sweep (blank = all sessions)
@@ -66,10 +62,11 @@ for sessi = 1:numel(sessionIDs)
 
     idx = find(cellfun(@(x) contains(x, 'raw_PEAintensityPleasantness'), {datFolders.name}));
     if isempty(idx)
-        % 260720_OBE_NWU_KA_2 shipped its thresh raw as raw_threshTask (same
-        % task, nonstandard folder name); output filename stays standard.
-        % raw_threshTask_echem is a different recording - exact match only.
-        idx = find(cellfun(@(x) strcmpi(x, 'raw_threshTask'), {datFolders.name}));
+        % 260720_OBE_NWU_KA_2 shipped its thresh raw as raw_threshTask, and
+        % 260921_OBE_NWU_BW_2 as raw_threshold (same task, nonstandard folder
+        % names); output filename stays standard. raw_threshTask_echem /
+        % raw_threshold_echem are different recordings - exact match only.
+        idx = find(cellfun(@(x) any(strcmpi(x, {'raw_threshTask', 'raw_threshold'})), {datFolders.name}));
     else
         % never pick the _echem variant when the standard folder also exists
         idx = idx(cellfun(@(x) ~contains(lower(x), 'echem'), {datFolders(idx).name}));
@@ -97,6 +94,15 @@ for sessi = 1:numel(sessionIDs)
     %  - old set: search within participant's local "behavior" folder
     %% -----------------------
     isNew = ismember(sessID, newSet);
+    % 2026-10-15 (261008_INR_NWU_SS_1): the multi-run 4-condition design saves
+    % one result file per run; detected from the files themselves (>1 .mat in
+    % the session's centralized results folder, which must then be exactly a
+    % <id>_run1..K_results.mat set - or, detection build, a <id>_det folder of
+    % <id>_det_run1..K_results.mat, 2026-10-20). Every other session: legacy,
+    % unchanged.
+    isMultiRun = false;
+    threshDesign = [];
+    isDet = false;
 
     if isNew
         behDir = dir(fullfile(behDatPath_newSet, sessID));
@@ -113,9 +119,36 @@ for sessi = 1:numel(sessionIDs)
             matIdx = find(contains({behDir.name}, '.mat'));
         end
 
-        if numel(matIdx) > 1
-            error('PEA loader: expected exactly 1 behavioral .mat for newSet %s in %s, found %d.', ...
-                sessID, fullfile(behDatPath_newSet, sessID), numel(matIdx));
+        % 2026-10-20 (261012_INR_NWU_VC_1): the detection build
+        % (threshold_task_det.m, a Yes/No "odor?" answer before the ratings)
+        % appends _det to the ID and saves into results\results\<id>_det.
+        % Found from the folder; never together with a standard folder (an
+        % error); always read by the run-set loader, which checks the file
+        % names, the 10-column outMat and the .txt header. No session before
+        % VC_1 has a <id>_det folder, so they all run exactly as before.
+        detDir = [dir(fullfile(behDatPath_newSet, [sessID '_det'])); ...
+                  dir(fullfile(behDatPath_newSet, 'results', [sessID '_det']))];
+        detDir = detDir(~[detDir.isdir]);
+        detIdx = find(contains({detDir.name}, '.mat'));
+        if ~isempty(detIdx)
+            if ~isempty(matIdx)
+                error('PEA loader: %s has result files in a standard folder AND in a detection-build %s_det folder.', ...
+                    sessID, sessID);
+            end
+            if numel(unique({detDir(detIdx).folder})) ~= 1
+                error('PEA loader: %s has detection-build result files in more than one %s_det folder.', ...
+                    sessID, sessID);
+            end
+            behDir = detDir;
+            matIdx = detIdx;
+            isDet = true;
+        end
+
+        if numel(matIdx) > 1 || isDet
+            % multi-run design (loadBeh_multiRun_threshTask errors unless the
+            % files are exactly a run set)
+            isMultiRun = true;
+            [behDat, threshDesign] = loadBeh_multiRun_threshTask(sessID, behDir(matIdx));
         elseif isempty(matIdx)
             % 2026-09-01: several summer-2026 sessions have an EMPTY
             % centralized results folder; fall back to the old-set style
@@ -171,6 +204,7 @@ for sessi = 1:numel(sessionIDs)
         behFile = fullfile(behMats.folder, behMats.name);
     end
 
+    if ~isMultiRun   % (multi-run: behDat already built from the run files)
     % Load + format behavioral table
     behLoaded = load(behFile);
     if ~isfield(behLoaded, 'outMat')
@@ -191,6 +225,7 @@ for sessi = 1:numel(sessionIDs)
     behDat = array2table(behDat, 'VariableNames', ...
         {'trialNum', 'Odor', 'RT', 'pleasantness', 'intensity', 'ITI', ...
          'Trial_StartTime', 'Trial_EndTime'});
+    end
 
     %% -----------------------
     %  Build outDat
@@ -201,13 +236,12 @@ for sessi = 1:numel(sessionIDs)
     outDat.fs      = dat.rawData.fsample;
     outDat.sessID  = sessID;
     outDat.behDat  = behDat;
-
-    % Keep these session-level params in case downstream code wants them
-    outDat.rspIDX  = rspIDX(sessi);
-    outDat.rspFlip = rspFlip(sessi);
+    % (rspIDX / rspFlip are not stored here: loadIntermediateRaw ignores them
+    % and assembleOutDat sets them from the sheet via applyParams)
 
     %% -----------------------
-    %  TTL extraction (single event type; must be exactly 45)
+    %  TTL extraction (single event type; must be exactly 45 - or, in the
+    %  multi-run design, exactly the behaviour's trials, per run)
     %% -----------------------
     idxEvt = cellfun(@(x) contains(x, 'event'), outDat.labels);
     if sum(idxEvt) ~= 1
@@ -276,6 +310,12 @@ for sessi = 1:numel(sessionIDs)
     ups(difVals < 300)   = [];
     difVals(difVals < 300) = [];
 
+    if isMultiRun
+        % one start code per run inside this one recording: split the
+        % pulses into runs (strict counts per run, splitRuns_threshTask)
+        [downs, ttlRun, runInfo] = splitRuns_threshTask(downs, difVals, outDat.fs, ...
+            threshDesign.trialsPerRun, sessID);
+    else
     % Trim off pre-start pulses (train detection)
     starti = 1;
     for di = 3:length(downs)
@@ -285,11 +325,15 @@ for sessi = 1:numel(sessionIDs)
     end
     downs(1:starti)   = [];
     difVals(1:starti) = [];
+    end
 
     end
 
-    if length(downs) ~= 45
-        error('PEA loader: wrong number of TTLs for %s (expected 45, found %d).', sessID, length(downs));
+    nTTLexpected = 45;   % the legacy single-run design
+    if isMultiRun, nTTLexpected = threshDesign.nTrials; end
+    if length(downs) ~= nTTLexpected
+        error('PEA loader: wrong number of TTLs for %s (expected %d, found %d).', ...
+            sessID, nTTLexpected, length(downs));
     end
 
     % Quick diagnostic plot
@@ -298,7 +342,7 @@ for sessi = 1:numel(sessionIDs)
     xline(downs, 'color', 'magenta', 'linewidth', 2)
     title(sprintf('Photodiode TTLs: %s (n=%d)', sessID, length(downs)))
 
-    TTLs = round(downs(:) ./ 4);  % sample->ms index (assuming 4 kHz -> 1 kHz)
+    TTLs = toTargetSamples(downs(:), outDat.fs, 500);  % raw samples -> final 500 Hz samples (P.fs_target)
 
     %% -----------------------
     %  Metadata + save
@@ -306,30 +350,34 @@ for sessi = 1:numel(sessionIDs)
     outDat.task = "PEAintensityPleasantness_threshold";
     outDat.OGdataDir = fullfile(datPre{datPrei(sessi)}, sessID);
 
-    tmp = dir(fullfile(datPre{datPrei(sessi)}, sessID, '*.m'));
-    tmp = tmp(contains({tmp.name}, 'LoadData'));
-    if numel(tmp) == 1
-        outDat.loadFile = tmp.name;
-    else
-        tmp2 = dir(fullfile(datPre{datPrei(sessi)}, sessID, '*AD.m'));
-        if numel(tmp2) == 1
-            outDat.loadFile = tmp2.name;
-        else
-            error('PEA loader: load file not identified uniquely for %s', sessID);
-        end
-    end
+    % LoadData provenance (shared lookup; never fatal - the intermediate's
+    % loadFile is not carried into the final)
+    outDat.loadFile = findLoadDataScript(outDat.OGdataDir, 'threshTask', dat);
 
     outDat.preProcScript = 'threshPreProc_makeOutDat.m';
+    % (informational only: assembleOutDat sets the final's type from the
+    % sheet; roots beyond the fixed three - e.g. OBEControl\anosmics\ - no
+    % longer stop the session here)
     if datPrei(sessi) == 1
         outDat.type = 'Dupi';
     elseif datPrei(sessi) == 2
         outDat.type = 'OBE';
-    else
-        error('PEA loader: unexpected datPrei value for %s', sessID);
+    elseif datPrei(sessi) == 3
+        outDat.type = 'EEG';
     end
 
     outDat.TTL = table;
     outDat.TTL.sniff = TTLs;
+    if isMultiRun
+        % run of each trial = behDat.run (same order as the TTLs); the design
+        % + the start codes travel to the final as outDat.threshDesign
+        threshDesign.startCodeSample = toTargetSamples(runInfo.startCodeOnset(:), outDat.fs, 500);
+        threshDesign.ttlParse = runInfo;
+        if ~isequal(ttlRun(:), outDat.behDat.run(:))
+            error('PEA loader: TTL run order of %s does not match the behaviour rows.', sessID);
+        end
+        outDat.threshDesign = threshDesign;
+    end
 
     preProcDir = fullfile(datPre{datPrei(sessi)}, sessID, 'preProc');
     if ~exist(preProcDir, 'dir')
@@ -340,7 +388,7 @@ for sessi = 1:numel(sessionIDs)
 
     % Optional: clear big per-session variables
     clear datFolders idx rawMatPath dat behDir behLoaded behDat behFile ...
-          photoDiode rawData downs ups difVals TTLs tmp tmp2 idxEvt
+          photoDiode rawData downs ups difVals TTLs tmp tmp2 idxEvt ttlRun runInfo threshDesign detDir detIdx
  end
     catch ME
         disp(['fail for ', sessID, ': ', ME.message])
