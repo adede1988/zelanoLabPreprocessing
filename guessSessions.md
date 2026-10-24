@@ -670,3 +670,84 @@ Reviewer decisions from `guessReview_261015` that are now code, and facts found 
 | ICAs | reproducible: `runica` started from its fixed state, spike-ICA draws seeded from the session ID (CLAUDE.md §5) |
 | movie clip logs | `250225_OBE_NWU_AS_4`: log found in `BehaviorResults\emotionClips\`, 174 of 180 played clips matched (175 unchecked photodiode clips before); `250904_OBE_NWU_TI_1`, `251009_OBE_NWU_CP_1`: no log on the server, photodiode parse kept (CP_1: 186 clips, at least 4 spurious) |
 | `noCue` audit | 13 cue sessions have cue == 0 trials (60-trial files, 20 each); every final codes them `noCue` (CLAUDE.md §1) |
+
+## Full EEG rerun - outcome (2026-10-23/24; branch `fullRerun-261022`)
+
+The rerun built in the section above ran on the lab desktop from 2026-10-23 13:12 to 2026-10-24 13:47: **218 of 218 finals redone and verified,
+0 failed, 0 waiting for a decision** (210 with an EEG stage, 8 breath-type finals without one; 187 curated, 31 guess). Numbers per task and the run
+log are in CLAUDE.md §8 and, per final, in `summary_all.csv` / `rerunResults_261024.html` (`R:\Neurology\Zelano_Lab\Lab_Common\Adam\Dupi_processing\eegReprocList_261020\`).
+Every guess row in the run kept `paramSource = guess` (no `paramSource` cell changed anywhere in the sheet); the previous finals are in each session's
+`preProc\superseded_261022\` and in `E:\reprocBackup_261022\` on the lab desktop. Not in the rerun: vipassana, ADmeditation, all finals of
+`260917_OBE_NWU_RC_2`, `261019_INR_NWU_DD_1` (never processed), and the 32 sniff-task finals without an EEG stage.
+
+User decisions of 2026-10-22/23 (guess review `guessReview_261015`) and what was done:
+
+| item | decision | result |
+|---|---|---|
+| G1c | rerun every EEG final with the fixed detector, all of them, for standardisation (not only the 150 that change); vipassana / ADmeditation / RC_2 / DD_1 excluded | 210 EEG finals redone; 35 changed their bad-channel list, 77 moved `badTS` by more than 0.0005, 5 changed blink removal, 22 have no `dataLap` (>= 22 bad channels) |
+| non-EEG breath finals (2026-10-23) | the 8 breath-type finals without an EEG stage are in the rerun | separate: 241010_OBE_NMH_SJ, 241016_OBE_NWU_BG, 230611_OBE_NMH_AZ, 240923_OBE_NMH_HRM, 240822_OBE_NMH_FM, 241017_OBE_NMH_AS; breathingTask 250623_Dupi_NMH_KS_1; movie 250225_OBE_NWU_AS_4. Carry + engine + merge, no EEG stage; SJ 217 -> 173 breaths (merge) |
+| pacedBreathing blocks (2026-10-23) | infer the blocks from the engine's breaths BEFORE the merge | KG 31 blocks, JW 23: blocks, labels and `TTL` identical to the previous finals; breaths KG 1472 -> 1439, JW 970 -> 967 |
+| G2d | always insert the all-zero `blinkIndicator` row in a sep final whose blink removal was skipped | GH_1, DL_1, SM_1, ZF_1, VC_1 (the sleep-only finals) carry the row; top-level `blinkRemoval` stays 0, the reason is in `sections.blinkSkipReason` |
+| G2e | VW and ADtest: no redo of the reconstruction | the respiration carry keeps the reconstructed `rsp` rows, `targTrace` and `reconstructedBlocks`; new EEG (VW +F8 bad, ADtest same 4); breaths re-segmented on the carried trace and merged: VW 968 -> 898, ADtest 911 -> 797 |
+| G2f | DL_1 breathingTask: no blink removal, deterministic | explicit `applyParams` case; blink 1 -> 0, 11 bad channels unchanged, `blinkIndicator` row gone, the old `blinkICA` is not carried (only named in `outDat.carry.stageFieldsNotCarried`); 326 -> 324 breaths |
+| G2g | clip table from the PsychoPy files, photodiode parse where there is no log | 13 of 14 movie clip tables identical to the previous finals; AS_4: log found (175 x 4 -> 174 x 13); TI_1 and CP_1: no log, photodiode parse kept |
+| G2i | `noCue` for `cue == 0` trials is correct; audit every cue session recorded from 2026-08-01 on | 45 cue finals read: 12 have `cue == 0` rows (238 rows), all `noCue`, none on `cue ~= 0`; `cue` / `type` identical to the previous finals; cueTask3 has no cue 0; 13 sessions have cue-0 trials in their result files (9 from 2026-08-01 on), 12 in the rerun, the 13th is RC_2 |
+| G3f | rerun GH_2 / PD_1 O15 if their final has an EEG stage | GH_2 O15 rerun (+F4 bad, `badTS` 3.6 -> 4.3 %, blink ran in both; `TTL` 15 x 20 identical; `behDat` equal plus a new `manOnset` column; the notch-era carry: rsp rows = the old notched ones; `bestMac`, `bestMacMethod`, `ridgeInfo`, `powerPhaseContinuity` in `outDat.carriedFromPrevFinal`); PD_1 O15 has no EEG stage, so its pre-July final stays |
+
+What changed per task (EEG finals only; the sniff tasks' `finalOnset`, `TTL` and every common `behDat` column are unchanged value by value in all 104):
+
+| task | finals (with EEG) | bad-channel list changed | `badTS` moved > 0.0005 | blink removal changed | empty `dataLap` |
+|---|---|---|---|---|---|
+| cueTask | 45 (45) | 7 | 15 | 0 | 6 |
+| cueTask3 / detectNoOdor / airPuff | 1 / 1 / 1 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| threshTask | 29 (29) | 7 | 15 | 2 (RX_1, SP_2 now run) | 3 |
+| O15 | 28 (28) | 9 | 17 | 1 (KS_3 now runs) | 9 |
+| breathingTask | 59 (58) | 9 | 16 | 2 (KS_3 now runs, DL_1 stopped) | 4 |
+| breathingTasks_separate (+ echem) | 25 + 1 (19 + 1) | 0 | 1 | 0 (sleep-only finals: zero row) | 0 |
+| EmotionalMovieTask | 14 (13) | 2 | 5 | 0 | 0 |
+| alternating6Blocks | 8 (8) | 1 | 6 | 0 | 0 |
+| pacedBreathing | 2 (2) | 0 | 1 | 0 | 0 |
+| respiratorySweep | 4 (4) | 0 | 1 | 0 | 0 |
+
+Guess rows that were in the run (31 finals, 39 sheet rows; all still guess). `badTS` and bad channels are before -> after the rerun; for separate-conditions finals the
+values are per section; `dataLap` is its common-mode share (previous finals 0.68-0.98). The final's rows or breaths are `behDat` rows before -> after (engine breaths and breaths after the merge for breath-type finals; movie and
+alternating-6 `behDat` keep only in-clip / in-block breaths). Many of these finals had already been regenerated under the fixed detector by the 2026-10-21/22 G2 reruns or
+made under it (SS_1, ZL), so their EEG numbers did not move.
+
+| task | Subject ID (sheet rows) | bad channels, before -> after | badTS %, before -> after | blink ICA ran (units) | dataLap | rows / breaths |
+|---|---|---|---|---|---|---|
+| cueTask | 251030_Dupi_NMH_DB_3 (498) | 9 -> 9 | 4.7 -> 4.7 | 1 -> 1 | share 0.006 | behDat 38 -> 38 |
+| cueTask | 261008_INR_NWU_SS_1 (669) | 4 -> 4 | 2.8 -> 2.8 | 1 -> 1 | share 0.010 | behDat 40 -> 40 |
+| cueTask3 | 261008_INR_NWU_SS_1 (666) | 4 -> 4 | 6.1 -> 6.1 | 1 -> 1 | share 0.013 | behDat 120 -> 120 |
+| threshTask | 251030_Dupi_NMH_DB_3 (499) | 10 -> 10 | 6.8 -> 6.0 | 1 -> 1 | share 0.002 | behDat 44 -> 44 |
+| threshTask | 260504_Dupi_NMH_JA_2 (472) | 4 -> 4 | 1.3 -> 1.3 | 1 -> 1 | share 0.011 | behDat 42 -> 42 |
+| threshTask | 260608_OBE_NWU_RX_1 (445) | 4 -> 3 (-T8) | 28.7 -> 28.0 | 0 -> 1 | share 0.010 | behDat 44 -> 44 |
+| threshTask | 261008_INR_NWU_SS_1 (664) | 3 -> 3 | 3.2 -> 3.2 | 1 -> 1 | share 0.017 | behDat 80 -> 80 |
+| threshTask | 261012_INR_NWU_VC_1 (679) | 20 -> 20 | 44.7 -> 44.7 | 1 -> 1 | share 0.027 | behDat 71 -> 71 |
+| O15 | 251030_Dupi_NMH_DB_3 (497) | 24 -> 24 | 59.8 -> 59.8 | 0 -> 0 | empty (<= 10 good channels) | behDat 135 -> 135 |
+| detectNoOdor | 261008_INR_NWU_SS_1 (663) | 5 -> 5 | 0.0 -> 0.0 | 1 -> 1 | share 0.011 | behDat 40 -> 40 |
+| airPuff | 261008_INR_NWU_SS_1 (677) | 14 -> 14 | 17.1 -> 17.1 | 1 -> 1 | share 0.013 | behDat 28 -> 28 (engine 47, merged 45) |
+| breathingTask | 251002_Dupi_NMH_AB_3 (369) | 4 -> 4 | 7.6 -> 7.8 | 1 -> 1 | share 0.010 | behDat 269 -> 267 (engine 269, merged 267) |
+| breathingTask | 251013_Dupi_NMH_JN_3 (384) | 4 -> 3 (-FC6) | 19.1 -> 19.3 | 1 -> 1 | share 0.014 | behDat 184 -> 179 (engine 184, merged 179) |
+| breathingTask | 251030_Dupi_NMH_DB_3 (496) | 3 -> 3 | 3.1 -> 3.1 | 1 -> 1 | share 0.013 | behDat 175 -> 173 (engine 175, merged 173) |
+| breathingTask | 260227_EEG_NWU_HW (350) | 14 -> 13 (-FC6) | 26.6 -> 24.7 | 1 -> 1 | share 0.015 | behDat 195 -> 192 (engine 195, merged 192) |
+| breathingTask | 260514_OBE_NWU_BW_1 (427) | 6 -> 6 | 0.9 -> 0.9 | 1 -> 1 | share 0.013 | behDat 211 -> 205 (engine 211, merged 205) |
+| breathingTasks_separate | 241010_OBE_NMH_SJ (87) | no EEG stage | - | - | - | behDat 217 -> 173 (engine 217, merged 173) |
+| breathingTasks_separate | 251218_OBE_NWU_SM_1 (393) | 2 -> 2 | 3.6 -> 3.6 | 0 -> 0 | share 0.005 | behDat 35 -> 35 (engine 35, merged 35) |
+| breathingTasks_separate | 260105_OBE_NWU_ZF_1 (337) | 1 -> 1 | 8.9 -> 8.9 | 0 -> 0 | share 0.013 | behDat 193 -> 193 (engine 193, merged 193) |
+| breathingTasks_separate | 260824_OBE_NWU_ZF_2 (582, 585) | 0/4 -> 0/4 (per section) | 9.5/0.0 -> 9.5/0.0 | 0/1 -> 0/1 | share 0.009 | behDat 427 -> 427 (engine 427, merged 427) |
+| breathingTasks_separate | 260827_OBE_NWU_RX_2 (595, 596, 599) | 1/1/1 -> 1/1/1 (per section) | 2.9/2.6/3.5 -> 2.9/2.6/3.5 | 1/1/1 -> 1/1/1 | share 0.009 | behDat 298 -> 295 (engine 298, merged 295) |
+| breathingTasks_separate | 260921_OBE_NWU_BW_2 (633, 634, 644) | 1/6/5 -> 1/6/5 (per section) | 2.1/1.7/1.6 -> 2.1/1.7/1.6 | 1/1/1 -> 1/1/1 | share 0.017 | behDat 259 -> 256 (engine 259, merged 256) |
+| breathingTasks_separate | 261008_INR_NWU_SS_1 (667, 668, 670, 678) | 3/0/0/1 -> 3/0/0/1 (per section) | 0.0/4.9/0.0/0.0 -> 0.0/4.9/0.0/0.0 | 1/0/1/1 -> 1/0/1/1 | share 0.013 | behDat 466 -> 458 (engine 466, merged 458) |
+| breathingTasks_separate | 261012_INR_NWU_VC_1 (680) | 3 -> 3 | 11.3 -> 11.3 | 0 -> 0 | share 0.015 | behDat 321 -> 321 (engine 321, merged 321) |
+| breathingTasks_separate_echem | 260921_OBE_NWU_BW_2 (639) | 4 -> 4 | 0.9 -> 0.9 | 1 -> 1 | share 0.014 | behDat 86 -> 86 (engine 86, merged 86) |
+| EmotionalMovieTask | 250225_OBE_NWU_AS_4 (139) | no EEG stage | - | - | - | behDat 461 -> 461 (engine 536, merged 536) |
+| EmotionalMovieTask | 250904_OBE_NWU_TI_1 (197) | 11 -> 11 | 14.8 -> 14.8 | 1 -> 1 | share 0.014 | behDat 416 -> 415 (engine 534, merged 533) |
+| EmotionalMovieTask | 261007_EEG_NWU_AL (650) | 18 -> 17 (-Fp1) | 33.5 -> 30.5 | 1 -> 1 | share 0.003 | behDat 180 -> 164 (engine 220, merged 197) |
+| EmotionalMovieTask | 261014_EEG_NWU_ZL (660) | 5 -> 5 | 5.3 -> 5.3 | 1 -> 1 | share 0.009 | behDat 414 -> 409 (engine 503, merged 497) |
+| alternating6Blocks | 260805_EEG_NWU_CA (517) | 4 -> 2 (-F8 -P7) | 23.4 -> 23.1 | 1 -> 1 | share 0.021 | behDat 416 -> 407 (engine 613, merged 599) |
+| respiratorySweep | 261014_EEG_NWU_ZL (659) | 8 -> 8 | 10.7 -> 10.7 | 1 -> 1 | share 0.014 | behDat 806 -> 806 (engine 825, merged 806) |
+
+Guess rows not in the rerun (20 of the 59): the ten vipassana rows (684-693), the RC_2 and AS_5 O15 rows (622, 157; RC_2 was left alone, AS_5 has no EEG
+stage) and the eight rows without a final or pipeline (28, 84, 303, 365, 423, 470, 473, 495). Everything else in `guessReview_261015.html` that was open stays open:
+G1d-G1f, G2h, G2j, G8a, G4-G7, G9, G10, the promotion questions of the S / N / V / U items, and the seven S21 decisions.
