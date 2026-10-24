@@ -127,7 +127,11 @@ if loadedOld
     try
     common = intersect(labN, labO, 'stable');
     same = {}; diffRows = {}; carriedBad = {};
-    isEEGlab = @(l) ismember(l, N.labels(1:min(32, numel(N.labels))));
+    % EEG rows = rows 1-32 when the final has an EEG block (CLAUDE.md 6.2); labN is the normalised label list
+    % (a final may store its labels as strings or a char matrix; ismember needs char cells)
+    eegSet = {};
+    if numel(labN) >= 32 && strcmp(labN{1}, 'Fp1'), eegSet = labN(1:32); end
+    isEEGlab = @(l) ismember(l, eegSet);
     expectDiff = @(l) isEEGlab(l) || startsWith(l, 'macBP') || ismember(l, {'spikeCleanVec', 'badTS', 'interpChan', 'blinkIndicator'});
     isCarried = @(l) contains(l, 'rsp') || strcmp(l, 'targTrace');
     if C.nSampOld == C.nSampNew
