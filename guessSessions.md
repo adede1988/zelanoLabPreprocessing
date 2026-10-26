@@ -677,8 +677,9 @@ The rerun built in the section above ran on the lab desktop from 2026-10-23 13:1
 0 failed, 0 waiting for a decision** (210 with an EEG stage, 8 breath-type finals without one; 187 curated, 31 guess). Numbers per task and the run
 log are in CLAUDE.md §8 and, per final, in `summary_all.csv` / `rerunResults_261024.html` (`R:\Neurology\Zelano_Lab\Lab_Common\Adam\Dupi_processing\eegReprocList_261020\`).
 Every guess row in the run kept `paramSource = guess` (no `paramSource` cell changed anywhere in the sheet); the previous finals are in each session's
-`preProc\superseded_261022\` and in `E:\reprocBackup_261022\` on the lab desktop. Not in the rerun: vipassana, ADmeditation, all finals of
-`260917_OBE_NWU_RC_2`, `261019_INR_NWU_DD_1` (never processed), and the 32 sniff-task finals without an EEG stage.
+`preProc\superseded_261022\` and in `E:\reprocBackup_261022\` on the lab desktop. Not in the rerun (60 finals, plus DD_1): the vipassana study (10 finals) and ADmeditation (14), all 3 finals of
+`260917_OBE_NWU_RC_2`, one stale duplicate, and the 32 sniff-task finals without an EEG stage; `261019_INR_NWU_DD_1` was never processed. The 27 EEG finals among them
+(vipassana, ADmeditation, RC_2) keep the old common-mode `dataLap`.
 
 User decisions of 2026-10-22/23 (guess review `guessReview_261015`) and what was done:
 
@@ -691,7 +692,7 @@ User decisions of 2026-10-22/23 (guess review `guessReview_261015`) and what was
 | G2e | VW and ADtest: no redo of the reconstruction | the respiration carry keeps the reconstructed `rsp` rows, `targTrace` and `reconstructedBlocks`; new EEG (VW +F8 bad, ADtest same 4); breaths re-segmented on the carried trace and merged: VW 968 -> 898, ADtest 911 -> 797 |
 | G2f | DL_1 breathingTask: no blink removal, deterministic | explicit `applyParams` case; blink 1 -> 0, 11 bad channels unchanged, `blinkIndicator` row gone, the old `blinkICA` is not carried (only named in `outDat.carry.stageFieldsNotCarried`); 326 -> 324 breaths |
 | G2g | clip table from the PsychoPy files, photodiode parse where there is no log | 13 of 14 movie clip tables identical to the previous finals; AS_4: log found (175 x 4 -> 174 x 13); TI_1 and CP_1: no log, photodiode parse kept |
-| G2i | `noCue` for `cue == 0` trials is correct; audit every cue session recorded from 2026-08-01 on | 45 cue finals read: 12 have `cue == 0` rows (238 rows), all `noCue`, none on `cue ~= 0`; `cue` / `type` identical to the previous finals; cueTask3 has no cue 0; 13 sessions have cue-0 trials in their result files (9 from 2026-08-01 on), 12 in the rerun, the 13th is RC_2 |
+| G2i | `noCue` for `cue == 0` trials is correct; audit every cue session recorded from 2026-08-01 on | 45 cue finals read: 12 have `cue == 0` rows (238 rows), all `noCue`, none on `cue ~= 0`; `cue` / `type` identical to the previous finals; cueTask3 has no cue 0; 13 sessions have cue-0 trials in their result files (9 from 2026-08-01 on), 12 in the rerun, the 13th is RC_2 (recorded 2026-09-17, left alone; the earlier audit read its cue final: 20 `noCue` rows of 59, none on `cue ~= 0`), so every cue session recorded from 2026-08-01 on is audited |
 | G3f | rerun GH_2 / PD_1 O15 if their final has an EEG stage | GH_2 O15 rerun (+F4 bad, `badTS` 3.6 -> 4.3 %, blink ran in both; `TTL` 15 x 20 identical; `behDat` equal plus a new `manOnset` column; the notch-era carry: rsp rows = the old notched ones; `bestMac`, `bestMacMethod`, `ridgeInfo`, `powerPhaseContinuity` in `outDat.carriedFromPrevFinal`); PD_1 O15 has no EEG stage, so its pre-July final stays |
 
 What changed per task (EEG finals only; the sniff tasks' `finalOnset`, `TTL` and every common `behDat` column are unchanged value by value in all 104):
@@ -719,7 +720,7 @@ made under it (SS_1, ZL), so their EEG numbers did not move.
 | cueTask | 251030_Dupi_NMH_DB_3 (498) | 9 -> 9 | 4.7 -> 4.7 | 1 -> 1 | share 0.006 | behDat 38 -> 38 |
 | cueTask | 261008_INR_NWU_SS_1 (669) | 4 -> 4 | 2.8 -> 2.8 | 1 -> 1 | share 0.010 | behDat 40 -> 40 |
 | cueTask3 | 261008_INR_NWU_SS_1 (666) | 4 -> 4 | 6.1 -> 6.1 | 1 -> 1 | share 0.013 | behDat 120 -> 120 |
-| threshTask | 251030_Dupi_NMH_DB_3 (499) | 10 -> 10 | 6.8 -> 6.0 | 1 -> 1 | share 0.002 | behDat 44 -> 44 |
+| threshTask | 251030_Dupi_NMH_DB_3 (499) | 10 -> 10 | 6.8 -> 6.1 | 1 -> 1 | share 0.002 | behDat 44 -> 44 |
 | threshTask | 260504_Dupi_NMH_JA_2 (472) | 4 -> 4 | 1.3 -> 1.3 | 1 -> 1 | share 0.011 | behDat 42 -> 42 |
 | threshTask | 260608_OBE_NWU_RX_1 (445) | 4 -> 3 (-T8) | 28.7 -> 28.0 | 0 -> 1 | share 0.010 | behDat 44 -> 44 |
 | threshTask | 261008_INR_NWU_SS_1 (664) | 3 -> 3 | 3.2 -> 3.2 | 1 -> 1 | share 0.017 | behDat 80 -> 80 |

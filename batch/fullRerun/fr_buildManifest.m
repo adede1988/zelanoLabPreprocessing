@@ -126,7 +126,8 @@ if ~isempty(inv)
     Tinv = cell2table(inv, 'VariableNames', {'file', 'sessID', 'taskKind', 'hasEEG', 'durMin', 'moreThan1', 'ciMode', 'nSections', 'err', 'fileDatenum', 'fileMB'});
     writetable(Tinv, frCache);
 end
-% finals of the two study tasks that another agent handles (listed from the survey inventory; not read again)
+% finals of the two study tasks that another agent handles (listed from the survey inventory; not read again). The survey inventory of 2026-10-21 holds only 3 of the 10
+% vipassana finals (AS, CC, DD); the 7 protocol-v2 finals (BM, RM, NE, JO, KW, L, VL) are in neither the manifest nor this exclusion list (found 2026-10-25).
 studyExcl = {};
 if isfile(opts.inventoryCsv)
     I0 = readtable(opts.inventoryCsv, 'TextType', 'string', 'VariableNamingRule', 'preserve');
